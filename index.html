@@ -137,6 +137,9 @@ a{color:inherit;text-decoration:none}
   height:var(--topbar-h);border-bottom:1px solid var(--border);
   background:var(--surface);display:flex;align-items:center;
   padding:0 20px;gap:12px;flex-shrink:0;
+  /* iPhone notch/status bar safe area */
+  padding-top:env(safe-area-inset-top);
+  height:calc(var(--topbar-h) + env(safe-area-inset-top));
 }
 .topbar-title{font-size:15px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .topbar-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
@@ -743,12 +746,15 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 @media (max-width:767px){
   :root{--topbar-h:50px}
   .sidebar{display:none}
-  .sidebar.mobile-open{display:flex;position:fixed;top:0;left:0;bottom:0;z-index:50;width:var(--sidebar-w)!important}
+  .sidebar.mobile-open{
+    display:flex;position:fixed;z-index:50;width:var(--sidebar-w)!important;
+    top:env(safe-area-inset-top);left:0;bottom:0;
+  }
   .sidebar-overlay{display:none}
   .sidebar-overlay.open{display:block}
   .mobile-nav{display:block}
   .mobile-hamburger{display:flex}
-  .workspace{padding:14px 14px 80px}
+  .workspace{padding:14px 14px 90px}
   .stats-grid{grid-template-columns:1fr 1fr}
   .today-sections{grid-template-columns:1fr}
   .finance-grid{grid-template-columns:1fr}
@@ -757,7 +763,10 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
   .drawer{width:100%!important;top:auto;height:92vh;border-radius:var(--radius-xl) var(--radius-xl) 0 0;border-left:none;border-top:1px solid var(--border);transform:translateY(100%)}
   .drawer.open{transform:translateY(0)}
   .drawer-overlay.open{display:block}
+  .topbar{padding:0 12px;gap:8px;padding-top:env(safe-area-inset-top);height:calc(var(--topbar-h) + env(safe-area-inset-top))}
   .topbar .topbar-title{font-size:14px}
+  /* Hide desktop-only topbar buttons on mobile */
+  #excelLoadBtn,#excelSaveBtn,#logoutBtn,#dailyBriefBtn{display:none!important}
   .data-table{display:none}
   .prop-grid{grid-template-columns:1fr}
   .avail-grid{grid-template-columns:1fr}
@@ -765,6 +774,12 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
   .cal-event-bar{height:16px;line-height:16px;font-size:9px}
   .filter-bar{position:relative;top:auto}
   .exp-amounts{grid-template-columns:1fr 1fr}
+  /* FAB above bottom nav with safe area */
+  .fab{bottom:calc(68px + env(safe-area-inset-bottom));right:16px;width:48px;height:48px;font-size:23px}
+  .recent-fab-btn{bottom:calc(126px + env(safe-area-inset-bottom));right:16px}
+  #recentBookingsPanel{bottom:calc(178px + env(safe-area-inset-bottom))!important;right:12px!important;width:calc(100vw - 24px)!important}
+  /* Mobile nav safe area */
+  .mobile-nav{padding-bottom:env(safe-area-inset-bottom)}
 }
 @media (max-width:480px){
   .stats-grid{grid-template-columns:1fr}
@@ -827,10 +842,10 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
       <button class="mobile-hamburger" id="mobileMenuBtn">☰</button>
       <div class="topbar-title" id="topbarTitle">Today</div>
       <div class="topbar-actions">
-        <button class="btn-icon" id="cmdPaletteBtn" title="Command palette (Ctrl+K)">⌕</button>
+        <button class="btn-icon" id="cmdPaletteBtn" title="Search (Ctrl+K)">⌕</button>
         <button class="btn-icon" id="dailyBriefBtn" title="Daily brief">☼</button>
-        <button class="btn-icon" id="excelLoadBtn" title="Load from Excel file">📂</button>
-        <button class="btn-icon" id="excelSaveBtn" title="Save all data to Excel">💾</button>
+        <button class="btn-icon" id="excelLoadBtn" title="Load from Excel">📂</button>
+        <button class="btn-icon" id="excelSaveBtn" title="Save to Excel">💾</button>
         <button class="btn btn-primary btn-sm" id="addBookingBtn">＋ Booking</button>
         <button class="btn btn-secondary btn-sm" id="logoutBtn" title="Sign out">⏏</button>
       </div>
