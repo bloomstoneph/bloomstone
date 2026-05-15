@@ -601,15 +601,23 @@ function printBooking(){
       <tr><td style="color:#555">Status</td><td><span class="badge ${fStatus==='Confirmed'?'green':fStatus==='Pending'?'orange':fStatus==='Checked-In'?'blue':'red'}">${esc(fStatus)}</span></td></tr>
     </table>
     <hr class="divider"/>
-    <div class="section-title">Revenue Breakdown</div>
+    <div class="section-title" style="color:#1a56db">Guest Invoice</div>
     <table>
-      <tr><td>Booking Fee <span style="color:#999;font-size:11px">${t.nights} nights × ${fmtMoney(fRate)}</span></td><td>${fmtMoney(t.bkFee)}</td></tr>
-      ${t.promoTotal?`<tr><td style='color:#555'>Promo Discount <span style='opacity:.6;font-size:11px'>${t.nights}x${C()}${fPromo}</span></td><td style='color:#6d28d9'>-${fmtMoney(t.promoTotal)}</td></tr>`:''}
-      ${t.svcFee?`<tr><td style="color:#555">Service Fee</td><td style="color:#c0392b">−${fmtMoney(t.svcFee)}</td></tr>`:''}
-      ${t.platFee?`<tr><td style="color:#555">${esc(fPlatform||'Platform')} (${t.comm}%${t.vat?'+'+t.vat+'%VAT':''})</td><td style="color:#c0392b">−${fmtMoney(t.platFee)}</td></tr>`:''}
-      ${adjRows}
+      <tr><td>Accommodation <span style="color:#999;font-size:11px">${t.nights} night${t.nights!==1?'s':''} × ${fmtMoney(fRate)}</span></td><td>${fmtMoney(t.bkFee)}</td></tr>
+      ${t.promoTotal?`<tr><td style='color:#555'>Special Offer / Promo</td><td style='color:#6d28d9'>−${fmtMoney(t.promoTotal)}</td></tr>`:''}
       ${t.extraFee?`<tr><td style="color:#555">Extra Guest Fee</td><td>+${fmtMoney(t.extraFee)}</td></tr>`:''}
-      <tr class="total-row"><td>Total Net</td><td style="color:#2d6a1f">${fmtMoney(t.netRevenue)}</td></tr>
+      ${adjRows}
+      <tr class="total-row"><td>Total Charged to Guest</td><td>${fmtMoney(t.guestTotal)}</td></tr>
+    </table>
+    <hr class="divider"/>
+    <div class="section-title" style="color:#2d6a1f">Owner Earnings</div>
+    <table>
+      <tr><td style="color:#555">Guest charges received</td><td>${fmtMoney(t.guestTotal)}</td></tr>
+      ${t.platFee?`<tr><td style="color:#555">${esc(fPlatform||'Platform')} commission (${t.comm}%${t.vat?'+'+t.vat+'%VAT':''})</td><td style="color:#c0392b">−${fmtMoney(t.platFee)}</td></tr>`:''}
+      ${t.svcFee?`<tr><td style="color:#555">Host Service Fee</td><td style="color:#c0392b">−${fmtMoney(t.svcFee)}</td></tr>`:''}
+      ${t.cleaningFee?`<tr><td style="color:#555">Cleaning Fee</td><td style="color:#c0392b">−${fmtMoney(t.cleaningFee)}</td></tr>`:''}
+      ${t.storeSales?`<tr><td style="color:#555">Store / Add-on Sales</td><td style="color:#2d6a1f">+${fmtMoney(t.storeSales)}</td></tr>`:''}
+      <tr class="total-row"><td>Net Revenue</td><td style="color:#2d6a1f">${fmtMoney(t.netRevenue)}</td></tr>
     </table>
     ${fDeposit?`<hr class="divider"/><table><tr><td style="color:#555">Security Deposit</td><td>${fmtMoney(fDeposit)}</td></tr></table>`:''}
     ${fNotes?`<hr class="divider"/><div class="section-title">Notes</div><div style="font-size:13px;color:#444">${esc(fNotes)}</div>`:''}
@@ -649,25 +657,31 @@ function calcTotals(b){
   const nights=nightsBetween(b.checkin,b.checkout);
   const rate=+b.rate||0;
   const promo=+b.promo||0;
-  const bkFee=rate*nights;                       // raw: nights × rate
-  const promoTotal=promo*nights;                  // per-night discount × nights
-  const stayFee=Math.max(0,bkFee-promoTotal);    // after promo deduction
+  const bkFee=rate*nights;                        // accommodation: nights × rate
+  const promoTotal=promo*nights;                   // special offer discount
+  const stayFee=Math.max(0,bkFee-promoTotal);     // accommodation after discount
   const prop=properties.find(p=>p.id===b.property);
   const feePerG=prop?(+prop.extraGuestFee??300):300;
   const baseG=prop?(+prop.baseGuests||2):2;
   const maxG=prop?(+prop.maxGuests||8):8;
   const extraG=+b.extraGuests||0;
-  const extraFee=extraG*feePerG*nights;
-  const svcFee=+b.serviceFee||0;
+  const extraFee=extraG*feePerG*nights;            // extra guests — goes to owner, not subject to platform fee
+  const adjTotal=(b.adjustments||[]).reduce((s,a)=>s+(+a.amount||0),0);
+  // ── Guest Invoice total (what guest pays) ──
+  const guestTotal=stayFee+extraFee+adjTotal;
+  // ── Owner deductions (platform charges to host) ──
+  const svcFee=+b.serviceFee||0;                  // host service fee charged by platform
   const plat=getPlatform(b.platform);
   const comm=plat?(+plat.commission||0):0;
   const vat=plat?(+plat.vat||0):0;
-  const platFee=Math.max(0,stayFee)*(comm/100)*(1+vat/100);
-  const storeSales=+b.storeSales||0;
-  const adjTotal=(b.adjustments||[]).reduce((s,a)=>s+(+a.amount||0),0);
-  const totalWithout=stayFee-svcFee-platFee;  // net before extras & adjustments
-  const netRevenue=totalWithout+extraFee+adjTotal;
-  return{nights,rate,promo,promoTotal,stayFee,bkFee,extraFee,svcFee,platFee,totalWithout,netRevenue,storeSales,extraG,comm,vat,feePerG,baseG,maxG,adjTotal};
+  const platFee=Math.max(0,stayFee)*(comm/100)*(1+vat/100); // commission on accommodation only
+  const cleaningFee=+b.cleaningFee||0;             // owner's cleaning cost
+  const storeSales=+b.storeSales||0;               // store/add-on income
+  // ── Net Revenue to owner ──
+  const netRevenue=guestTotal-svcFee-platFee-cleaningFee+storeSales;
+  return{nights,rate,promo,promoTotal,stayFee,bkFee,extraFee,svcFee,platFee,
+         guestTotal,cleaningFee,storeSales,netRevenue,
+         extraG,comm,vat,feePerG,baseG,maxG,adjTotal};
 }
 
 function bookingsOverlap(a,b){
@@ -1344,12 +1358,14 @@ function calcFinancials(){
     property:pid,
     extraGuests:extraG,
     storeSales:document.getElementById('f-store')?.value||0,
+    cleaningFee:document.getElementById('f-cleaning')?.value||0,
     adjustments:_currentAdjustments,
   };
   const t=calcTotals(b);
   const n=document.getElementById('f-nights');if(n)n.value=t.nights||'';
   const _set=(id,text,color)=>{const el=document.getElementById(id);if(!el)return;el.textContent=text;if(color!==undefined)el.style.color=color;};
-  // Booking fee label: "2 nights × ₱2,500"
+
+  // ── SECTION 1: Guest Invoice ──
   const bkLbl=document.getElementById('s-bkfee-label');
   if(bkLbl&&t.nights)bkLbl.textContent=`${t.nights} night${t.nights!==1?'s':''} × ${C()}${(+b.rate||0).toLocaleString()}`;
   else if(bkLbl)bkLbl.textContent='';
@@ -1357,16 +1373,20 @@ function calcFinancials(){
   _set('s-promo',t.promoTotal?`−${fmtMoney(t.promoTotal)}`:'—','var(--purple)');
   const promoSubLbl=document.getElementById('s-promo-sublabel');
   if(promoSubLbl)promoSubLbl.textContent=(t.promo&&t.nights>1)?`${t.nights} nights × ${C()}${(+b.promo||0).toLocaleString()}`:'';
-  _set('s-svcfee',t.svcFee?`−${fmtMoney(t.svcFee)}`:'—','var(--red)');
-  // Platform fee label with platform name
-  const platLbl=document.getElementById('s-platfee-label');
-  const platName=b.platform||'';
-  if(platLbl)platLbl.textContent=platName&&t.comm?`${platName} (${t.comm}%${t.vat?'+'+t.vat+'% VAT':''})`:platName?platName:'Platform Fee';
-  _set('s-platfee',t.platFee?`−${fmtMoney(t.platFee)}`:'—','var(--red)');
   _set('s-extra',t.extraFee?`+${fmtMoney(t.extraFee)}`:'—','var(--text-2)');
   _set('s-adj',t.adjTotal?`${t.adjTotal>=0?'+':''} ${fmtMoney(Math.abs(t.adjTotal))}`:'—','var(--text-2)');
+  _set('s-guest-total',fmtMoney(t.guestTotal),'var(--text)');
+  _set('s-guest-total-2',fmtMoney(t.guestTotal),'var(--text)');
+
+  // ── SECTION 2: Owner Earnings ──
+  const platLbl=document.getElementById('s-platfee-label');
+  const platName=b.platform||'';
+  if(platLbl)platLbl.textContent=platName&&t.comm?`${platName} commission (${t.comm}%${t.vat?'+'+t.vat+'% VAT':''})`:platName?`${platName} commission`:'Platform Commission';
+  _set('s-platfee',t.platFee?`−${fmtMoney(t.platFee)}`:'—','var(--red)');
+  _set('s-svcfee',t.svcFee?`−${fmtMoney(t.svcFee)}`:'—','var(--red)');
+  _set('s-cleaning',t.cleaningFee?`−${fmtMoney(t.cleaningFee)}`:'—','var(--text-2)');
+  _set('s-store',t.storeSales?`+${fmtMoney(t.storeSales)}`:'—','var(--green)');
   _set('s-net',fmtMoney(t.netRevenue),'var(--green)');
-  _set('s-store',t.storeSales?`+${fmtMoney(t.storeSales)}`:'—','var(--text-2)');
   checkOverlap();
 }
 

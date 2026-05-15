@@ -1479,65 +1479,97 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
       </div>
     </div>
 
-    <!-- ── REVENUE BREAKDOWN (single-column, Airbnb-style, live) ─ -->
+    <!-- ── FINANCIAL BREAKDOWN (live, 2 sections) ──────────────── -->
     <div style="border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:14px">
+
+      <!-- Section header -->
       <div style="background:var(--surface-2);padding:8px 14px;font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--text-3);text-transform:uppercase;display:flex;justify-content:space-between;align-items:center">
-        <span>Revenue Breakdown</span>
+        <span>Financial Breakdown</span>
         <span style="font-size:10px;font-weight:400;color:var(--text-3)">live · updates as you type</span>
       </div>
-      <div style="padding:12px 14px">
 
-        <!-- Booking Fee -->
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px;border-bottom:1px solid var(--border)">
+      <!-- ── SECTION 1: Guest Invoice ── -->
+      <div style="padding:10px 14px 8px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--blue);margin-bottom:8px">Guest Invoice</div>
+
+        <!-- Accommodation -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;font-size:13px">
           <div>
-            <span style="font-weight:700;color:var(--text)">Booking Fee</span>
+            <span style="font-weight:600;color:var(--text)">Accommodation</span>
             <div id="s-bkfee-label" style="font-size:10px;color:var(--text-3);margin-top:1px"></div>
           </div>
           <span id="s-bkfee" style="font-weight:700;color:var(--text);white-space:nowrap">—</span>
         </div>
 
-        <!-- Promo Discount -->
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px">
+        <!-- Special Offer / Promo -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:4px 0;font-size:12px">
           <div>
-            <span style="color:var(--text-2)">Promo Discount</span>
+            <span style="color:var(--text-2)">Special Offer / Promo</span>
             <div id="s-promo-sublabel" style="font-size:10px;color:var(--text-3);margin-top:1px"></div>
           </div>
           <span id="s-promo" style="color:var(--purple);font-weight:700;white-space:nowrap">—</span>
         </div>
 
-        <!-- Service Fee -->
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px">
-          <span style="color:var(--text-2)">Service Fee</span>
-          <span id="s-svcfee" style="color:var(--red);font-weight:700;white-space:nowrap">—</span>
-        </div>
-
-        <!-- Platform Fee -->
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px">
-          <div>
-            <span id="s-platfee-label" style="color:var(--text-2)">Platform Fee</span>
-          </div>
-          <span id="s-platfee" style="color:var(--red);font-weight:700;white-space:nowrap">—</span>
-        </div>
-
         <!-- Extra Guest Fee -->
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px;color:var(--text-2)">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;color:var(--text-2)">
           <span>Extra Guest Fee</span>
           <span id="s-extra" style="white-space:nowrap">—</span>
         </div>
 
         <!-- Adjustments -->
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px;color:var(--text-2)">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;color:var(--text-2)">
           <span>Adjustments</span>
           <span id="s-adj" style="white-space:nowrap">—</span>
         </div>
 
-        <!-- Total Net -->
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 2px;border-top:2px solid var(--text);margin-top:6px">
-          <span style="font-size:14px;font-weight:800">Total Net</span>
-          <span id="s-net" style="font-size:22px;font-weight:900;color:var(--green)">₱0</span>
+        <!-- Guest Total -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 4px;border-top:1px solid var(--border);margin-top:4px">
+          <span style="font-size:12px;font-weight:700;color:var(--text)">Total Charged to Guest</span>
+          <span id="s-guest-total" style="font-size:15px;font-weight:800;color:var(--text);white-space:nowrap">—</span>
+        </div>
+      </div>
+
+      <!-- ── SECTION 2: Owner Earnings ── -->
+      <div style="padding:10px 14px 12px;border-top:2px dashed var(--border);background:var(--surface-2)">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--green);margin-bottom:8px">Owner Earnings</div>
+
+        <!-- Guest Total carried forward -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;color:var(--text-2)">
+          <span>Guest charges received</span>
+          <span id="s-guest-total-2" style="white-space:nowrap;font-weight:600">—</span>
         </div>
 
+        <!-- Platform Commission -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px">
+          <span id="s-platfee-label" style="color:var(--text-2)">Platform Commission</span>
+          <span id="s-platfee" style="color:var(--red);font-weight:700;white-space:nowrap">—</span>
+        </div>
+
+        <!-- Host Service Fee -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px">
+          <span style="color:var(--text-2)">Host Service Fee</span>
+          <span id="s-svcfee" style="color:var(--red);font-weight:700;white-space:nowrap">—</span>
+        </div>
+
+        <!-- Cleaning Fee -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;color:var(--text-2)">
+          <span>Cleaning Fee</span>
+          <span id="s-cleaning" style="white-space:nowrap">—</span>
+        </div>
+
+        <!-- Store Sales -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;color:var(--text-2)">
+          <span>Store / Add-on Sales</span>
+          <span id="s-store" style="white-space:nowrap;font-weight:600">—</span>
+        </div>
+
+        <!-- Net Revenue -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 2px;border-top:2px solid var(--text);margin-top:6px">
+          <span style="font-size:14px;font-weight:800">Net Revenue</span>
+          <span id="s-net" style="font-size:22px;font-weight:900;color:var(--green)">₱0</span>
+        </div>
       </div>
+
     </div>
 
     <!-- ── ADJUSTMENTS ────────────────────────────────────────── -->
