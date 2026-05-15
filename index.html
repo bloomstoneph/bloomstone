@@ -1562,9 +1562,32 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
       <div style="padding:10px 14px 12px;border-top:2px dashed var(--border);background:var(--surface-2)">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--green);margin-bottom:8px">Host Payout</div>
 
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;color:var(--text-2)">
-          <span>Guest charges received</span>
-          <span id="s-guest-total-2" style="white-space:nowrap;font-weight:600">—</span>
+        <!-- Guest charges received — broken down -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin-bottom:6px">
+          <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Guest Charges Received</div>
+
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:3px 0;font-size:12px">
+            <div>
+              <span style="color:var(--text-2)">Accommodation</span>
+              <div id="s-host-stayfee-label" style="font-size:10px;color:var(--text-3);margin-top:1px"></div>
+            </div>
+            <span id="s-host-stayfee" style="white-space:nowrap;font-weight:600;color:var(--text)">—</span>
+          </div>
+
+          <div id="s-host-extra-row" style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:12px;color:var(--text-2)">
+            <span>Extra Guest Fee</span>
+            <span id="s-host-extra" style="white-space:nowrap">—</span>
+          </div>
+
+          <div id="s-host-adj-row" style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:12px;color:var(--text-2)">
+            <span>Adjustments</span>
+            <span id="s-host-adj" style="white-space:nowrap">—</span>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0 2px;border-top:1px solid var(--border);margin-top:4px">
+            <span style="font-size:12px;font-weight:700;color:var(--text)">Subtotal</span>
+            <span id="s-guest-total-2" style="font-size:13px;font-weight:800;color:var(--text);white-space:nowrap">—</span>
+          </div>
         </div>
 
         <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px">

@@ -1489,6 +1489,21 @@ function calcFinancials(){
   _set('s-total-guest-paid',actualTotalGuestPaid?fmtMoney(actualTotalGuestPaid):'—','var(--text)');
 
   // ── SECTION 2: Host Payout ──
+  // Guest charges received breakdown
+  const stayLbl=document.getElementById('s-host-stayfee-label');
+  if(stayLbl){
+    if(t.nights&&t.rate){
+      let lbl=`${t.nights} night${t.nights!==1?'s':''} × ${C()}${(+b.rate||0).toLocaleString()}`;
+      if(t.promoTotal)lbl+=` − promo`;
+      if(t.specialOffer)lbl+=` − special offer`;
+      stayLbl.textContent=lbl;
+    }else{stayLbl.textContent='';}
+  }
+  _set('s-host-stayfee',t.stayFee?fmtMoney(t.stayFee):'—','var(--text)');
+  _set('s-host-extra',t.extraFee?`+${fmtMoney(t.extraFee)}`:'—','var(--text-2)');
+  _set('s-host-adj',t.adjTotal?`${t.adjTotal>=0?'+':''}${fmtMoney(Math.abs(t.adjTotal))}`:'—','var(--text-2)');
+  _set('s-guest-total-2',fmtMoney(t.guestTotal),'var(--text)');
+
   const platName=b.platform||'';
   const svcLbl=document.getElementById('s-svcfee-label');
   if(svcLbl)svcLbl.textContent=platName&&t.comm?`Host Service Fee (${t.comm}%${t.vat?'+'+t.vat+'%VAT':''})` :'Host Service Fee';
