@@ -114,27 +114,114 @@ function deleteUser(id){
   });
 }
 
-// Login wiring
-document.getElementById('loginBtn').addEventListener('click',doLogin);
-document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-document.getElementById('loginUser').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('loginPass').focus();});
-document.getElementById('logoutBtn').addEventListener('click',()=>{
-  confirmDialog('Sign Out?','You will be returned to the login screen.','⏏',()=>endSession());
+// ── PIN LOGIN ─────────────────────────────────────────────
+const LS_PIN='bloomstone_pin';
+const DEFAULT_PIN='0123';
+let _pinEntry='';
+let _pinChanging=false; // 'new' | 'confirm' | false
+let _pinNewTemp='';
+
+function loadPin(){return localStorage.getItem(LS_PIN)||DEFAULT_PIN;}
+function savePin(pin){localStorage.setItem(LS_PIN,pin);}
+
+function pinKey(digit){
+  if(_pinEntry.length>=4)return;
+  _pinEntry+=digit;
+  _updatePinDots();
+  if(_pinEntry.length===4)setTimeout(_checkPin,120);
+}
+function pinDel(){
+  if(!_pinEntry.length)return;
+  _pinEntry=_pinEntry.slice(0,-1);
+  _updatePinDots();
+}
+function _updatePinDots(){
+  // Update both login screen dots and modal dots
+  const inModal=_pinChanging!==false;
+  const prefix=inModal?'pd2':'pd';
+  for(let i=0;i<4;i++){
+    const d=document.getElementById(prefix+i);
+    if(d)d.classList.toggle('filled',i<_pinEntry.length);
+  }
+}
+function _pinShakeAndReset(msg){
+  const inModal=_pinChanging!==false;
+  const dotsId=inModal?'pinDots2':'pinDots';
+  const errId=inModal?'pinErr2':'pinErr';
+  const dots=document.getElementById(dotsId);
+  const err=document.getElementById(errId);
+  if(dots){dots.classList.add('shake');setTimeout(()=>dots.classList.remove('shake'),500);}
+  if(err)err.textContent=msg;
+  setTimeout(()=>{
+    _pinEntry='';_updatePinDots();
+    if(err)err.textContent='';
+  },700);
+}
+
+function openChangePinModal(){
+  _pinChanging='new';_pinEntry='';_pinNewTemp='';
+  _updatePinDots();
+  const sub=document.getElementById('pinSub');
+  if(sub)sub.textContent='Enter new 4-digit PIN';
+  const err=document.getElementById('pinErr2');
+  if(err)err.textContent='';
+  openModal('changePinModal');
+}
+function closeChangePinModal(){
+  _pinChanging=false;_pinEntry='';_pinNewTemp='';
+  closeModal('changePinModal');
+}
+function _checkPin(){
+  if(_pinChanging==='new'){
+    // Saving new PIN — first entry
+    _pinNewTemp=_pinEntry;_pinEntry='';_updatePinDots();
+    _pinChanging='confirm';
+    const sub=document.getElementById('pinSub')||document.querySelector('.pin-sub');
+    if(sub)sub.textContent='Confirm new PIN';
+    return;
+  }
+  if(_pinChanging==='confirm'){
+    // Confirm new PIN
+    if(_pinEntry===_pinNewTemp){
+      savePin(_pinEntry);
+      _pinChanging=false;_pinEntry='';_pinNewTemp='';
+      closeModal('changePinModal');
+      toast('PIN updated successfully.','success');
+    }else{
+      _pinChanging='new';_pinNewTemp='';
+      _pinShakeAndReset('PINs do not match. Try again.');
+      const sub=document.getElementById('pinSub')||document.querySelector('.pin-sub');
+      if(sub)sub.textContent='Enter new PIN';
+    }
+    return;
+  }
+  // Normal login
+  if(_pinEntry===loadPin()){
+    const users=loadUsers();
+    const admin=users.find(u=>u.role==='admin')||users[0];
+    if(admin){
+      startSession(admin);
+      document.getElementById('loginScreen').style.display='none';
+      document.getElementById('app').style.display='flex';
+      init();
+    }
+  }else{
+    _pinShakeAndReset('Incorrect PIN. Try again.');
+  }
+}
+
+// Keyboard support for PIN
+document.addEventListener('keydown',e=>{
+  const ls=document.getElementById('loginScreen');
+  if(!ls||ls.style.display==='none')return;
+  if(e.key>='0'&&e.key<='9')pinKey(e.key);
+  if(e.key==='Backspace')pinDel();
 });
 
-function doLogin(){
-  const u=(document.getElementById('loginUser')?.value||'').trim();
-  const p=document.getElementById('loginPass')?.value||'';
-  const err=document.getElementById('loginErr');
-  if(!u||!p){err.textContent='Enter username and password.';err.classList.add('show');return;}
-  const user=tryLogin(u,p);
-  if(!user){err.textContent='Invalid username or password.';err.classList.add('show');return;}
-  err.classList.remove('show');
-  startSession(user);
-  document.getElementById('loginScreen').style.display='none';
-  document.getElementById('app').style.display='flex';
-  init();
-}
+// Sign out
+document.getElementById('logoutBtn').addEventListener('click',()=>{
+  confirmDialog('Sign Out?','You will be returned to the PIN screen.','⏏',()=>endSession());
+});
 
 // ============================================================
 // EXCEL IMPORT / EXPORT (SheetJS)
@@ -3328,6 +3415,11 @@ async function sheetsPush(silent=false){
           Total:rowTotal,Notes:e.notes||''
         };
       }),
+      settings:[
+        {Key:'PIN',Value:loadPin(),'Updated At':new Date().toISOString()},
+        {Key:'Currency',Value:settings.currency||'₱','Updated At':new Date().toISOString()},
+        {Key:'AppName',Value:settings.appName||'Bloomstone','Updated At':new Date().toISOString()},
+      ],
     };
     if(!silent)setSheetsProgress(true,'Uploading to Google Sheets…',45);
     const resp=await fetch(sheetsConfig.url,{

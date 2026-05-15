@@ -663,15 +663,30 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 @media(max-width:767px){.recent-fab-btn{bottom:134px;right:16px;}}
 
 /* ============================================================
-   LOGIN OVERLAY
+   PIN LOGIN SCREEN
 ============================================================ */
-.login-screen{position:fixed;inset:0;background:var(--bg);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px}
-.login-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:36px 32px;width:100%;max-width:380px;box-shadow:var(--shadow-lg)}
-.login-logo{font-size:24px;font-weight:800;letter-spacing:-.04em;margin-bottom:4px}
-.login-logo span{color:var(--text-3);font-weight:400}
-.login-sub{font-size:12px;color:var(--text-3);margin-bottom:28px}
-.login-err{background:var(--red-bg);color:var(--red);border:1px solid var(--red);border-radius:var(--radius);padding:8px 12px;font-size:12px;margin-bottom:14px;display:none}
-.login-err.show{display:block}
+.pin-screen{position:fixed;inset:0;background:var(--bg);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:0}
+.pin-logo{font-size:30px;font-weight:800;letter-spacing:-.04em;margin-bottom:6px}
+.pin-logo span{color:var(--text-3);font-weight:400}
+.pin-sub{font-size:13px;color:var(--text-3);margin-bottom:44px;text-align:center}
+.pin-dots{display:flex;gap:18px;margin-bottom:48px}
+.pin-dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--border-2);background:transparent;transition:background .12s,border-color .12s}
+.pin-dot.filled{background:var(--text);border-color:var(--text)}
+.pin-pad{display:grid;grid-template-columns:repeat(3,80px);gap:14px}
+.pin-key{width:80px;height:80px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface);font-size:24px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .1s,transform .1s;color:var(--text);font-family:inherit;box-shadow:var(--shadow-sm)}
+.pin-key:hover{background:var(--surface-3)}
+.pin-key:active{transform:scale(.92);background:var(--surface-3)}
+.pin-key-empty{border:none!important;background:transparent!important;box-shadow:none!important;cursor:default!important;pointer-events:none}
+.pin-key-del{font-size:20px}
+.pin-err{font-size:12px;color:var(--red);margin-top:20px;min-height:18px;text-align:center;font-weight:500}
+@keyframes pinShake{
+  0%,100%{transform:translateX(0)}
+  15%{transform:translateX(-12px)}
+  35%{transform:translateX(12px)}
+  55%{transform:translateX(-8px)}
+  75%{transform:translateX(8px)}
+}
+.pin-dots.shake{animation:pinShake .45s ease}
 
 /* ============================================================
    PROPERTY PILLS (calendar toggle)
@@ -786,23 +801,31 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 </style>
 </head>
 <body>
-<!-- LOGIN SCREEN -->
-<div class="login-screen" id="loginScreen">
-  <div class="login-box">
-    <div class="login-logo">bloom<span>stone</span></div>
-    <div class="login-sub">Property Management System — sign in to continue</div>
-    <div class="login-err" id="loginErr"></div>
-    <div class="field">
-      <label class="label">Username</label>
-      <input class="input" id="loginUser" type="text" placeholder="Username" autocomplete="username"/>
-    </div>
-    <div class="field">
-      <label class="label">Password</label>
-      <input class="input" id="loginPass" type="password" placeholder="Password" autocomplete="current-password"/>
-    </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:8px;padding:10px" id="loginBtn">Sign In</button>
-    <div style="margin-top:14px;text-align:center;font-size:11px;color:var(--text-3)">Default: <strong>admin</strong> / <strong>admin123</strong></div>
+<!-- PIN LOGIN SCREEN -->
+<div class="pin-screen" id="loginScreen">
+  <div class="pin-logo">bloom<span>stone</span></div>
+  <div class="pin-sub">Enter PIN to continue</div>
+  <div class="pin-dots" id="pinDots">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+    <div class="pin-dot" id="pd3"></div>
   </div>
+  <div class="pin-pad">
+    <button class="pin-key" onclick="pinKey('1')">1</button>
+    <button class="pin-key" onclick="pinKey('2')">2</button>
+    <button class="pin-key" onclick="pinKey('3')">3</button>
+    <button class="pin-key" onclick="pinKey('4')">4</button>
+    <button class="pin-key" onclick="pinKey('5')">5</button>
+    <button class="pin-key" onclick="pinKey('6')">6</button>
+    <button class="pin-key" onclick="pinKey('7')">7</button>
+    <button class="pin-key" onclick="pinKey('8')">8</button>
+    <button class="pin-key" onclick="pinKey('9')">9</button>
+    <button class="pin-key pin-key-empty"></button>
+    <button class="pin-key" onclick="pinKey('0')">0</button>
+    <button class="pin-key pin-key-del" onclick="pinDel()">⌫</button>
+  </div>
+  <div class="pin-err" id="pinErr"></div>
 </div>
 
 <div class="app" id="app">
@@ -1051,6 +1074,18 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 
       <!-- SYSTEM: SETTINGS -->
       <div class="view" id="view-system-settings">
+        <!-- PIN SECURITY -->
+        <div class="card" style="max-width:600px;margin-bottom:16px">
+          <div class="section-title" style="margin-bottom:4px">🔐 PIN Security</div>
+          <div class="section-sub" style="margin-bottom:16px">4-digit PIN used to unlock the app. Default is <strong>0123</strong>.</div>
+          <div style="display:flex;align-items:center;gap:16px;padding:14px;background:var(--surface-3);border-radius:var(--radius);margin-bottom:14px">
+            <span style="font-size:22px;letter-spacing:6px;font-weight:700;font-family:monospace">••••</span>
+            <span style="font-size:12px;color:var(--text-3);flex:1">Current PIN is hidden for security</span>
+            <button class="btn btn-sm" onclick="openChangePinModal()">Change PIN</button>
+          </div>
+        </div>
+
+        <!-- APP SETTINGS -->
         <div class="card" style="max-width:600px">
           <div class="section-title" style="margin-bottom:16px">System Settings</div>
           <div class="field">
@@ -1674,6 +1709,39 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
           <button class="btn btn-danger" id="confirmBtn" style="min-width:110px">Yes, Delete</button>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- CHANGE PIN MODAL -->
+<div class="modal-overlay" id="changePinModal">
+  <div class="modal" style="max-width:320px">
+    <div class="modal-body" style="text-align:center;padding:32px 24px">
+      <div style="font-size:28px;margin-bottom:8px">🔐</div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:4px">Change PIN</div>
+      <div class="pin-sub" id="pinSub" style="margin-bottom:28px;font-size:13px;color:var(--text-3)">Enter new 4-digit PIN</div>
+      <div class="pin-dots" id="pinDots2" style="justify-content:center;margin-bottom:28px">
+        <div class="pin-dot" id="pd20"></div>
+        <div class="pin-dot" id="pd21"></div>
+        <div class="pin-dot" id="pd22"></div>
+        <div class="pin-dot" id="pd23"></div>
+      </div>
+      <div class="pin-pad" style="margin:0 auto;width:fit-content">
+        <button class="pin-key" style="width:68px;height:68px;font-size:20px" onclick="pinKey('1')">1</button>
+        <button class="pin-key" style="width:68px;height:68px;font-size:20px" onclick="pinKey('2')">2</button>
+        <button class="pin-key" style="width:68px;height:68px;font-size:20px" onclick="pinKey('3')">3</button>
+        <button class="pin-key" style="width:68px;height:68px;font-size:20px" onclick="pinKey('4')">4</button>
+        <button class="pin-key" style="width:68px;height:68px;font-size:20px" onclick="pinKey('5')">5</button>
+        <button class="pin-key" style="width:68px;height:68px;font-size:20px" onclick="pinKey('6')">6</button>
+        <button class="pin-key" style="width:68px;height:68px;font-size:20px" onclick="pinKey('7')">7</button>
+        <button class="pin-key" style="width:68px;height:68px;font-size:20px" onclick="pinKey('8')">8</button>
+        <button class="pin-key" style="width:68px;height:68px;font-size:20px" onclick="pinKey('9')">9</button>
+        <button class="pin-key pin-key-empty" style="width:68px;height:68px"></button>
+        <button class="pin-key" style="width:68px;height:68px;font-size:20px" onclick="pinKey('0')">0</button>
+        <button class="pin-key pin-key-del" style="width:68px;height:68px;font-size:18px" onclick="pinDel()">⌫</button>
+      </div>
+      <div class="pin-err" id="pinErr2" style="margin-top:14px"></div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:16px" onclick="closeChangePinModal()">Cancel</button>
     </div>
   </div>
 </div>

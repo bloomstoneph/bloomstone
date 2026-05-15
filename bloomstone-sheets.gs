@@ -40,6 +40,7 @@ const HEADERS = {
     'ID','Month','Property','Promo Cost','Cleaning Cost',
     'Water','Electricity','Supplies','Maintenance','Other Expenses','Total','Notes'
   ],
+  Settings: ['Key','Value','Updated At'],
   SyncLog: ['Timestamp','Direction','Records','User','Status']
 };
 
@@ -86,6 +87,10 @@ function doPost(e) {
     if (Array.isArray(payload.expenses)) {
       writeSheet(ss, 'Expenses', payload.expenses, HEADERS.Expenses, expenseRow);
       total += payload.expenses.length;
+    }
+    if (Array.isArray(payload.settings)) {
+      writeSheet(ss, 'Settings', payload.settings, HEADERS.Settings, settingRow);
+      total += payload.settings.length;
     }
 
     logSync(ss, 'PUSH', total, payload.user || 'app', 'OK');
@@ -174,6 +179,14 @@ function expenseRow(e) {
     num(e['Other Expenses'] || e.Other || e.other),
     num(e.Total        || e.amount),
     e.Notes || e.notes || ''
+  ];
+}
+
+function settingRow(s) {
+  return [
+    s.Key   || s.key   || '',
+    s.Value || s.value || '',
+    s['Updated At'] || s.updatedAt || new Date().toISOString()
   ];
 }
 
