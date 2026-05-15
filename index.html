@@ -1609,7 +1609,7 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
       </div>
       <div style="flex:1;border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 14px;background:var(--surface-2)">
         <label class="label" id="f-cleaning-label" style="margin-bottom:6px;display:block">Cleaning Fee (₱)</label>
-        <input class="input" id="f-cleaning" type="number" min="0" step="1" value="0" oninput="this.value=this.value.replace(/[^0-9.]/g,'');" placeholder="0"/>
+        <input class="input" id="f-cleaning" type="number" min="0" step="1" value="0" oninput="this.value=this.value.replace(/[^0-9.]/g,'');calcFinancials();" placeholder="0"/>
         <div id="f-cleaning-hint" style="font-size:10px;color:var(--text-3);margin-top:4px;display:none">🔒 Unlocks after checkout</div>
       </div>
     </div>
