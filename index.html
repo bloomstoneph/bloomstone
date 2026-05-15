@@ -382,18 +382,52 @@ a{color:inherit;text-decoration:none}
 
 @media(max-width:600px){
   .dp-handle{display:block}
-  /* Bottom-sheet calendar popup on mobile */
+
+  /* ── Bottom-sheet popup ── */
   .dp-popup{
-    padding:16px 14px calc(20px + env(safe-area-inset-bottom));
+    padding:12px 16px calc(24px + env(safe-area-inset-bottom));
     left:0!important;right:0!important;bottom:0!important;top:auto!important;
-    width:100%!important;border-radius:20px 20px 0 0!important;
+    width:100%!important;border-radius:22px 22px 0 0!important;
     border-left:none;border-right:none;border-bottom:none;
     animation:dpSlideUp .22s cubic-bezier(.2,.8,.2,1);
   }
-  .dp-months{gap:0}
+
+  /* ── Nav buttons sit ABOVE the grid (grid layout: ‹ | month | ›) ── */
+  .dp-wrap{
+    display:grid;
+    grid-template-columns:48px 1fr 48px;
+    align-items:start;
+    gap:0;
+  }
+  .dp-nav{width:48px;height:48px;font-size:24px;border-radius:50%;margin-top:0;flex-shrink:0}
+
+  /* ── Only left month shown ── */
+  .dp-months{gap:0;min-width:0}
   .dp-month-right{display:none}
-  .dp-days{grid-template-columns:repeat(7,1fr)}
-  .dp-day{width:100%;height:auto;aspect-ratio:1}
+
+  /* ── Month/year title ── */
+  .dp-month-hdr{font-size:18px;font-weight:800;padding:8px 0 14px;text-align:center}
+
+  /* ── Weekday row ── */
+  .dp-weekdays{margin-bottom:4px}
+  .dp-wd{font-size:12px;font-weight:700;padding:6px 0;text-align:center}
+
+  /* ── Day grid: full width ── */
+  .dp-days{grid-template-columns:repeat(7,1fr);width:100%}
+
+  /* ── Day cells: large, tappable ── */
+  .dp-day{
+    width:100%;height:auto;aspect-ratio:1;
+    font-size:16px;font-weight:500;
+    border-radius:50%;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .dp-today::after{width:4px;height:4px;bottom:4px}
+
+  /* ── Footer hint ── */
+  .dp-footer{margin-top:16px;padding-top:12px}
+  .dp-hint{font-size:13px;font-style:normal;font-weight:600;color:var(--text)}
+  .dp-footer .btn{padding:10px 18px;font-size:14px}
 }
 
 /* ============================================================

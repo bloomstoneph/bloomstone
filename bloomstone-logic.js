@@ -3640,10 +3640,17 @@ function dpSelectDay(dateStr){
     // Clear checkout if it's before/same as new checkin
     if(DP.co&&DP.co<=DP.ci)DP.co=null;
     DP.mode='co';
+    // On mobile: advance one month so checkout dates are visible
+    if(window.innerWidth<=600){
+      DP.vm++;if(DP.vm>11){DP.vm=0;DP.vy++;}
+    }
   }else{
     if(DP.ci&&dateStr<=DP.ci){
       // Clicked before checkin — restart as checkin
       DP.ci=dateStr;DP.co=null;DP.mode='co';
+      if(window.innerWidth<=600){
+        DP.vm++;if(DP.vm>11){DP.vm=0;DP.vy++;}
+      }
     }else{
       DP.co=dateStr;
       DP.mode='ci';
