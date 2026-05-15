@@ -225,13 +225,13 @@ a{color:inherit;text-decoration:none}
 .field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .field-row.cols3{grid-template-columns:1fr 1fr 1fr}
-.label{font-size:11px;font-weight:600;color:var(--text-2)}
+.label{font-size:12px;font-weight:600;color:var(--text-2)}
 .label .req{color:var(--red);margin-left:2px}
 .input{
   background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--radius);padding:9px 12px;
+  border-radius:var(--radius);padding:10px 14px;
   color:var(--text);font-size:13px;width:100%;
-  transition:border-color var(--transition);min-height:36px;
+  transition:border-color var(--transition);min-height:42px;
 }
 .input:focus{outline:none;border-color:var(--text)}
 .input.error,.dp-trigger.error{border-color:var(--red)!important;background:var(--red-bg)!important}
@@ -303,10 +303,25 @@ a{color:inherit;text-decoration:none}
 .drawer-body{flex:1;overflow-y:auto;padding:18px}
 .drawer-footer{padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0}
 .drawer-panel{display:block}
-/* form section titles inside drawer */
-.form-sec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);padding:14px 0 8px;margin-top:4px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border)}
-.form-sec:first-child{border-top:none;padding-top:0;margin-top:0}
-.form-sec::after{content:'';flex:1;height:1px;background:var(--border)}
+/* Drawer section cards */
+.drawer-card{
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:14px 16px 10px;margin-bottom:14px;background:var(--surface);
+}
+.drawer-card-hdr{
+  font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--text-2);display:flex;align-items:center;gap:6px;
+  padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid var(--border);
+}
+/* form-sec kept for any remaining uses outside drawer */
+.form-sec{
+  font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--text-2);background:var(--surface-3);
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  padding:9px 18px;margin:20px -18px 14px;display:flex;align-items:center;gap:7px;
+}
+.form-sec:first-child{margin-top:-18px;border-top:none}
+.form-sec::after{display:none}
 
 /* ============================================================
    TRIP-STYLE DATE PICKER
@@ -1392,96 +1407,96 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
       <button class="btn btn-ghost btn-sm" onclick="dismissGuestConfirm()">No</button>
     </div>
 
-    <!-- ── PROPERTY + RATE (below guest name) ───────────────── -->
-    <div class="field-row" style="margin-bottom:4px">
-      <div class="field" style="flex:2">
-        <label class="label">Property <span class="req">*</span></label>
-        <select class="input input-req" id="f-property" onchange="onPropertyChange()" style="font-size:14px;font-weight:700;height:44px"></select>
-      </div>
-      <div class="field">
-        <label class="label">Nightly Rate (₱) <span class="req">*</span></label>
-        <input class="input input-req" id="f-rate" type="number" placeholder="0" oninput="calcFinancials()" style="font-size:16px;font-weight:700"/>
-      </div>
-    </div>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-      <div id="f-prop-city-badge" style="display:none" class="prop-city-badge"><span id="f-prop-city-icon" style="display:flex;align-items:center"></span><span id="f-prop-city-text"></span></div>
-      <div id="f-cap-hint" style="font-size:11px;color:var(--text-3)"></div>
-    </div>
-
-    <!-- ── BOOKING ───────────────────────────────────────────── -->
-    <div class="form-sec" style="margin-top:0">📅 Booking</div>
-    <div class="alert-bar" id="overlapAlert">⚠ <span id="overlapText"></span></div>
-
-    <div class="field-row date-row" style="margin-bottom:4px">
-      <div class="field">
-        <label class="label">Check-in <span class="req">*</span></label>
-        <div class="dp-trigger input-req" id="dp-ci-btn" tabindex="0"
-             onclick="dpOpen('ci')" onkeydown="if(event.key==='Enter'||event.key===' ')dpOpen('ci')">
-          <span class="dp-trigger-icon">📅</span>
-          <span class="dp-trigger-text" id="dp-ci-text">Select date</span>
-          <span class="dp-trigger-clear" onclick="event.stopPropagation();dpClearOne('ci')" title="Clear">✕</span>
+    <!-- ── PROPERTY + RATE ───────────────────────────────────── -->
+    <div class="drawer-card">
+      <div class="drawer-card-hdr">🏠 Property & Rate</div>
+      <div class="field-row" style="margin-bottom:0">
+        <div class="field" style="flex:2;margin-bottom:0">
+          <label class="label">Property <span class="req">*</span></label>
+          <select class="input input-req" id="f-property" onchange="onPropertyChange()" style="font-size:13px;font-weight:700"></select>
         </div>
-        <input type="hidden" id="f-checkin"/>
-      </div>
-      <div class="field">
-        <label class="label">Check-out <span class="req">*</span></label>
-        <div class="dp-trigger input-req" id="dp-co-btn" tabindex="0"
-             onclick="dpOpen('co')" onkeydown="if(event.key==='Enter'||event.key===' ')dpOpen('co')">
-          <span class="dp-trigger-icon">🏁</span>
-          <span class="dp-trigger-text" id="dp-co-text">Select date</span>
-          <span class="dp-trigger-clear" onclick="event.stopPropagation();dpClearOne('co')" title="Clear">✕</span>
+        <div class="field" style="margin-bottom:0">
+          <label class="label">Nightly Rate (₱) <span class="req">*</span></label>
+          <input class="input input-req" id="f-rate" type="number" placeholder="0" oninput="calcFinancials()" style="font-size:15px;font-weight:700"/>
         </div>
-        <input type="hidden" id="f-checkout"/>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <div id="f-prop-city-badge" style="display:none" class="prop-city-badge"><span id="f-prop-city-icon" style="display:flex;align-items:center"></span><span id="f-prop-city-text"></span></div>
+        <div id="f-cap-hint" style="font-size:11px;color:var(--text-3)"></div>
       </div>
     </div>
-    <input type="hidden" id="f-nights"/>
 
-    <div id="dateRangeDisplay" style="display:none;padding:10px 14px;border-radius:var(--radius);border-left:3px solid var(--accent);background:var(--surface-3);margin-bottom:14px">
-      <span id="dateRangeText" style="font-size:16px;font-weight:800;color:var(--text)"></span>
-      <span id="dateNightsText" style="font-size:15px;font-weight:900;color:var(--accent)"></span>
-    </div>
+    <!-- ── BOOKING DETAILS CARD ─────────────────────────────── -->
+    <div class="drawer-card">
+      <div class="drawer-card-hdr">📅 Booking Details</div>
+      <div class="alert-bar" id="overlapAlert">⚠ <span id="overlapText"></span></div>
 
-    <!-- Property + Rate -->
-    <!-- Platform | Special Offer -->
-    <div class="field-row" style="margin-bottom:8px">
-      <div class="field" style="flex:2">
-        <label class="label">Platform <span class="req">*</span></label>
-        <div class="plat-picker" id="platPickerWrap">
-          <div class="plat-picker-btn input-req" id="platPickerBtn" onclick="togglePlatPicker()" style="min-height:44px">
-            <span id="platPickerLabel" style="color:var(--text-3)">Select…</span>
-            <span class="plat-picker-chevron">▾</span>
+      <div class="field-row date-row" style="margin-bottom:4px">
+        <div class="field">
+          <label class="label">Check-in <span class="req">*</span></label>
+          <div class="dp-trigger input-req" id="dp-ci-btn" tabindex="0"
+               onclick="dpOpen('ci')" onkeydown="if(event.key==='Enter'||event.key===' ')dpOpen('ci')">
+            <span class="dp-trigger-icon">📅</span>
+            <span class="dp-trigger-text" id="dp-ci-text">Select date</span>
+            <span class="dp-trigger-clear" onclick="event.stopPropagation();dpClearOne('ci')" title="Clear">✕</span>
           </div>
-          <div class="plat-picker-list" id="platPickerList"></div>
-          <input type="hidden" id="f-platform"/>
+          <input type="hidden" id="f-checkin"/>
+        </div>
+        <div class="field">
+          <label class="label">Check-out <span class="req">*</span></label>
+          <div class="dp-trigger input-req" id="dp-co-btn" tabindex="0"
+               onclick="dpOpen('co')" onkeydown="if(event.key==='Enter'||event.key===' ')dpOpen('co')">
+            <span class="dp-trigger-icon">🏁</span>
+            <span class="dp-trigger-text" id="dp-co-text">Select date</span>
+            <span class="dp-trigger-clear" onclick="event.stopPropagation();dpClearOne('co')" title="Clear">✕</span>
+          </div>
+          <input type="hidden" id="f-checkout"/>
         </div>
       </div>
-      <div class="field">
-        <label class="label">Special Offer <span style="color:var(--text-3);font-size:10px">(₱ total)</span></label>
-        <input class="input" id="f-specialoffer" type="number" placeholder="0"
-               oninput="calcFinancials()"/>
-      </div>
-    </div>
+      <input type="hidden" id="f-nights"/>
 
-    <!-- Payment (full width, default) -->
-    <div class="field" style="margin-bottom:8px">
-      <label class="label">Payment <span class="req">*</span></label>
-      <select class="input input-req" id="f-payment"><option>Platform (Auto)</option><option>Cash</option><option>Bank Transfer</option><option>GCash</option><option>PayMaya</option><option>PayPal</option><option>Cheque</option></select>
-    </div>
-
-    <!-- Promo | Host Service Fee -->
-    <div class="field-row" style="margin-bottom:12px">
-      <div class="field">
-        <label class="label">Promo / Discount <span class="req">*</span> <span style="color:var(--text-3);font-size:10px">(₱/night · direct)</span></label>
-        <input class="input input-req" id="f-promo" type="number" placeholder="0"
-               oninput="this.classList.remove('error');calcFinancials()"/>
+      <div id="dateRangeDisplay" style="display:none;padding:10px 14px;border-radius:var(--radius);border-left:3px solid var(--accent);background:var(--surface-3);margin-bottom:12px">
+        <span id="dateRangeText" style="font-size:15px;font-weight:800;color:var(--text)"></span>
+        <span id="dateNightsText" style="font-size:14px;font-weight:900;color:var(--accent)"></span>
       </div>
-      <div class="field">
-        <label class="label">Host Service Fee <span style="color:var(--text-3);font-size:10px">(auto-computed)</span>
-          <button type="button" id="f-servicefee-reset" onclick="resetServiceFee()" style="display:none;background:none;border:none;cursor:pointer;color:var(--accent);font-size:10px;padding:0 4px" title="Reset to computed">↺</button>
-        </label>
-        <input class="input" id="f-servicefee" type="number" placeholder="0"
-               oninput="this.dataset.manual='1';document.getElementById('f-servicefee-reset').style.display='inline';this.classList.remove('error');calcFinancials()"/>
-        <div id="f-servicefee-hint" style="font-size:10px;color:var(--text-3);margin-top:2px"></div>
+
+      <div class="field-row" style="margin-bottom:0">
+        <div class="field" style="flex:2">
+          <label class="label">Platform <span class="req">*</span></label>
+          <div class="plat-picker" id="platPickerWrap">
+            <div class="plat-picker-btn input-req" id="platPickerBtn" onclick="togglePlatPicker()" style="min-height:42px">
+              <span id="platPickerLabel" style="color:var(--text-3)">Select…</span>
+              <span class="plat-picker-chevron">▾</span>
+            </div>
+            <div class="plat-picker-list" id="platPickerList"></div>
+            <input type="hidden" id="f-platform"/>
+          </div>
+        </div>
+        <div class="field">
+          <label class="label">Special Offer <span style="color:var(--text-3);font-size:10px">(₱ total)</span></label>
+          <input class="input" id="f-specialoffer" type="number" placeholder="0" oninput="calcFinancials()"/>
+        </div>
+      </div>
+
+      <div class="field" style="margin-bottom:0">
+        <label class="label">Payment <span class="req">*</span></label>
+        <select class="input input-req" id="f-payment"><option>Platform (Auto)</option><option>Cash</option><option>Bank Transfer</option><option>GCash</option><option>PayMaya</option><option>PayPal</option><option>Cheque</option></select>
+      </div>
+
+      <div class="field-row" style="margin-top:12px;margin-bottom:0">
+        <div class="field" style="margin-bottom:0">
+          <label class="label">Promo / Discount <span class="req">*</span> <span style="color:var(--text-3);font-size:10px">(₱/night · direct)</span></label>
+          <input class="input input-req" id="f-promo" type="number" placeholder="0"
+                 oninput="this.classList.remove('error');calcFinancials()"/>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label class="label">Host Service Fee <span style="color:var(--text-3);font-size:10px">(auto)</span>
+            <button type="button" id="f-servicefee-reset" onclick="resetServiceFee()" style="display:none;background:none;border:none;cursor:pointer;color:var(--accent);font-size:10px;padding:0 4px" title="Reset to computed">↺</button>
+          </label>
+          <input class="input" id="f-servicefee" type="number" placeholder="0"
+                 oninput="this.dataset.manual='1';document.getElementById('f-servicefee-reset').style.display='inline';this.classList.remove('error');calcFinancials()"/>
+          <div id="f-servicefee-hint" style="font-size:10px;color:var(--text-3);margin-top:3px"></div>
+        </div>
       </div>
     </div>
 
@@ -1582,12 +1597,14 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
       </div>
     </div>
 
-    <!-- ── BOOKING STATUS (below breakdown) ──────────────────── -->
-    <div class="form-sec">🔖 Booking Status</div>
-    <div class="field" style="margin-bottom:14px">
-      <select class="input input-req" id="f-status" style="font-weight:700;transition:background .15s,color .15s">
-        <option>Confirmed</option><option>Pending</option><option>Checked-In</option><option>Cancelled</option>
-      </select>
+    <!-- ── BOOKING STATUS ────────────────────────────────────── -->
+    <div class="drawer-card">
+      <div class="drawer-card-hdr">🔖 Booking Status</div>
+      <div class="field" style="margin-bottom:0">
+        <select class="input input-req" id="f-status" style="font-weight:700;transition:background .15s,color .15s">
+          <option>Confirmed</option><option>Pending</option><option>Checked-In</option><option>Cancelled</option>
+        </select>
+      </div>
     </div>
 
     <!-- ── CHECK-IN ───────────────────────────────────────────── -->
@@ -1600,43 +1617,51 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
     </div>
 
     <!-- ── CHECK-OUT ──────────────────────────────────────────── -->
-    <div class="form-sec">📤 Check-Out</div>
-    <div class="field-row" style="margin-bottom:8px">
-      <div class="field">
-        <label class="label" id="f-cleaning-label">Cleaning Fee (₱)</label>
-        <input class="input" id="f-cleaning" type="number" min="0" step="1" value="0"
-               oninput="this.value=this.value.replace(/[^0-9.]/g,'');calcFinancials();" placeholder="0"/>
-        <div id="f-cleaning-hint" style="font-size:10px;color:var(--text-3);margin-top:4px;display:none">🔒 Unlocks after checkout</div>
+    <div style="background:var(--orange-bg);border:1.5px solid var(--orange);border-radius:var(--radius-lg);padding:14px 16px 10px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--orange);padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid rgba(196,124,10,.2);display:flex;align-items:center;gap:6px">📤 Check-Out</div>
+      <div class="field-row" style="margin-bottom:10px">
+        <div class="field" style="margin-bottom:0">
+          <label class="label" id="f-cleaning-label">Cleaning Fee (₱)</label>
+          <input class="input" id="f-cleaning" type="number" min="0" step="1" value="0"
+                 oninput="this.value=this.value.replace(/[^0-9.]/g,'');calcFinancials();" placeholder="0"/>
+          <div id="f-cleaning-hint" style="font-size:10px;color:var(--text-3);margin-top:4px;display:none">🔒 Unlocks after checkout</div>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label class="label" id="f-store-label">Store / Add-ons (₱)</label>
+          <input class="input" id="f-store" type="number" min="0" step="1" value="0"
+                 oninput="this.value=this.value.replace(/[^0-9.]/g,'');calcFinancials();" placeholder="0"/>
+          <div id="f-store-hint" style="font-size:10px;color:var(--text-3);margin-top:4px;display:none">🔒 Unlocks after checkout</div>
+        </div>
       </div>
-      <div class="field">
-        <label class="label" id="f-store-label">Store / Add-ons (₱)</label>
-        <input class="input" id="f-store" type="number" min="0" step="1" value="0"
-               oninput="this.value=this.value.replace(/[^0-9.]/g,'');calcFinancials();" placeholder="0"/>
-        <div id="f-store-hint" style="font-size:10px;color:var(--text-3);margin-top:4px;display:none">🔒 Unlocks after checkout</div>
+      <div class="field" style="margin-bottom:0">
+        <label class="label">Deposit Refunded (₱) <span style="color:var(--text-3);font-size:10px">entering amount = refunded</span></label>
+        <input class="input" id="f-dep-refunded-amt" type="number" value="0" style="font-weight:700"/>
       </div>
-    </div>
-    <div class="field" style="margin-bottom:14px">
-      <label class="label">Deposit Refunded (₱) <span style="color:var(--text-3);font-size:10px">entering amount = refunded</span></label>
-      <input class="input" id="f-dep-refunded-amt" type="number" value="0" style="font-weight:700"/>
     </div>
 
     <!-- ── MID-STAY ADJUSTMENTS ──────────────────────────────── -->
-    <div class="form-sec">➕ Mid-Stay Adjustments</div>
-    <div id="adjList" style="margin-bottom:8px"></div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
-      <button class="btn btn-ghost btn-sm" onclick="addAdjustment('Early check-in fee')">＋ Early Check-in</button>
-      <button class="btn btn-ghost btn-sm" onclick="addAdjustment('Late check-out fee')">＋ Late Check-out</button>
-      <button class="btn btn-ghost btn-sm" onclick="addAdjustment('Extra guest fee')">＋ Extra Guest</button>
-      <button class="btn btn-ghost btn-sm" onclick="addAdjustment('')">＋ Custom</button>
+    <div class="drawer-card">
+      <div class="drawer-card-hdr">➕ Mid-Stay Adjustments</div>
+      <div id="adjList" style="margin-bottom:8px"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+        <button class="btn btn-ghost btn-sm" onclick="addAdjustment('Early check-in fee')">＋ Early Check-in</button>
+        <button class="btn btn-ghost btn-sm" onclick="addAdjustment('Late check-out fee')">＋ Late Check-out</button>
+        <button class="btn btn-ghost btn-sm" onclick="addAdjustment('Extra guest fee')">＋ Extra Guest</button>
+        <button class="btn btn-ghost btn-sm" onclick="addAdjustment('')">＋ Custom</button>
+      </div>
     </div>
 
     <!-- ── NOTES ─────────────────────────────────────────────── -->
-    <div class="form-sec">📝 Notes</div>
-    <textarea class="input" id="f-notes" rows="3" placeholder="Internal notes, special arrangements, preferences…" style="resize:vertical;min-height:80px;margin-bottom:14px"></textarea>
+    <div class="drawer-card">
+      <div class="drawer-card-hdr">📝 Notes</div>
+      <textarea class="input" id="f-notes" rows="3" placeholder="Internal notes, special arrangements, preferences…" style="resize:vertical;min-height:80px;margin-bottom:0"></textarea>
+    </div>
 
     <!-- ── RECENT BOOKINGS ───────────────────────────────────── -->
-    <div class="form-sec">🕐 Recent Bookings</div>
-    <div id="drawerHistory" style="font-size:11px;color:var(--text-3);line-height:2"></div>
+    <div class="drawer-card">
+      <div class="drawer-card-hdr">🕐 Recent Bookings</div>
+      <div id="drawerHistory" style="font-size:12px;color:var(--text-3);line-height:2"></div>
+    </div>
 
     <!-- hidden fields for back-compat -->
     <input type="hidden" id="f-extraguests" value="0"/>
