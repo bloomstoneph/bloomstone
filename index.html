@@ -1,0 +1,1605 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Bloomstone PMS</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+/* ============================================================
+   DESIGN TOKENS
+============================================================ */
+:root {
+  --bg:#f7f7f5;--surface:#ffffff;--surface-2:#fafaf8;--surface-3:#f2f1ed;
+  --border:#e8e6e1;--border-2:#d8d5cf;
+  --text:#1a1a1a;--text-2:#5a5a5a;--text-3:#9a9a9a;
+  --accent:#1a1a1a;--accent-soft:#1a1a1a18;
+  --green:#2d6a1f;--green-bg:#edf7ea;
+  --red:#c0392b;--red-bg:#fdf0ee;
+  --orange:#c47c0a;--orange-bg:#fef8ec;
+  --yellow-req:#fffde6;
+  --blue:#1a56db;--blue-bg:#eef4ff;
+  --purple:#6d28d9;--purple-bg:#f3f0ff;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.06);
+  --shadow:0 2px 8px rgba(0,0,0,.07);
+  --shadow-lg:0 8px 24px rgba(0,0,0,.1);
+  --radius-sm:6px;--radius:10px;--radius-lg:16px;--radius-xl:22px;
+  --sidebar-w:240px;--sidebar-collapsed:60px;
+  --drawer-w:480px;--topbar-h:56px;
+  --transition:.15s ease;
+  --font:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+}
+[data-theme="dark"] {
+  --bg:#111110;--surface:#1c1c1a;--surface-2:#242422;--surface-3:#2e2e2b;
+  --border:#333330;--border-2:#444441;
+  --text:#f0eeea;--text-2:#a0a09a;--text-3:#666660;
+  --accent:#f0eeea;--accent-soft:#f0eeea18;
+  --green:#4ade80;--green-bg:#1a2e1a;
+  --red:#f87171;--red-bg:#2e1a1a;
+  --orange:#fbbf24;--orange-bg:#2e2410;
+  --yellow-req:#2a2710;
+  --blue:#60a5fa;--blue-bg:#1a2040;
+  --purple:#a78bfa;--purple-bg:#22183a;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.3);
+  --shadow:0 2px 8px rgba(0,0,0,.4);
+  --shadow-lg:0 8px 24px rgba(0,0,0,.5);
+}
+
+/* ============================================================
+   RESET & BASE
+============================================================ */
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px;-webkit-font-smoothing:antialiased}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow:hidden}
+input,select,textarea,button{font-family:inherit;font-size:inherit}
+a{color:inherit;text-decoration:none}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:99px}
+
+/* ============================================================
+   LAYOUT SHELL
+============================================================ */
+.app{display:flex;height:100vh;overflow:hidden;position:relative}
+
+/* ============================================================
+   SIDEBAR
+============================================================ */
+.sidebar{
+  width:var(--sidebar-w);flex-shrink:0;
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  transition:width var(--transition);
+  overflow:hidden;z-index:50;position:relative;
+}
+.sidebar.collapsed{width:var(--sidebar-collapsed)}
+.sidebar-top{padding:16px 14px 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);min-height:var(--topbar-h)}
+.sidebar-logo{font-size:18px;font-weight:800;letter-spacing:-.04em;white-space:nowrap;flex:1;overflow:hidden}
+.sidebar-logo span{color:var(--text-3);font-weight:400}
+.sidebar-collapse-btn{width:28px;height:28px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-2);font-size:13px;flex-shrink:0;transition:all var(--transition)}
+.sidebar-collapse-btn:hover{background:var(--surface-3);color:var(--text)}
+.sidebar.collapsed .sidebar-logo{display:none}
+.sidebar-nav{flex:1;overflow-y:auto;overflow-x:hidden;padding:10px 8px;scrollbar-width:none}
+.sidebar-nav::-webkit-scrollbar{display:none}
+.ws-item{margin-bottom:2px}
+.ws-btn{
+  width:100%;display:flex;align-items:center;gap:10px;
+  padding:8px 10px;border-radius:var(--radius);border:none;
+  background:transparent;color:var(--text-2);cursor:pointer;
+  font-size:13px;font-weight:500;text-align:left;
+  transition:all var(--transition);white-space:nowrap;overflow:hidden;
+}
+.ws-btn:hover{background:var(--surface-3);color:var(--text)}
+.ws-btn.active{background:var(--accent-soft);color:var(--text);font-weight:600}
+.ws-icon{font-size:16px;flex-shrink:0;width:20px;text-align:center}
+.ws-label{flex:1;overflow:hidden;text-overflow:ellipsis}
+.ws-chevron{font-size:10px;color:var(--text-3);flex-shrink:0;transition:transform var(--transition)}
+.ws-btn.open .ws-chevron{transform:rotate(90deg)}
+.sidebar.collapsed .ws-label,.sidebar.collapsed .ws-chevron{display:none}
+.sub-nav{display:none;padding:2px 0 4px 30px}
+.sub-nav.open{display:block}
+.sidebar.collapsed .sub-nav{display:none}
+.sub-btn{
+  width:100%;display:flex;align-items:center;gap:8px;
+  padding:6px 10px;border-radius:var(--radius-sm);border:none;
+  background:transparent;color:var(--text-3);cursor:pointer;
+  font-size:12px;font-weight:500;text-align:left;
+  transition:all var(--transition);white-space:nowrap;
+}
+.sub-btn:hover{color:var(--text);background:var(--surface-3)}
+.sub-btn.active{color:var(--text);font-weight:600;background:var(--surface-3)}
+.sidebar-bottom{padding:10px 8px;border-top:1px solid var(--border)}
+.theme-toggle{width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius);border:none;background:transparent;color:var(--text-2);cursor:pointer;font-size:13px;font-weight:500;transition:all var(--transition)}
+.theme-toggle:hover{background:var(--surface-3);color:var(--text)}
+.sidebar.collapsed .theme-toggle span{display:none}
+
+/* ============================================================
+   MAIN CONTENT
+============================================================ */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.topbar{
+  height:var(--topbar-h);border-bottom:1px solid var(--border);
+  background:var(--surface);display:flex;align-items:center;
+  padding:0 20px;gap:12px;flex-shrink:0;
+}
+.topbar-title{font-size:15px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topbar-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.workspace{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px;position:relative}
+
+/* ============================================================
+   VIEWS
+============================================================ */
+.view{display:none}
+.view.active{display:block}
+
+/* ============================================================
+   BUTTONS
+============================================================ */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 14px;border-radius:var(--radius);border:none;
+  font-size:13px;font-weight:600;cursor:pointer;
+  transition:all var(--transition);white-space:nowrap;
+  text-decoration:none;
+}
+.btn-primary{background:var(--text);color:var(--bg)}
+.btn-primary:hover{opacity:.88}
+.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{border-color:var(--text);background:var(--surface-3)}
+.btn-ghost{background:transparent;color:var(--text-2);border:none;padding:7px 10px}
+.btn-ghost:hover{background:var(--surface-3);color:var(--text)}
+.btn-danger{background:var(--red-bg);color:var(--red);border:1px solid transparent}
+.btn-danger:hover{border-color:var(--red)}
+.btn-success{background:var(--green-bg);color:var(--green);border:1px solid transparent}
+.btn-sm{padding:5px 10px;font-size:12px;border-radius:var(--radius-sm)}
+.btn-icon{width:32px;height:32px;padding:0;justify-content:center;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer;display:inline-flex;align-items:center;font-size:15px;transition:all var(--transition)}
+.btn-icon:hover{border-color:var(--text);color:var(--text);background:var(--surface-3)}
+.btn-icon.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+
+/* ============================================================
+   CARDS & SURFACES
+============================================================ */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px}
+.card-sm{padding:14px 16px;border-radius:var(--radius)}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px}
+.section-title{font-size:14px;font-weight:700;color:var(--text)}
+.section-sub{font-size:12px;color:var(--text-3)}
+
+/* ============================================================
+   STAT CARDS
+============================================================ */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px}
+.stat-label{font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.stat-value{font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1;color:var(--text)}
+.stat-sub{font-size:11px;color:var(--text-3);margin-top:5px}
+.stat-trend{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;margin-top:5px;padding:2px 7px;border-radius:99px}
+.stat-trend.up{background:var(--green-bg);color:var(--green)}
+.stat-trend.down{background:var(--red-bg);color:var(--red)}
+
+/* ============================================================
+   BADGES & PILLS
+============================================================ */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap}
+.badge-green{background:var(--green-bg);color:var(--green)}
+.badge-red{background:var(--red-bg);color:var(--red)}
+.badge-orange{background:var(--orange-bg);color:var(--orange)}
+.badge-blue{background:var(--blue-bg);color:var(--blue)}
+.badge-purple{background:var(--purple-bg);color:var(--purple)}
+.badge-neutral{background:var(--surface-3);color:var(--text-2)}
+.status-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.platform-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700}
+
+/* ============================================================
+   TABLES (desktop only)
+============================================================ */
+.table-wrap{overflow-x:auto}
+.data-table{width:100%;border-collapse:collapse;min-width:700px}
+.data-table th{padding:9px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surface)}
+.data-table td{padding:10px 12px;font-size:13px;color:var(--text);border-bottom:1px solid var(--border);white-space:nowrap}
+.data-table tbody tr{cursor:pointer;transition:background var(--transition)}
+.data-table tbody tr:hover{background:var(--surface-2)}
+.data-table tbody tr:last-child td{border-bottom:none}
+.col-stripe{width:4px;padding:0!important}
+.col-stripe-bar{display:block;width:4px;height:100%;min-height:20px;border-radius:2px}
+
+/* ============================================================
+   FORM ELEMENTS
+============================================================ */
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-row.cols3{grid-template-columns:1fr 1fr 1fr}
+.label{font-size:11px;font-weight:600;color:var(--text-2)}
+.label .req{color:var(--red);margin-left:2px}
+.input{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:9px 12px;
+  color:var(--text);font-size:13px;width:100%;
+  transition:border-color var(--transition);min-height:36px;
+}
+.input:focus{outline:none;border-color:var(--text)}
+.input.error{border-color:var(--red);background:var(--red-bg)}
+.input-req{background:var(--yellow-req)!important;border-color:rgba(180,140,0,.25)!important}
+.plat-picker-btn.input-req{background:var(--yellow-req)!important;border-color:rgba(180,140,0,.25)!important}
+.input[readonly]{background:var(--surface-3);color:var(--text-2);cursor:not-allowed}
+.input-error{font-size:11px;color:var(--red);font-weight:500;display:none;margin-top:2px}
+/* Platform color picker */
+.plat-picker{position:relative}
+.plat-picker-btn{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);cursor:pointer;min-height:36px;font-size:13px;width:100%;transition:border-color var(--transition)}
+.plat-picker-btn:hover,.plat-picker-btn.open{border-color:var(--text)}
+.plat-picker-chevron{font-size:10px;color:var(--text-3);flex-shrink:0;transition:transform .15s}
+.plat-picker-btn.open .plat-picker-chevron{transform:rotate(180deg)}
+.plat-picker-list{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);z-index:600;box-shadow:0 8px 24px rgba(0,0,0,.14);overflow:hidden;max-height:220px;overflow-y:auto;display:none}
+.plat-picker-list.open{display:block}
+.plat-picker-opt{padding:9px 14px;cursor:pointer;transition:background var(--transition);font-size:13px}
+.plat-picker-opt:hover{background:var(--surface-2)}
+.plat-picker-opt.selected{background:var(--surface-3)}
+.guest-suggest-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;transition:background var(--transition)}
+.guest-suggest-item:last-child{border-bottom:none}
+.guest-suggest-item:hover{background:var(--surface-2)}
+.guest-suggest-item .gs-name{font-weight:700;flex:1}
+.guest-suggest-item .gs-meta{font-size:11px;color:var(--text-3);white-space:nowrap}
+/* ── Property icon picker ────────────────────────────────── */
+.prop-icon-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:4px;max-height:200px;overflow-y:auto}
+.prop-icon-btn{width:100%;padding:8px 4px 5px;border:2px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-2);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:all var(--transition)}
+.prop-icon-btn svg{width:26px;height:26px;display:block;color:var(--text-2)}
+.prop-icon-btn span{font-size:9px;color:var(--text-3);font-weight:600;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-align:center}
+.prop-icon-btn:hover{border-color:var(--accent);background:var(--accent-soft)}
+.prop-icon-btn:hover svg,.prop-icon-btn:hover span{color:var(--accent)}
+.prop-icon-btn.selected{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 2px var(--accent-soft)}
+.prop-icon-btn.selected svg,.prop-icon-btn.selected span{color:var(--accent)}
+/* ── Property city badge in booking drawer ───────────────── */
+.prop-city-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;background:var(--surface-3);border:1px solid var(--border);border-radius:20px;font-size:11px;font-weight:600;color:var(--text-2);margin-top:5px}
+.input-error.show{display:block}
+.field-divider{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);padding:8px 0 4px;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.field-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ============================================================
+   FILTER BAR
+============================================================ */
+.filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);position:sticky;top:0;z-index:10;backdrop-filter:blur(8px)}
+.filter-bar .input{min-height:32px;padding:5px 10px;font-size:12px}
+.filter-spacer{flex:1}
+
+/* ============================================================
+   BOOKING DRAWER
+============================================================ */
+.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:200;display:none;backdrop-filter:blur(2px)}
+.drawer-overlay.open{display:block}
+.drawer{
+  position:fixed;top:0;right:0;bottom:0;
+  width:var(--drawer-w);
+  background:var(--surface);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;
+  z-index:201;
+  transform:translateX(100%);
+  transition:transform .25s cubic-bezier(.2,.8,.2,1);
+  box-shadow:var(--shadow-lg);
+}
+.drawer.open{transform:translateX(0)}
+.drawer-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.drawer-title{font-size:15px;font-weight:700;flex:1;min-width:0}
+.drawer-tabs{display:flex;gap:1px;border-bottom:1px solid var(--border);padding:0 18px;flex-shrink:0;overflow-x:auto;scrollbar-width:none;background:var(--surface-2)}
+.drawer-tabs::-webkit-scrollbar{display:none}
+.drawer-tab{padding:10px 12px;font-size:12px;font-weight:600;color:var(--text-3);border:none;background:transparent;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all var(--transition)}
+.drawer-tab:hover{color:var(--text)}
+.drawer-tab.active{color:var(--text);border-bottom-color:var(--text)}
+.drawer-body{flex:1;overflow-y:auto;padding:18px}
+.drawer-footer{padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0}
+.drawer-panel{display:block}
+/* form section titles inside drawer */
+.form-sec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);padding:14px 0 8px;margin-top:4px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border)}
+.form-sec:first-child{border-top:none;padding-top:0;margin-top:0}
+.form-sec::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ============================================================
+   MODALS
+============================================================ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;padding:20px;z-index:300}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius-xl);width:100%;max-width:560px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow-lg);animation:modalIn .2s cubic-bezier(.2,.8,.2,1)}
+@keyframes modalIn{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
+.modal-header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-title{font-size:16px;font-weight:700}
+.modal-body{padding:20px 22px;overflow-y:auto;flex:1}
+.modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0}
+
+/* ============================================================
+   CALENDAR
+============================================================ */
+.cal-container{display:flex;flex-direction:column;height:calc(100vh - var(--topbar-h) - 40px)}
+.cal-toolbar{display:flex;align-items:center;gap:8px;padding:0 0 14px;flex-wrap:wrap}
+.cal-view-tabs{display:flex;gap:2px;background:var(--surface-3);border-radius:var(--radius);padding:3px}
+.cal-view-tab{padding:5px 12px;border-radius:var(--radius-sm);border:none;background:transparent;color:var(--text-2);font-size:12px;font-weight:600;cursor:pointer;transition:all var(--transition)}
+.cal-view-tab.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.cal-nav-btn{width:30px;height:30px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all var(--transition)}
+.cal-nav-btn:hover{border-color:var(--text);color:var(--text)}
+.cal-period-label{font-size:15px;font-weight:700;min-width:180px}
+.cal-body{flex:1;overflow:auto;position:relative}
+
+/* Month grid */
+.month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.month-day-name{background:var(--surface-2);padding:8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);text-align:center}
+.month-cell{background:var(--surface);min-height:100px;padding:6px;position:relative;cursor:pointer;transition:background var(--transition)}
+.month-cell:hover{background:var(--surface-2)}
+.month-cell.today{background:var(--accent-soft)}
+.month-cell.other-month{background:var(--surface-2);opacity:.6}
+.month-cell-num{font-size:12px;font-weight:700;color:var(--text-2);margin-bottom:4px}
+.month-cell.today .month-cell-num{color:var(--text);background:var(--text);color:var(--bg);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px}
+.cal-event-bar{height:20px;line-height:20px;border-radius:4px;padding:0 6px;font-size:11px;font-weight:600;color:#fff;margin-bottom:2px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:filter var(--transition)}
+.cal-event-bar:hover{filter:brightness(1.1)}
+.cal-event-bar.bar-start{border-top-right-radius:0;border-bottom-right-radius:0}
+.cal-event-bar.bar-mid{border-radius:0;color:transparent}
+.cal-event-bar.bar-end{border-top-left-radius:0;border-bottom-left-radius:0;color:transparent}
+.cal-event-bar.bar-conflict{outline:2px solid var(--orange);outline-offset:-2px}
+.cal-more{font-size:10px;color:var(--text-3);font-weight:600;padding:1px 4px}
+
+/* Week/Day grid */
+.week-grid{display:grid;min-width:700px}
+.week-header{display:grid;border-bottom:1px solid var(--border);background:var(--surface)}
+.week-header-cell{padding:10px 8px;font-size:12px;font-weight:600;text-align:center;border-right:1px solid var(--border)}
+.week-header-cell:last-child{border-right:none}
+.week-header-cell.today-col{color:var(--text);font-weight:700}
+.week-body{display:grid;position:relative}
+.week-col{border-right:1px solid var(--border);min-height:600px;padding:4px;position:relative}
+.week-col:last-child{border-right:none}
+.week-col.today-col{background:var(--accent-soft)}
+
+/* Timeline */
+.timeline-wrap{overflow:auto}
+.timeline-grid{min-width:900px}
+.timeline-header{display:flex;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:5}
+.timeline-prop-col{width:160px;flex-shrink:0;padding:8px 12px;font-size:11px;font-weight:700;color:var(--text-3);border-right:1px solid var(--border)}
+.timeline-dates{flex:1;display:flex}
+.timeline-date-cell{flex:1;text-align:center;padding:6px 2px;font-size:10px;font-weight:600;color:var(--text-3);border-right:1px solid var(--border)}
+.timeline-date-cell.today-col{background:var(--accent-soft);color:var(--text)}
+.timeline-row{display:flex;border-bottom:1px solid var(--border);min-height:44px}
+.timeline-prop-label{width:160px;flex-shrink:0;padding:8px 12px;font-size:12px;font-weight:600;color:var(--text);border-right:1px solid var(--border);display:flex;align-items:center}
+.timeline-cells{flex:1;display:flex;position:relative}
+.timeline-cell{flex:1;border-right:1px solid var(--border);cursor:pointer;transition:background var(--transition)}
+.timeline-cell:hover{background:var(--surface-2)}
+.timeline-cell.today-col{background:var(--accent-soft)}
+.timeline-bar{position:absolute;top:6px;height:30px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;font-weight:600;color:#fff;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;z-index:2;transition:filter var(--transition)}
+.timeline-bar:hover{filter:brightness(1.1)}
+.timeline-bar.dragging{opacity:.7;z-index:10;cursor:grabbing}
+
+/* Occupancy view */
+.occ-grid{display:grid;gap:12px}
+.occ-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px}
+.occ-prop-name{font-size:13px;font-weight:700;margin-bottom:10px}
+.occ-bar-wrap{display:flex;gap:1px}
+.occ-day{flex:1;height:28px;border-radius:3px;cursor:pointer;transition:filter var(--transition);position:relative}
+.occ-day:hover{filter:brightness(.9)}
+.occ-day.available{background:var(--surface-3)}
+.occ-day.booked{background:var(--green)}
+.occ-day.partial{background:var(--orange)}
+.occ-legend{display:flex;gap:14px;margin-top:10px}
+.occ-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-3)}
+.occ-dot{width:10px;height:10px;border-radius:2px}
+
+/* Availability */
+.avail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.avail-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px}
+.avail-prop-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.avail-prop-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.avail-prop-name{font-size:13px;font-weight:700}
+.avail-prop-sub{font-size:11px;color:var(--text-3);font-weight:400;margin-left:auto;white-space:nowrap}
+.avail-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.avail-day-name{text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;color:var(--text-3);padding:2px 0 4px}
+.avail-day{width:100%;height:32px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;box-sizing:border-box;position:relative;transition:filter .15s}
+.avail-day:hover{filter:brightness(0.9)}
+.avail-day.available{background:var(--green-bg);color:var(--green)}
+.avail-day.booked{color:#fff}
+.avail-day.checkout-day{background:linear-gradient(to right,var(--booked-bg,#888) 50%,var(--green-bg) 50%);color:var(--green)}
+.avail-day.today-avail{outline:2px solid var(--text);outline-offset:-2px}
+.avail-day.empty{background:transparent;cursor:default;pointer-events:none}
+.avail-day.blocked-avail{background:var(--red-bg);color:var(--red)}
+.avail-legend{grid-column:1/-1;display:flex;gap:16px;flex-wrap:wrap;align-items:center;padding:10px 0 2px;font-size:11px;color:var(--text-3)}
+.avail-legend-item{display:flex;align-items:center;gap:5px}
+.avail-legend-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+@media(max-width:900px){.avail-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.avail-grid{grid-template-columns:1fr}}
+
+/* ============================================================
+   FINANCE SUMMARY CARDS
+============================================================ */
+.finance-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+.finance-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px}
+.finance-block-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);margin-bottom:12px}
+.finance-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px solid var(--border)}
+.finance-row:last-child{border-bottom:none;font-weight:700;padding-top:9px;margin-top:4px}
+.finance-row .label{color:var(--text-2)}
+.finance-row .val{font-weight:600}
+.finance-row .val.pos{color:var(--green)}
+.finance-row .val.neg{color:var(--red)}
+
+/* ============================================================
+   EXPENSE MODAL FIELDS
+============================================================ */
+.exp-amounts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.exp-amount-item{display:flex;flex-direction:column;gap:3px}
+.exp-amount-label{font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em}
+
+/* ============================================================
+   PROPERTY CARDS
+============================================================ */
+.prop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.prop-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;cursor:pointer;transition:all var(--transition)}
+.prop-card:hover{border-color:var(--border-2);box-shadow:var(--shadow)}
+.prop-card-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+.prop-icon{width:40px;height:40px;border-radius:var(--radius);background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.prop-card-name{font-size:14px;font-weight:700;margin-bottom:2px}
+.prop-card-meta{font-size:12px;color:var(--text-3)}
+.prop-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.prop-stat-label{font-size:10px;color:var(--text-3);font-weight:500;margin-bottom:3px}
+.prop-stat-value{font-size:14px;font-weight:700}
+.prop-photo-thumb{width:60px;height:50px;object-fit:cover;border-radius:6px;cursor:pointer;transition:opacity .15s;border:1px solid var(--border)}
+.prop-photo-thumb:hover{opacity:.8}
+.prop-photo-strip{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.prop-photo-hero{width:100%;height:140px;object-fit:cover;border-radius:var(--radius);margin-bottom:8px;cursor:pointer}
+.fp-photo-preview{position:relative;display:inline-block}
+.fp-photo-preview img{width:72px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border);display:block}
+.fp-photo-preview .remove-photo{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--red);color:#fff;font-size:12px;line-height:18px;text-align:center;cursor:pointer;font-weight:700;z-index:1}
+
+/* ============================================================
+   GUEST PROFILE
+============================================================ */
+.guest-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:10px;cursor:pointer;transition:all var(--transition)}
+.guest-card:hover{border-color:var(--border-2);box-shadow:var(--shadow)}
+.guest-avatar{width:36px;height:36px;border-radius:50%;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--text-2);flex-shrink:0}
+
+/* ============================================================
+   TODAY VIEW
+============================================================ */
+.today-sections{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.today-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.today-card-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.today-card-title{font-size:13px;font-weight:700}
+.today-item{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background var(--transition)}
+.today-item:last-child{border-bottom:none}
+.today-item:hover{background:var(--surface-2)}
+.today-item-info{flex:1;min-width:0}
+.today-item-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.today-item-meta{font-size:11px;color:var(--text-3);margin-top:1px}
+.today-timeline{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-top:16px;overflow:hidden}
+
+/* ============================================================
+   REPORTS
+============================================================ */
+.chart-wrap{position:relative;width:100%;height:220px}
+canvas.chart{width:100%!important;height:220px!important;display:block}
+
+/* ============================================================
+   TASK LIST
+============================================================ */
+.task-list{display:flex;flex-direction:column;gap:6px}
+.task-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface-2);cursor:pointer;transition:all var(--transition)}
+.task-item:hover{border-color:var(--border-2)}
+.task-item.done{opacity:.6}
+.task-item.done .task-name{text-decoration:line-through;color:var(--text-3)}
+.task-checkbox{width:16px;height:16px;border-radius:4px;border:2px solid var(--border-2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;transition:all var(--transition)}
+.task-item.done .task-checkbox{background:var(--green);border-color:var(--green);color:#fff}
+.task-name{font-size:13px;font-weight:500;flex:1}
+
+/* ============================================================
+   COMMAND PALETTE
+============================================================ */
+.cmd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);backdrop-filter:blur(4px);z-index:500;display:none;align-items:flex-start;justify-content:center;padding-top:15vh}
+.cmd-overlay.open{display:flex}
+.cmd-palette{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);width:100%;max-width:580px;box-shadow:var(--shadow-lg);overflow:hidden;animation:cmdIn .15s cubic-bezier(.2,.8,.2,1)}
+@keyframes cmdIn{from{opacity:0;transform:scale(.97) translateY(-10px)}to{opacity:1;transform:none}}
+.cmd-input-wrap{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.cmd-icon{font-size:18px;color:var(--text-3)}
+.cmd-input{flex:1;border:none;background:transparent;font-size:15px;color:var(--text);outline:none}
+.cmd-input::placeholder{color:var(--text-3)}
+.cmd-results{max-height:360px;overflow-y:auto}
+.cmd-section-label{padding:8px 18px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3)}
+.cmd-item{display:flex;align-items:center;gap:12px;padding:10px 18px;cursor:pointer;transition:background var(--transition)}
+.cmd-item:hover,.cmd-item.selected{background:var(--surface-3)}
+.cmd-item-icon{width:28px;height:28px;border-radius:var(--radius-sm);background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.cmd-item-label{font-size:13px;font-weight:500;flex:1}
+.cmd-item-hint{font-size:11px;color:var(--text-3)}
+.cmd-footer{padding:10px 18px;border-top:1px solid var(--border);display:flex;gap:14px;font-size:11px;color:var(--text-3)}
+
+/* ============================================================
+   SKELETON LOADERS
+============================================================ */
+@keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+.skeleton{background:linear-gradient(90deg,var(--surface-3) 25%,var(--surface-2) 50%,var(--surface-3) 75%);background-size:400px 100%;animation:shimmer 1.4s infinite;border-radius:var(--radius-sm)}
+
+/* ============================================================
+   TOAST
+============================================================ */
+.toast-host{position:fixed;bottom:20px;right:20px;z-index:600;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;font-size:13px;font-weight:500;min-width:240px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow-lg);animation:toastIn .2s cubic-bezier(.2,.8,.2,1);pointer-events:all}
+@keyframes toastIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+.toast.success{border-left:3px solid var(--green)}
+.toast.warning{border-left:3px solid var(--orange)}
+.toast.error{border-left:3px solid var(--red)}
+.toast .undo{margin-left:auto;background:var(--text);color:var(--bg);border:none;padding:3px 9px;border-radius:var(--radius-sm);font:inherit;font-size:11px;font-weight:700;cursor:pointer}
+
+/* ============================================================
+   CONFIRM DIALOG
+============================================================ */
+#confirmModal .modal{max-width:380px}
+#confirmModal.wide .modal{max-width:480px}
+.confirm-body{padding:24px 22px;text-align:center}
+.confirm-icon{font-size:28px;margin-bottom:10px}
+.confirm-title{font-size:16px;font-weight:700;margin-bottom:6px}
+.confirm-text{font-size:13px;color:var(--text-2);line-height:1.5;margin-bottom:20px}
+.confirm-actions{display:flex;gap:8px;justify-content:center}
+.change-row{display:flex;align-items:baseline;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);text-align:left;font-size:12px}
+.change-row:last-child{border-bottom:none}
+.change-field{color:var(--text-3);font-weight:600;min-width:90px;flex-shrink:0}
+.change-old{color:var(--red);text-decoration:line-through;opacity:.8;flex:1;word-break:break-word}
+.change-arrow{color:var(--text-3);flex-shrink:0}
+.change-new{color:var(--green);font-weight:700;flex:1;word-break:break-word}
+
+/* ============================================================
+   GOOGLE DRIVE
+============================================================ */
+.drive-status{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface-2);font-size:13px;margin-bottom:12px}
+.drive-dot{width:8px;height:8px;border-radius:50%;background:var(--text-3);flex-shrink:0}
+.drive-dot.connected{background:var(--green)}
+.drive-dot.syncing{background:var(--orange);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ============================================================
+   ALERT BAR
+============================================================ */
+.alert-bar{padding:8px 12px;border-radius:var(--radius);font-size:12px;font-weight:500;margin-bottom:12px;display:none}
+.alert-bar.show{display:block}
+.alert-bar.warning{background:var(--orange-bg);color:var(--orange);border:1px solid var(--orange)}
+.alert-bar.danger{background:var(--red-bg);color:var(--red);border:1px solid var(--red)}
+
+/* ============================================================
+   FLOATING ACTION BUTTON
+============================================================ */
+.fab{
+  position:fixed;bottom:28px;right:28px;width:52px;height:52px;
+  border-radius:50%;background:var(--text);color:var(--bg);
+  border:none;font-size:26px;cursor:pointer;
+  box-shadow:0 4px 16px rgba(0,0,0,.22);
+  display:flex;align-items:center;justify-content:center;
+  z-index:150;transition:transform .15s ease,opacity .15s ease;
+}
+.fab:hover{transform:scale(1.08);opacity:.88}
+@media(max-width:767px){.fab{bottom:72px;right:16px;width:48px;height:48px;font-size:23px}}
+
+/* ============================================================
+   LOGIN OVERLAY
+============================================================ */
+.login-screen{position:fixed;inset:0;background:var(--bg);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:36px 32px;width:100%;max-width:380px;box-shadow:var(--shadow-lg)}
+.login-logo{font-size:24px;font-weight:800;letter-spacing:-.04em;margin-bottom:4px}
+.login-logo span{color:var(--text-3);font-weight:400}
+.login-sub{font-size:12px;color:var(--text-3);margin-bottom:28px}
+.login-err{background:var(--red-bg);color:var(--red);border:1px solid var(--red);border-radius:var(--radius);padding:8px 12px;font-size:12px;margin-bottom:14px;display:none}
+.login-err.show{display:block}
+
+/* ============================================================
+   PROPERTY PILLS (calendar toggle)
+============================================================ */
+.prop-pills{display:flex;gap:6px;flex-wrap:wrap;padding:8px 0 4px}
+.prop-pill{padding:5px 14px;border-radius:99px;border:1.5px solid var(--border);background:var(--surface);color:var(--text-2);font-size:12px;font-weight:600;cursor:pointer;transition:all var(--transition);white-space:nowrap}
+.prop-pill:hover{border-color:var(--border-2);color:var(--text)}
+.prop-pill.active{background:var(--text);color:var(--bg);border-color:var(--text)}.prop-pill.active[data-color]{background:var(--prop-color,var(--text));border-color:var(--prop-color,var(--text));color:#fff}
+
+/* ============================================================
+   BLOCK DATES PICKER
+============================================================ */
+.block-cal-wrap{margin-top:10px}
+.block-cal-nav{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.block-cal-nav button{width:30px;height:30px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:var(--text-2)}
+.block-cal-nav button:hover{background:var(--surface-3);color:var(--text)}
+.block-cal-label{flex:1;text-align:center;font-size:13px;font-weight:700}
+.block-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.block-cal-dn{text-align:center;font-size:9px;font-weight:700;color:var(--text-3);padding:4px 0;text-transform:uppercase}
+.block-cal-day{aspect-ratio:1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid transparent;transition:all .1s}
+.block-cal-day.in{background:var(--surface-2);color:var(--text)}
+.block-cal-day.in:hover{border-color:var(--border-2)}
+.block-cal-day.blocked{background:var(--red-bg)!important;color:var(--red)!important;border-color:var(--red)!important}
+.block-cal-day.has-booking{background:var(--green-bg);color:var(--green);cursor:default}
+.block-cal-day.empty{cursor:default}
+.block-legend{display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--text-3)}
+.block-legend-dot{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:4px}
+
+/* ============================================================
+   USER MANAGEMENT
+============================================================ */
+.user-card{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px}
+.user-avatar{width:36px;height:36px;border-radius:50%;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0}
+
+/* ============================================================
+   EMPTY STATE
+============================================================ */
+.empty{text-align:center;padding:48px 20px;color:var(--text-3)}
+.empty-icon{font-size:30px;margin-bottom:10px;opacity:.5}
+.empty-text{font-size:13px}
+
+/* ============================================================
+   MOBILE BOTTOM NAV
+============================================================ */
+.mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);z-index:100;padding:0 8px env(safe-area-inset-bottom)}
+.mobile-nav-items{display:flex;justify-content:space-around}
+.mobile-nav-btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 12px;border:none;background:transparent;color:var(--text-3);cursor:pointer;font-size:10px;font-weight:600;transition:color var(--transition);min-width:52px}
+.mobile-nav-btn.active{color:var(--text)}
+.mobile-nav-btn .nav-icon{font-size:20px;line-height:1}
+.mobile-hamburger{display:none;width:36px;height:36px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+
+/* ============================================================
+   TABLET SIDEBAR OVERLAY
+============================================================ */
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:49;backdrop-filter:blur(2px)}
+
+/* ============================================================
+   RESPONSIVE
+============================================================ */
+@media (max-width:1439px){
+  :root{--sidebar-w:200px;--drawer-w:calc(100vw - 16px)}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .today-sections{grid-template-columns:1fr}
+}
+@media (max-width:1100px){
+  .finance-grid{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:767px){
+  :root{--topbar-h:50px}
+  .sidebar{display:none}
+  .sidebar.mobile-open{display:flex;position:fixed;top:0;left:0;bottom:0;z-index:50;width:var(--sidebar-w)!important}
+  .sidebar-overlay{display:none}
+  .sidebar-overlay.open{display:block}
+  .mobile-nav{display:block}
+  .mobile-hamburger{display:flex}
+  .workspace{padding:14px 14px 80px}
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .today-sections{grid-template-columns:1fr}
+  .finance-grid{grid-template-columns:1fr}
+  .field-row{grid-template-columns:1fr}
+  .field-row.cols3{grid-template-columns:1fr}
+  .drawer{width:100%!important;top:auto;height:92vh;border-radius:var(--radius-xl) var(--radius-xl) 0 0;border-left:none;border-top:1px solid var(--border);transform:translateY(100%)}
+  .drawer.open{transform:translateY(0)}
+  .drawer-overlay.open{display:block}
+  .topbar .topbar-title{font-size:14px}
+  .data-table{display:none}
+  .prop-grid{grid-template-columns:1fr}
+  .avail-grid{grid-template-columns:1fr}
+  .month-cell{min-height:60px}
+  .cal-event-bar{height:16px;line-height:16px;font-size:9px}
+  .filter-bar{position:relative;top:auto}
+  .exp-amounts{grid-template-columns:1fr 1fr}
+}
+@media (max-width:480px){
+  .stats-grid{grid-template-columns:1fr}
+  .exp-amounts{grid-template-columns:1fr}
+  .cal-view-tabs{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+<!-- LOGIN SCREEN -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">bloom<span>stone</span></div>
+    <div class="login-sub">Property Management System — sign in to continue</div>
+    <div class="login-err" id="loginErr"></div>
+    <div class="field">
+      <label class="label">Username</label>
+      <input class="input" id="loginUser" type="text" placeholder="Username" autocomplete="username"/>
+    </div>
+    <div class="field">
+      <label class="label">Password</label>
+      <input class="input" id="loginPass" type="password" placeholder="Password" autocomplete="current-password"/>
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px;padding:10px" id="loginBtn">Sign In</button>
+    <div style="margin-top:14px;text-align:center;font-size:11px;color:var(--text-3)">Default: <strong>admin</strong> / <strong>admin123</strong></div>
+  </div>
+</div>
+
+<div class="app" id="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <div class="sidebar-logo">bloom<span>stone</span></div>
+      <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Collapse">‹</button>
+    </div>
+    <nav class="sidebar-nav" id="sidebarNav">
+      <!-- Nav built by JS -->
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="theme-toggle" id="themeToggleBtn">
+        <span class="ws-icon" id="themeIcon">☀</span>
+        <span id="themeLabel">Light mode</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- SIDEBAR OVERLAY (tablet) -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <button class="mobile-hamburger" id="mobileMenuBtn">☰</button>
+      <div class="topbar-title" id="topbarTitle">Today</div>
+      <div class="topbar-actions">
+        <button class="btn-icon" id="cmdPaletteBtn" title="Command palette (Ctrl+K)">⌕</button>
+        <button class="btn-icon" id="dailyBriefBtn" title="Daily brief">☼</button>
+        <button class="btn-icon" id="excelLoadBtn" title="Load from Excel file">📂</button>
+        <button class="btn-icon" id="excelSaveBtn" title="Save all data to Excel">💾</button>
+        <button class="btn btn-primary btn-sm" id="addBookingBtn">＋ Booking</button>
+        <button class="btn btn-secondary btn-sm" id="logoutBtn" title="Sign out">⏏</button>
+      </div>
+    </header>
+
+    <!-- WORKSPACE -->
+    <div class="workspace" id="workspace">
+
+      <!-- TODAY -->
+      <div class="view active" id="view-today">
+        <div class="stats-grid" id="todayStats"></div>
+        <div class="today-sections" id="todaySections"></div>
+        <div class="today-timeline" id="todayTimeline"></div>
+      </div>
+
+      <!-- OPERATIONS: BOOKINGS -->
+      <div class="view" id="view-bookings">
+        <div class="filter-bar" id="bookingsFilterBar">
+          <select class="input" id="bk-month"><option value="all">All Months</option></select>
+          <select class="input" id="bk-prop"><option value="all">All Properties</option></select>
+          <select class="input" id="bk-plat"><option value="all">All Platforms</option></select>
+          <select class="input" id="bk-status"><option value="all">All Statuses</option><option>Confirmed</option><option>Pending</option><option>Checked-In</option><option>Cancelled</option></select>
+          <button class="btn btn-ghost btn-sm" onclick="clearBookingFilters()">× Clear</button>
+          <div class="filter-spacer"></div>
+          <span id="bkCount" style="font-size:12px;color:var(--text-3)"></span>
+          <button class="btn btn-primary btn-sm" id="addBookingBtnOps">＋ Add Booking</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="bookingsTable">
+            <thead><tr>
+              <th class="col-stripe"></th>
+              <th>Check-in</th><th>Check-out</th><th>Nights</th>
+              <th>Platform</th><th>Guest</th><th>Property</th>
+              <th>Rate</th><th>Promo</th><th>Booking Fee</th>
+              <th>Service Fee</th><th>Extra Guests</th><th>Extra Fee</th>
+              <th>Platform Comm</th><th>Net Revenue</th>
+              <th>Store Sales</th><th>Cleaning Fee</th>
+              <th>Payment</th><th>Status</th><th>Tasks</th><th></th>
+            </tr></thead>
+            <tbody id="bookingsTbody"></tbody>
+          </table>
+        </div>
+        <!-- Mobile cards -->
+        <div id="bookingCards" style="display:none"></div>
+      </div>
+
+      <!-- OPERATIONS: CALENDAR -->
+      <div class="view" id="view-calendar">
+        <div class="cal-container">
+          <div class="cal-toolbar" id="calToolbar">
+            <button class="cal-nav-btn" id="calPrev">‹</button>
+            <button class="cal-nav-btn" id="calToday" style="font-size:12px;font-weight:600;width:auto;padding:0 10px">Today</button>
+            <button class="cal-nav-btn" id="calNext">›</button>
+            <span class="cal-period-label" id="calPeriodLabel"></span>
+            <div class="filter-spacer"></div>
+            <div class="cal-view-tabs" id="calViewTabs">
+              <button class="cal-view-tab active" data-view="month">Month</button>
+              <button class="cal-view-tab" data-view="week">Week</button>
+              <button class="cal-view-tab" data-view="day">Day</button>
+              <button class="cal-view-tab" data-view="timeline">Timeline</button>
+              <button class="cal-view-tab" data-view="availability">Availability</button>
+              <button class="cal-view-tab" data-view="occupancy">Occupancy</button>
+            </div>
+          </div>
+          <div class="filter-bar" id="calFilter" style="margin-bottom:6px">
+            <select class="input" id="cal-plat"><option value="all">All Platforms</option></select>
+            <div class="filter-spacer"></div>
+            <button class="btn btn-secondary btn-sm" id="calExportBtn">⬇ Export</button>
+          </div>
+          <!-- Property toggle pills -->
+          <div class="prop-pills" id="calPropPills"></div>
+          <div class="cal-body" id="calBody"></div>
+        </div>
+      </div>
+
+      <!-- FINANCE: OVERVIEW -->
+      <div class="view" id="view-finance-overview">
+        <div class="filter-bar">
+          <select class="input" id="fin-period"><option value="thismonth">This Month</option><option value="lastmonth">Last Month</option><option value="thisyear">This Year</option><option value="all">All Time</option></select>
+          <select class="input" id="fin-prop"><option value="all">All Properties</option></select>
+        </div>
+        <div class="stats-grid" id="finStats"></div>
+        <div class="finance-grid" id="finBlocks"></div>
+        <div id="finCharts" style="display:grid;grid-template-columns:1fr 1fr;gap:16px"></div>
+      </div>
+
+      <!-- FINANCE: EXPENSES -->
+      <div class="view" id="view-finance-expenses">
+        <div class="filter-bar">
+          <select class="input" id="exp-month"><option value="all">All Months</option></select>
+          <select class="input" id="exp-prop"><option value="all">All Properties</option></select>
+          <div class="filter-spacer"></div>
+          <button class="btn btn-primary btn-sm" onclick="openExpenseModal()">＋ Add Expenses</button>
+        </div>
+        <div class="stats-grid" id="expStats" style="grid-template-columns:repeat(3,1fr)"></div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Month</th><th>Property</th><th>Promo Cost</th><th>Cleaning Cost</th><th>Water</th><th>Electricity</th><th>Supplies Expense</th><th>Maintenance</th><th>Other Expenses</th><th>Total</th><th>Notes</th><th style="width:70px"></th></tr></thead>
+            <tbody id="expenseTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- FINANCE: DEPOSITS -->
+      <div class="view" id="view-finance-deposits">
+        <div class="filter-bar">
+          <select class="input" id="dep-month"><option value="all">All Months</option></select>
+          <select class="input" id="dep-status"><option value="all">All</option><option value="pending">Pending Collection</option><option value="collected">Collected</option><option value="refunded">Refunded</option></select>
+        </div>
+        <div class="stats-grid" id="depStats" style="grid-template-columns:repeat(3,1fr)"></div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Guest</th><th>Property</th><th>Dates</th><th>Amount</th><th>Collected</th><th>Refunded</th><th>Status</th><th></th></tr></thead>
+            <tbody id="depositTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- FINANCE: PLATFORMS -->
+      <div class="view" id="view-finance-platforms">
+        <div class="filter-bar">
+          <button class="btn btn-primary btn-sm" onclick="openPlatformModal()">＋ Add Platform</button>
+        </div>
+        <div class="stats-grid" id="platStats"></div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Platform</th><th>Commission %</th><th>VAT %</th><th>Bookings</th><th>Revenue</th><th>Color</th><th></th></tr></thead>
+            <tbody id="platformTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PROPERTIES: PORTFOLIO -->
+      <div class="view" id="view-properties">
+        <div class="filter-bar">
+          <button class="btn btn-primary btn-sm" onclick="openPropertyModal()">＋ Add Property</button>
+          <div class="filter-spacer"></div>
+        </div>
+        <div class="prop-grid" id="propGrid"></div>
+      </div>
+
+      <!-- REPORTS -->
+      <div class="view" id="view-reports">
+        <div class="filter-bar">
+          <select class="input" id="rep-group"><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>
+          <select class="input" id="rep-prop"><option value="all">All Properties</option></select>
+          <select class="input" id="rep-plat"><option value="all">All Platforms</option></select>
+          <input class="input" id="rep-from" type="date" placeholder="From"/>
+          <input class="input" id="rep-to" type="date" placeholder="To"/>
+          <button class="btn btn-ghost btn-sm" onclick="clearReportFilters()">× Clear</button>
+          <div class="filter-spacer"></div>
+          <button class="btn btn-secondary btn-sm" id="repExportCSV">⬇ CSV</button>
+          <button class="btn btn-secondary btn-sm" id="repExportDrive">☁ Drive</button>
+        </div>
+        <div class="stats-grid" id="repStats"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+          <div class="card"><div class="section-header"><div class="section-title">Revenue by Period</div></div><div class="chart-wrap"><canvas id="repBarCanvas" class="chart"></canvas></div></div>
+          <div class="card"><div class="section-header"><div class="section-title">Revenue by Platform</div></div><div class="chart-wrap"><canvas id="repPieCanvas" class="chart"></canvas></div></div>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="section-header"><div class="section-title">Occupancy Analytics</div></div>
+          <div class="chart-wrap"><canvas id="repOccCanvas" class="chart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="section-header"><div class="section-title" id="repTableTitle">Summary</div><div class="section-sub" id="repSmartInsight"></div></div>
+          <div class="table-wrap">
+            <table class="data-table"><thead id="repThead"></thead><tbody id="repTbody"></tbody><tfoot id="repTfoot"></tfoot></table>
+          </div>
+        </div>
+        <!-- Forecasting placeholder -->
+        <div class="card" style="margin-top:16px">
+          <div class="section-header"><div class="section-title">Forecasting</div><span class="badge badge-blue">Coming Soon</span></div>
+          <div id="forecastPlaceholder" style="padding:20px 0;color:var(--text-3);font-size:13px">Forecasting module will project occupancy and revenue for the next 30/60/90 days based on historical booking patterns.</div>
+        </div>
+      </div>
+
+      <!-- SYSTEM: IMPORTS -->
+      <div class="view" id="view-system-imports">
+        <div class="card" style="margin-bottom:16px">
+          <div class="section-header"><div class="section-title">Bulk Import from Google Sheets</div></div>
+          <div style="margin-bottom:14px">
+            <label class="label">Select Property</label>
+            <select id="bulkImportProperty" class="input" style="max-width:280px;margin-top:4px"></select>
+          </div>
+          <textarea id="bulkPasteBox" class="input" style="min-height:120px;font-family:monospace;font-size:12px;resize:vertical" placeholder="Paste tab-separated Google Sheet rows here…"></textarea>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" id="convertBulkBtn">Convert to Table</button>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('bulkPasteBox').value=''">Clear</button>
+          </div>
+          <div style="font-size:12px;color:var(--text-3);margin:10px 0">Preview rows: <strong id="bulkPreviewCount">0</strong></div>
+          <div style="overflow:auto;border:1px solid var(--border);border-radius:var(--radius-lg);max-height:400px">
+            <table style="min-width:1800px;width:100%;border-collapse:collapse">
+              <thead style="position:sticky;top:0;background:var(--text);color:var(--bg)">
+                <tr id="bulkImportHead">
+                  <th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Check-in</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Check-out</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Platform</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Guest</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Property</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Rate</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Promo</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Nights</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Total</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Service Fee</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Booking Fee</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Platform Comm</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Net Revenue</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Extra Guests</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Extra Fee</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Payment</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Notes</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Cleaning Fee</th><th style="padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap">Store Sales</th>
+                </tr>
+              </thead>
+              <tbody id="sheetImportBody"></tbody>
+            </table>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+            <button class="btn btn-primary" id="importDataBtn">Import Data</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SYSTEM: SETTINGS -->
+      <div class="view" id="view-system-settings">
+        <div class="card" style="max-width:600px">
+          <div class="section-title" style="margin-bottom:16px">System Settings</div>
+          <div class="field">
+            <label class="label">App Name</label>
+            <input class="input" id="setting-appname" value="Bloomstone" placeholder="App name"/>
+          </div>
+          <div class="field">
+            <label class="label">Default Currency</label>
+            <select class="input" id="setting-currency"><option value="₱">PHP (₱)</option><option value="$">USD ($)</option><option value="€">EUR (€)</option></select>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:16px">
+            <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SYSTEM: INTEGRATIONS (Google Drive) -->
+      <div class="view" id="view-system-integrations">
+
+        <!-- GOOGLE SHEETS SYNC -->
+        <div class="card" style="max-width:600px;margin-bottom:16px">
+          <div class="section-title" style="margin-bottom:4px">📊 Google Sheets Sync</div>
+          <div class="section-sub" style="margin-bottom:14px">Two-way sync with a Google Sheet — push your data up or pull changes back down. Uses a free Apps Script web app as the bridge.</div>
+
+          <div class="drive-status" id="sheetsStatusBar" style="margin-bottom:14px">
+            <div class="drive-dot" id="sheetsDot"></div>
+            <span id="sheetsStatusText">Not connected</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--text-3)" id="sheetsLastSync"></span>
+          </div>
+
+          <div class="field">
+            <label class="label">Apps Script Web App URL <span class="req">*</span></label>
+            <input class="input" id="sheetsWebAppUrl" placeholder="https://script.google.com/macros/s/…/exec"/>
+            <div style="font-size:11px;color:var(--text-3);margin-top:4px">Paste the Web App URL from your deployed Apps Script (see setup guide below).</div>
+          </div>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+            <button class="btn btn-primary" id="sheetsConnectBtn">🔗 Connect</button>
+            <button class="btn btn-success btn-sm" id="sheetsPushBtn" disabled title="Push all data to Google Sheets">⬆ Push to Sheets</button>
+            <button class="btn btn-secondary btn-sm" id="sheetsPullBtn" disabled title="Pull data from Google Sheets">⬇ Pull from Sheets</button>
+            <button class="btn btn-ghost btn-sm" id="sheetsDisconnectBtn" style="margin-left:auto">Disconnect</button>
+          </div>
+
+          <!-- Progress bar -->
+          <div id="sheetsSyncProgress" style="display:none;margin-top:12px">
+            <div style="font-size:12px;color:var(--text-2);margin-bottom:6px" id="sheetsSyncMsg">Syncing…</div>
+            <div style="height:4px;background:var(--surface-3);border-radius:99px;overflow:hidden">
+              <div id="sheetsSyncBar" style="height:100%;background:var(--green);width:0%;transition:width .4s ease;border-radius:99px"></div>
+            </div>
+          </div>
+
+          <!-- Setup guide -->
+          <details style="margin-top:16px">
+            <summary style="font-size:12px;font-weight:700;cursor:pointer;color:var(--text-2);padding:8px 0;border-top:1px solid var(--border)">📋 Setup Guide (click to expand)</summary>
+            <ol style="font-size:12px;color:var(--text-2);line-height:2;margin-top:10px;padding-left:18px">
+              <li>Create a new <strong>Google Sheet</strong> (sheets.google.com → Blank)</li>
+              <li>Open <strong>Extensions → Apps Script</strong></li>
+              <li>Delete any existing code in the editor</li>
+              <li>Open <code>bloomstone-sheets.gs</code> (in the same folder as this app) and <strong>paste its contents</strong> into the Script Editor</li>
+              <li>Click <strong>Save</strong> (💾 icon or Ctrl+S)</li>
+              <li>Click <strong>Run → setupSheet</strong> (first time only — approve permissions)</li>
+              <li>Click <strong>Deploy → New Deployment</strong></li>
+              <li>Set Type: <em>Web App</em> · Execute as: <em>Me</em> · Who has access: <em>Anyone</em></li>
+              <li>Click <strong>Deploy</strong> and copy the <strong>Web App URL</strong></li>
+              <li>Paste the URL above and click <strong>Connect</strong></li>
+            </ol>
+            <div style="background:var(--orange-bg);border-radius:var(--radius);padding:10px 12px;font-size:12px;color:var(--orange);margin-top:8px">
+              ⚠ <strong>Privacy note:</strong> Set access to <em>"Anyone with Google Account"</em> if you want to restrict access to signed-in Google users only.
+            </div>
+          </details>
+        </div>
+
+        <div class="card" style="max-width:600px;margin-bottom:16px">
+          <div class="section-title" style="margin-bottom:6px">Google Drive Integration</div>
+          <div class="section-sub" style="margin-bottom:16px">Auto-backup your data daily as Excel to a linked Google Drive folder</div>
+          <div class="drive-status" id="driveStatusBar">
+            <div class="drive-dot" id="driveDot"></div>
+            <span id="driveStatusText">Not connected</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--text-3)" id="driveLastSync"></span>
+          </div>
+          <div class="field">
+            <label class="label">Google API Client ID</label>
+            <input class="input" id="driveClientId" placeholder="Paste your Google OAuth Client ID here"/>
+          </div>
+          <div class="field">
+            <label class="label">Linked Folder</label>
+            <div style="display:flex;gap:8px">
+              <input class="input" id="driveFolderName" readonly placeholder="No folder linked" style="flex:1"/>
+              <button class="btn btn-secondary btn-sm" id="driveLinkBtn">📂 Pick</button>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label">Or paste Google Drive Folder URL directly</label>
+            <div style="display:flex;gap:8px">
+              <input class="input" id="driveFolderUrl" placeholder="https://drive.google.com/drive/folders/…" style="flex:1"/>
+              <button class="btn btn-secondary btn-sm" id="driveFolderUrlBtn">Use URL</button>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+            <button class="btn btn-primary" id="driveConnectBtn">Connect Google Drive</button>
+            <button class="btn btn-secondary" id="driveExportNowBtn">Export Now</button>
+            <button class="btn btn-ghost btn-sm" id="driveDisconnectBtn">Disconnect</button>
+          </div>
+          <div style="margin-top:16px;padding:12px 14px;background:var(--surface-3);border-radius:var(--radius);font-size:12px;color:var(--text-2);line-height:1.6">
+            <strong>Auto-backup:</strong> Runs daily on app open. Files saved as <code>Bloomstone-Backup-YYYY-MM-DD.xlsx</code>.<br/>
+            <strong>Import:</strong> Pick any backup file from your Drive folder to restore or merge data.<br/>
+            <strong>Duplicates:</strong> Detected by guest name + check-in + property. Choose Merge, Overwrite, or Preview.
+          </div>
+        </div>
+        <div class="card" style="max-width:600px">
+          <div class="section-title" style="margin-bottom:16px">Drive Import</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-secondary" id="driveImportBtn">Browse Drive Backups</button>
+            <button class="btn btn-secondary" id="driveImportLocalBtn">Import Local Backup</button>
+          </div>
+          <div id="driveImportPreview" style="margin-top:14px"></div>
+        </div>
+      </div>
+
+      <!-- USERS -->
+      <div class="view" id="view-users">
+        <div class="filter-bar">
+          <button class="btn btn-primary btn-sm" onclick="openUserModal()">＋ Add User</button>
+          <div class="filter-spacer"></div>
+          <span style="font-size:12px;color:var(--text-3)" id="currentUserLabel"></span>
+        </div>
+        <div id="userList"></div>
+      </div>
+
+      <!-- SYSTEM: TRASH -->
+      <div class="view" id="view-system-trash">
+        <div class="filter-bar">
+          <button class="btn btn-danger btn-sm" onclick="emptyTrash()">⌦ Empty Trash</button>
+        </div>
+        <div id="trashList"></div>
+      </div>
+
+    </div><!-- /workspace -->
+  </div><!-- /main -->
+
+  <!-- FLOATING ADD BOOKING BUTTON -->
+  <button class="fab" id="fabAddBooking" title="Add Booking">＋</button>
+  <!-- Recent bookings toggle button -->
+  <button onclick="toggleRecentPanel()" title="Recent Bookings" style="position:fixed;bottom:90px;right:20px;z-index:200;width:40px;height:40px;border-radius:50%;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text-2)">📋</button>
+  <!-- Recent Bookings Panel -->
+  <div id="recentBookingsPanel" style="display:none;position:fixed;bottom:140px;right:20px;width:300px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);z-index:199;max-height:380px;overflow:hidden;display:none">
+    <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:space-between;background:var(--surface-2)">
+      <span>Recent Bookings</span>
+      <button onclick="closeRecentPanel()" style="background:none;border:none;cursor:pointer;color:var(--text-3);font-size:16px;line-height:1">×</button>
+    </div>
+    <div id="recentBookingsList" style="overflow-y:auto;max-height:320px"></div>
+  </div>
+
+  <!-- MOBILE BOTTOM NAV -->
+  <nav class="mobile-nav" id="mobileNav">
+    <div class="mobile-nav-items">
+      <button class="mobile-nav-btn active" data-ws="today" onclick="mobileNavClick('today')"><span class="nav-icon">◎</span>Today</button>
+      <button class="mobile-nav-btn" data-ws="operations" onclick="mobileNavClick('operations')"><span class="nav-icon">⊟</span>Operations</button>
+      <button class="mobile-nav-btn" data-ws="finance" onclick="mobileNavClick('finance')"><span class="nav-icon">₱</span>Finance</button>
+      <button class="mobile-nav-btn" data-ws="properties" onclick="mobileNavClick('properties')"><span class="nav-icon">⌂</span>Properties</button>
+      <button class="mobile-nav-btn" data-ws="reports" onclick="mobileNavClick('reports')"><span class="nav-icon">↗</span>Reports</button>
+      <button class="mobile-nav-btn" data-ws="system" onclick="mobileNavClick('system')"><span class="nav-icon">⚙</span>System</button>
+    </div>
+  </nav>
+
+</div><!-- /app -->
+
+<!-- ====== MODALS ====== -->
+
+<!-- BOOKING DRAWER OVERLAY -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<aside class="drawer" id="bookingDrawer">
+  <div class="drawer-header" style="padding:0;overflow:hidden;border-bottom:1px solid var(--border);display:flex;align-items:stretch">
+    <div id="drawerAccentBar" style="width:5px;flex-shrink:0;background:var(--border);transition:background .25s"></div>
+    <div style="flex:1;display:flex;align-items:center;gap:10px;padding:13px 16px 13px 14px">
+      <div class="drawer-title" id="drawerTitle">New Booking</div>
+      <span id="drawerStatusBadge" style="margin-left:2px"></span>
+      <button class="btn btn-ghost btn-sm" onclick="showGuestHistory()" title="View guest booking history" style="font-size:11px;padding:3px 9px;margin-left:2px">📋 History</button>
+      <button class="btn-icon btn-sm" id="drawerCloseBtn" style="margin-left:auto;flex-shrink:0">×</button>
+    </div>
+  </div>
+  <div class="drawer-body" id="drawerBody">
+
+    <!-- Repeat guest profile -->
+    <div id="drawerGuestProfile" style="display:none;margin:0 0 14px"></div>
+
+    <!-- ── GUEST NAME hero ───────────────────────────────────── -->
+    <div style="position:relative;margin-bottom:16px">
+      <input class="input input-req" id="f-guest" placeholder="Guest Name" type="text" autocomplete="off"
+             style="font-size:22px;font-weight:800;letter-spacing:-.5px;border:none;border-bottom:2px solid rgba(180,140,0,.35);border-radius:0;padding:4px 0 10px;height:auto;width:100%"/>
+      <div id="guestSuggestBox" style="display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);z-index:700;overflow:hidden;max-height:220px;overflow-y:auto"></div>
+    </div>
+    <!-- Confirm overlay for guest name selection -->
+    <div id="guestConfirmBanner" style="display:none;align-items:center;gap:10px;padding:10px 14px;background:var(--orange-bg);border:1px solid var(--orange);border-radius:var(--radius);margin-bottom:14px;font-size:13px">
+      <span style="flex:1">Use <strong id="guestConfirmName"></strong> and load their booking history?</span>
+      <button class="btn btn-sm" style="background:var(--orange);color:#fff;border:none;padding:5px 14px;border-radius:var(--radius-sm);font-weight:700;cursor:pointer" onclick="confirmGuestSuggest()">Yes</button>
+      <button class="btn btn-ghost btn-sm" onclick="dismissGuestConfirm()">No</button>
+    </div>
+
+    <!-- ── BOOKING DETAILS ───────────────────────────────────── -->
+    <div class="form-sec" style="margin-top:0">📅 Booking</div>
+    <div class="alert-bar" id="overlapAlert">⚠ <span id="overlapText"></span></div>
+
+    <!-- Dates row — 2 col, nights hidden but available to JS -->
+    <div class="field-row" style="margin-bottom:4px">
+      <div class="field">
+        <label class="label">Check-in <span class="req">*</span></label>
+        <input class="input input-req" id="f-checkin" type="date" oninput="onDatesChange()"/>
+      </div>
+      <div class="field">
+        <label class="label">Check-out <span class="req">*</span></label>
+        <input class="input input-req" id="f-checkout" type="date" oninput="onDatesChange()"/>
+      </div>
+    </div>
+    <input type="hidden" id="f-nights"/>
+
+    <!-- Date range display — prominent -->
+    <div id="dateRangeDisplay" style="display:none;padding:10px 14px;border-radius:var(--radius);border-left:3px solid var(--accent);background:var(--surface-3);margin-bottom:14px">
+      <span id="dateRangeText" style="font-size:16px;font-weight:800;color:var(--text)"></span>
+      <span id="dateNightsText" style="font-size:15px;font-weight:900;color:var(--accent)"></span>
+    </div>
+
+    <!-- Property + Rate inline -->
+    <div class="field-row" style="margin-bottom:4px">
+      <div class="field" style="flex:2">
+        <label class="label">Property <span class="req">*</span></label>
+        <select class="input input-req" id="f-property" onchange="onPropertyChange()" style="font-size:14px;font-weight:700;height:44px"></select>
+      </div>
+      <div class="field">
+        <label class="label">Nightly Rate (₱) <span class="req">*</span></label>
+        <input class="input input-req" id="f-rate" type="number" placeholder="0" oninput="calcFinancials()" style="font-size:16px;font-weight:700"/>
+      </div>
+    </div>
+    <!-- City badge + capacity hint below property -->
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <div id="f-prop-city-badge" style="display:none" class="prop-city-badge"><span id="f-prop-city-icon" style="display:flex;align-items:center"></span><span id="f-prop-city-text"></span></div>
+      <div id="f-cap-hint" style="font-size:11px;color:var(--text-3)"></div>
+    </div>
+
+    <!-- Platform + Payment inline -->
+    <div class="field-row" style="margin-bottom:10px">
+      <div class="field" style="flex:2">
+        <label class="label">Platform <span class="req">*</span></label>
+        <div class="plat-picker" id="platPickerWrap">
+          <div class="plat-picker-btn input-req" id="platPickerBtn" onclick="togglePlatPicker()" style="min-height:44px">
+            <span id="platPickerLabel" style="color:var(--text-3)">Select…</span>
+            <span class="plat-picker-chevron">▾</span>
+          </div>
+          <div class="plat-picker-list" id="platPickerList"></div>
+          <input type="hidden" id="f-platform"/>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label">Payment <span class="req">*</span></label>
+        <select class="input input-req" id="f-payment"><option>Platform (Auto)</option><option>Cash</option><option>Bank Transfer</option><option>GCash</option><option>PayMaya</option><option>PayPal</option><option>Cheque</option></select>
+      </div>
+    </div>
+
+    <!-- Status (full width, color-coded) -->
+    <div class="field" style="margin-bottom:14px">
+      <label class="label">Status <span class="req">*</span></label>
+      <select class="input input-req" id="f-status" style="font-weight:700;transition:background .15s,color .15s">
+        <option>Confirmed</option><option>Pending</option><option>Checked-In</option><option>Cancelled</option>
+      </select>
+    </div>
+
+    <!-- ── PROMO + SERVICE FEE inputs (above breakdown) ──────── -->
+    <div class="field-row" style="margin-bottom:12px">
+      <div class="field">
+        <label class="label">Promo / Discount <span class="req">*</span> <span style="color:var(--text-3);font-size:10px">(₱ per night · enter 0 if none)</span></label>
+        <input class="input input-req" id="f-promo" type="number" placeholder="Enter 0 if none"
+               oninput="this.classList.remove('error');calcFinancials()"/>
+      </div>
+      <div class="field">
+        <label class="label">Service Fee <span class="req">*</span> <span style="color:var(--text-3);font-size:10px">(₱ total · enter 0 if none)</span></label>
+        <input class="input input-req" id="f-servicefee" type="number" placeholder="Enter 0 if none"
+               oninput="this.classList.remove('error');calcFinancials()"/>
+      </div>
+    </div>
+
+    <!-- ── REVENUE BREAKDOWN (single-column, Airbnb-style, live) ─ -->
+    <div style="border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:14px">
+      <div style="background:var(--surface-2);padding:8px 14px;font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--text-3);text-transform:uppercase;display:flex;justify-content:space-between;align-items:center">
+        <span>Revenue Breakdown</span>
+        <span style="font-size:10px;font-weight:400;color:var(--text-3)">live · updates as you type</span>
+      </div>
+      <div style="padding:12px 14px">
+
+        <!-- Booking Fee -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px;border-bottom:1px solid var(--border)">
+          <div>
+            <span style="font-weight:700;color:var(--text)">Booking Fee</span>
+            <div id="s-bkfee-label" style="font-size:10px;color:var(--text-3);margin-top:1px"></div>
+          </div>
+          <span id="s-bkfee" style="font-weight:700;color:var(--text);white-space:nowrap">—</span>
+        </div>
+
+        <!-- Promo Discount -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px">
+          <div>
+            <span style="color:var(--text-2)">Promo Discount</span>
+            <div id="s-promo-sublabel" style="font-size:10px;color:var(--text-3);margin-top:1px"></div>
+          </div>
+          <span id="s-promo" style="color:var(--purple);font-weight:700;white-space:nowrap">—</span>
+        </div>
+
+        <!-- Service Fee -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px">
+          <span style="color:var(--text-2)">Service Fee</span>
+          <span id="s-svcfee" style="color:var(--red);font-weight:700;white-space:nowrap">—</span>
+        </div>
+
+        <!-- Platform Fee -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px">
+          <div>
+            <span id="s-platfee-label" style="color:var(--text-2)">Platform Fee</span>
+          </div>
+          <span id="s-platfee" style="color:var(--red);font-weight:700;white-space:nowrap">—</span>
+        </div>
+
+        <!-- Extra Guest Fee -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px;color:var(--text-2)">
+          <span>Extra Guest Fee</span>
+          <span id="s-extra" style="white-space:nowrap">—</span>
+        </div>
+
+        <!-- Adjustments -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px;color:var(--text-2)">
+          <span>Adjustments</span>
+          <span id="s-adj" style="white-space:nowrap">—</span>
+        </div>
+
+        <!-- Total Net -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 2px;border-top:2px solid var(--text);margin-top:6px">
+          <span style="font-size:14px;font-weight:800">Total Net</span>
+          <span id="s-net" style="font-size:22px;font-weight:900;color:var(--green)">₱0</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── ADJUSTMENTS ────────────────────────────────────────── -->
+    <div class="form-sec">➕ Adjustments <span style="font-size:11px;font-weight:400;color:var(--text-3)">— mid-stay charges, early/late fees</span></div>
+    <div id="adjList" style="margin-bottom:8px"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" onclick="addAdjustment('Extra guest fee')">＋ Extra Guest</button>
+      <button class="btn btn-ghost btn-sm" onclick="addAdjustment('Early check-in fee')">＋ Early Check-in</button>
+      <button class="btn btn-ghost btn-sm" onclick="addAdjustment('Late check-out fee')">＋ Late Check-out</button>
+      <button class="btn btn-ghost btn-sm" onclick="addAdjustment('')">＋ Custom</button>
+    </div>
+
+    <!-- ── SECURITY DEPOSIT ───────────────────────────────────── -->
+    <div class="form-sec">🔒 Security Deposit</div>
+    <div class="field" style="margin-bottom:10px">
+      <label class="label">Deposit Amount (₱)</label>
+      <input class="input" id="f-deposit" type="number" value="1000" style="font-weight:700"/>
+    </div>
+    <div style="display:flex;gap:8px">
+      <label style="flex:1;display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface-2)">
+        <input type="checkbox" id="f-dep-collected" style="width:16px;height:16px;accent-color:var(--text)"/>
+        <div><div style="font-size:12px;font-weight:700">Collected</div><div style="font-size:10px;color:var(--text-3)">Received from guest</div></div>
+      </label>
+      <label style="flex:1;display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface-2)">
+        <input type="checkbox" id="f-dep-refunded" style="width:16px;height:16px;accent-color:var(--text)"/>
+        <div><div style="font-size:12px;font-weight:700">Refunded</div><div style="font-size:10px;color:var(--text-3)">Returned to guest</div></div>
+      </label>
+    </div>
+
+    <!-- ── AFTER CHECKOUT ─────────────────────────────────────── -->
+    <div class="form-sec">🏁 After Checkout</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <div style="flex:1;border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 14px;background:var(--surface-2)">
+        <label class="label" id="f-store-label" style="margin-bottom:6px;display:block">Add-on Sales (₱)</label>
+        <input class="input" id="f-store" type="number" min="0" step="1" value="0" oninput="this.value=this.value.replace(/[^0-9.]/g,'');calcFinancials();" placeholder="0"/>
+        <div id="f-store-hint" style="font-size:10px;color:var(--text-3);margin-top:4px;display:none">🔒 Unlocks after checkout</div>
+      </div>
+      <div style="flex:1;border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 14px;background:var(--surface-2)">
+        <label class="label" id="f-cleaning-label" style="margin-bottom:6px;display:block">Cleaning Fee (₱)</label>
+        <input class="input" id="f-cleaning" type="number" min="0" step="1" value="0" oninput="this.value=this.value.replace(/[^0-9.]/g,'');" placeholder="0"/>
+        <div id="f-cleaning-hint" style="font-size:10px;color:var(--text-3);margin-top:4px;display:none">🔒 Unlocks after checkout</div>
+      </div>
+    </div>
+    <div style="padding:8px 14px;background:var(--surface-3);border-radius:var(--radius);font-size:12px;display:flex;justify-content:space-between;color:var(--text-2)">
+      <span>Add-ons / Store total</span><span id="s-store" style="font-weight:700">—</span>
+    </div>
+
+    <!-- ── NOTES ──────────────────────────────────────────────── -->
+    <div class="form-sec">📝 Notes</div>
+    <textarea class="input" id="f-notes" rows="3" placeholder="Internal notes, special arrangements, preferences…" style="resize:vertical;min-height:80px"></textarea>
+
+    <!-- ── HISTORY ────────────────────────────────────────────── -->
+    <div class="form-sec">🕐 History</div>
+    <div id="drawerHistory" style="font-size:11px;color:var(--text-3);line-height:2"></div>
+
+    <!-- hidden extraguests for back-compat -->
+    <input type="hidden" id="f-extraguests" value="0"/>
+  </div>
+  <div class="drawer-footer">
+    <button class="btn btn-danger btn-sm" id="drawerDeleteBtn" style="display:none">⌦ Delete</button>
+    <button class="btn btn-secondary" id="drawerCancelBtn">Cancel</button>
+    <button class="btn btn-ghost btn-sm" onclick="printBooking()" title="Print / Save PDF" style="font-size:13px;padding:6px 12px">🖨 Print</button>
+    <button class="btn btn-primary" id="drawerSaveBtn">✓ Save Booking</button>
+  </div>
+</aside>
+
+<!-- DAY BOOKINGS MODAL (replaces old openDayModal drawer reuse) -->
+<div class="modal-overlay" id="dayModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title" id="dayModalTitle">Bookings</div>
+      <button class="btn-icon btn-sm" onclick="closeModal('dayModal')">×</button>
+    </div>
+    <div class="modal-body" id="dayModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('dayModal')">Close</button>
+      <button class="btn btn-primary" id="dayModalAddBtn">＋ Add Booking</button>
+    </div>
+  </div>
+</div>
+
+<!-- EXPENSE MODAL -->
+<div class="modal-overlay" id="expenseModal">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-header">
+      <div class="modal-title" id="expModalTitle">Add Expenses</div>
+      <button class="btn-icon btn-sm" onclick="closeModal('expenseModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field">
+          <label class="label">Month <span class="req">*</span></label>
+          <select class="input" id="fe-month"></select>
+        </div>
+        <div class="field">
+          <label class="label">Year <span class="req">*</span></label>
+          <select class="input" id="fe-year"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label">Property</label>
+        <select class="input" id="fe-prop"><option value="all">All Properties</option></select>
+      </div>
+      <div class="field-divider">Amounts — enter 0 if none</div>
+      <div class="exp-amounts" id="expAmountsGrid">
+        <div class="exp-amount-item"><div class="exp-amount-label">Water (₱)</div><input class="input" id="fe-water" type="number" min="0" value="0"/><div class="input-error" id="err-water">Enter 0 or more</div></div>
+        <div class="exp-amount-item"><div class="exp-amount-label">Electricity (₱)</div><input class="input" id="fe-electricity" type="number" min="0" value="0"/><div class="input-error" id="err-electricity">Enter 0 or more</div></div>
+        <div class="exp-amount-item"><div class="exp-amount-label">Supplies (₱)</div><input class="input" id="fe-supplies" type="number" min="0" value="0"/><div class="input-error" id="err-supplies">Enter 0 or more</div></div>
+        <div class="exp-amount-item"><div class="exp-amount-label">Maintenance (₱)</div><input class="input" id="fe-maintenance" type="number" min="0" value="0"/><div class="input-error" id="err-maintenance">Enter 0 or more</div></div>
+        <div class="exp-amount-item"><div class="exp-amount-label">Cleaning (₱)</div><input class="input" id="fe-cleaning" type="number" min="0" value="0"/><div class="input-error" id="err-cleaning">Enter 0 or more</div></div>
+        <div class="exp-amount-item"><div class="exp-amount-label">Other (₱)</div><input class="input" id="fe-other" type="number" min="0" value="0"/><div class="input-error" id="err-other">Enter 0 or more</div></div>
+      </div>
+      <div class="field">
+        <label class="label">Notes</label>
+        <input class="input" id="fe-notes" type="text" placeholder="Optional notes"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('expenseModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveExpense()">✓ Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROPERTY MODAL -->
+<div class="modal-overlay" id="propertyModal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title" id="propModalTitle">Add Property</div>
+      <button class="btn-icon btn-sm" onclick="closeModal('propertyModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label class="label">Property Icon</label>
+        <!-- Custom icon upload -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div id="fp-icon-preview" style="width:52px;height:52px;border-radius:var(--radius);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;background:var(--surface-2);flex-shrink:0;overflow:hidden"></div>
+          <div style="flex:1">
+            <label style="display:inline-flex;align-items:center;gap:7px;cursor:pointer;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 12px;font-size:12px;color:var(--text-2)">
+              📁 Upload custom icon
+              <input type="file" id="fp-icon-upload" accept="image/*" style="display:none" onchange="handlePropIconUpload(this)"/>
+            </label>
+            <div style="font-size:11px;color:var(--text-3);margin-top:4px">Or choose from library below</div>
+          </div>
+          <button type="button" id="fp-icon-clear" onclick="clearPropIconUpload()" style="display:none;background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:4px 8px">✕ Remove</button>
+        </div>
+        <!-- SVG icon grid -->
+        <div class="prop-icon-grid" id="fp-icon-grid"></div>
+        <input type="hidden" id="fp-icon-id" value="house"/>
+        <input type="hidden" id="fp-icon-custom" value=""/>
+      </div>
+      <div class="field"><label class="label">Property Name <span class="req">*</span></label><input class="input" id="fp-name" placeholder="e.g. 2BR SeaView Loft"/></div>
+      <div class="field-row">
+        <div class="field"><label class="label">City <span class="req">*</span></label><input class="input" id="fp-city" list="cityList" placeholder="Gensan, Dumaguete…"/><datalist id="cityList"><option value="Gensan"/><option value="Dumaguete"/></datalist></div>
+        <div class="field"><label class="label">Bedrooms</label><input class="input" id="fp-beds" type="number" min="0" placeholder="2"/></div>
+      </div>
+      <div class="field"><label class="label">Address</label><input class="input" id="fp-address"/></div>
+      <div class="field"><label class="label">Google Maps Link</label><input class="input" id="fp-map" type="url" placeholder="https://maps.google.com/…"/></div>
+      <div class="field"><label class="label">Airbnb Listing URL</label><input class="input" id="fp-airbnb" type="url" placeholder="https://www.airbnb.com/rooms/…"/></div>
+      <div class="field-divider">Photos</div>
+      <div class="field">
+        <label class="label">Property Photos</label>
+        <div id="fp-photo-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
+        <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:var(--surface-2);border:1px dashed var(--border-2);border-radius:var(--radius);padding:8px 14px;font-size:13px;color:var(--text-2);width:100%;box-sizing:border-box;justify-content:center">
+          <span>📷</span><span>Click to add photos</span>
+          <input type="file" id="fp-photo-input" accept="image/*" multiple style="display:none" onchange="handlePropertyPhotoUpload(this)"/>
+        </label>
+        <div style="font-size:11px;color:var(--text-3);margin-top:4px">Select one or multiple images. Stored locally in your browser.</div>
+      </div>
+      <div class="field-divider">Guest Capacity</div>
+      <div class="field-row">
+        <div class="field"><label class="label">Base Guests</label><input class="input" id="fp-baseguests" type="number" min="1" value="2"/></div>
+        <div class="field"><label class="label">Max Guests</label><input class="input" id="fp-maxguests" type="number" min="1" value="4"/></div>
+      </div>
+      <div class="field-divider">Default Rates</div>
+      <div class="field-row">
+        <div class="field"><label class="label">Base Nightly Rate (₱) <span class="req">*</span></label><input class="input" id="fp-baserate" type="number" min="0" placeholder="e.g. 2500" value="0"/></div>
+        <div class="field"><label class="label">Extra Guest Fee (₱/night)</label><input class="input" id="fp-extrafee" type="number" min="0" value="300"/></div>
+      </div>
+      <div class="field"><label class="label">Notes</label><input class="input" id="fp-notes"/></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('propertyModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProperty()">✓ Save Property</button>
+    </div>
+  </div>
+</div>
+
+<!-- BLOCK DATES MODAL -->
+<div class="modal-overlay" id="blockDatesModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title" id="blockDatesTitle">Block Dates</div>
+      <button class="btn-icon btn-sm" onclick="closeModal('blockDatesModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text-2);margin-bottom:12px">Click dates to toggle blocked status. Blocked dates prevent new bookings. Dates with existing bookings cannot be blocked.</div>
+      <div class="block-cal-nav">
+        <button onclick="blockCalNav(-1)">‹</button>
+        <div class="block-cal-label" id="blockCalLabel"></div>
+        <button onclick="blockCalNav(1)">›</button>
+      </div>
+      <div class="block-cal-grid" id="blockCalGrid"></div>
+      <div class="block-legend" style="margin-top:10px">
+        <span><span class="block-legend-dot" style="background:var(--surface-2);border:1px solid var(--border)"></span>Available</span>
+        <span><span class="block-legend-dot" style="background:var(--red-bg);border:1px solid var(--red)"></span>Blocked</span>
+        <span><span class="block-legend-dot" style="background:var(--green-bg)"></span>Booked</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('blockDatesModal')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- USER MODAL -->
+<div class="modal-overlay" id="userModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title" id="userModalTitle">Add User</div>
+      <button class="btn-icon btn-sm" onclick="closeModal('userModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label class="label">Full Name <span class="req">*</span></label><input class="input" id="um-name" placeholder="e.g. Juan Dela Cruz"/></div>
+      <div class="field"><label class="label">Username <span class="req">*</span></label><input class="input" id="um-username" placeholder="e.g. juan"/></div>
+      <div class="field"><label class="label">Password <span class="req">*</span></label><input class="input" id="um-password" type="password" placeholder="Minimum 6 characters"/></div>
+      <div class="field"><label class="label">Role</label>
+        <select class="input" id="um-role"><option value="admin">Admin (full access)</option><option value="staff">Staff (view + edit bookings)</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('userModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveUser()">✓ Save User</button>
+    </div>
+  </div>
+</div>
+
+<!-- PLATFORM MODAL -->
+<div class="modal-overlay" id="platformModal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title" id="platModalTitle">Add Platform</div>
+      <button class="btn-icon btn-sm" onclick="closeModal('platformModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label class="label">Platform Name <span class="req">*</span></label><input class="input" id="plat-name" placeholder="e.g. Vrbo"/></div>
+      <div class="field-row">
+        <div class="field"><label class="label">Commission %</label><input class="input" id="plat-comm" type="number" step="0.01" value="0"/></div>
+        <div class="field"><label class="label">VAT % on Commission</label><input class="input" id="plat-vat" type="number" step="0.01" value="12"/></div>
+      </div>
+      <div class="field"><label class="label">Color</label><input class="input" id="plat-color" type="color" value="#5B4BDB" style="height:42px;padding:4px"/></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('platformModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="savePlatform()">✓ Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <div class="modal-body">
+      <div class="confirm-body">
+        <div class="confirm-icon" id="confirmIcon">⚠</div>
+        <div class="confirm-title" id="confirmTitle">Are you sure?</div>
+        <div class="confirm-text" id="confirmText"></div>
+        <div class="confirm-actions">
+          <button class="btn btn-secondary" onclick="closeModal('confirmModal')">Cancel</button>
+          <button class="btn btn-danger" id="confirmBtn" style="min-width:110px">Yes, Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DAILY BRIEF MODAL -->
+<div class="modal-overlay" id="dailyBriefModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <div class="modal-title">Daily Brief — <span id="dailyDate"></span></div>
+      <button class="btn-icon btn-sm" onclick="closeModal('dailyBriefModal')">×</button>
+    </div>
+    <div class="modal-body" id="dailyBriefBody"></div>
+    <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('dailyBriefModal')">Got it</button></div>
+  </div>
+</div>
+
+<!-- DRIVE IMPORT PREVIEW MODAL -->
+<div class="modal-overlay" id="driveImportModal">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <div class="modal-title">Import Preview</div>
+      <button class="btn-icon btn-sm" onclick="closeModal('driveImportModal')">×</button>
+    </div>
+    <div class="modal-body" id="driveImportBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('driveImportModal')">Cancel</button>
+      <button class="btn btn-secondary" id="importMergeBtn">Merge (skip duplicates)</button>
+      <button class="btn btn-primary" id="importOverwriteBtn">Overwrite All</button>
+    </div>
+  </div>
+</div>
+
+<!-- COMMAND PALETTE -->
+<div class="cmd-overlay" id="cmdOverlay">
+  <div class="cmd-palette">
+    <div class="cmd-input-wrap">
+      <span class="cmd-icon">⌕</span>
+      <input class="cmd-input" id="cmdInput" placeholder="Search bookings, guests, navigate…" autocomplete="off"/>
+      <span style="font-size:11px;color:var(--text-3);white-space:nowrap">ESC to close</span>
+    </div>
+    <div class="cmd-results" id="cmdResults"></div>
+    <div class="cmd-footer">
+      <span>↑↓ navigate</span><span>↵ select</span><span>ESC close</span>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST HOST -->
+<div class="toast-host" id="toastHost"></div>
+
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<script src="bloomstone-logic.js"></script>
+</body>
+</html>

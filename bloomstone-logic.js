@@ -1,0 +1,3527 @@
+// ============================================================
+// BLOOMSTONE PMS — Logic Engine
+// ============================================================
+'use strict';
+
+// ---- CONSTANTS
+const LS_KEY      = 'bloomstone_v2';
+const LS_SETTINGS = 'bloomstone_settings';
+const LS_DRIVE    = 'bloomstone_drive';
+const LS_USERS    = 'bloomstone_users';
+const LS_SESSION  = 'bloomstone_session';
+
+// ============================================================
+// USER AUTH SYSTEM
+// ============================================================
+let currentUser = null;
+
+function hashPass(str){
+  // Simple but reasonable hash using djb2 + salt for localStorage-only auth
+  let h=5381;for(let i=0;i<str.length;i++)h=((h<<5)+h)+str.charCodeAt(i);
+  return'bls_'+Math.abs(h).toString(36)+'_'+str.length;
+}
+
+function loadUsers(){
+  try{const u=localStorage.getItem(LS_USERS);if(u)return JSON.parse(u);}catch(e){}
+  // Default admin user
+  const defaultUsers=[{id:'u_admin',name:'Administrator',username:'admin',password:hashPass('admin123'),role:'admin',createdAt:new Date().toISOString()}];
+  localStorage.setItem(LS_USERS,JSON.stringify(defaultUsers));
+  return defaultUsers;
+}
+
+function saveUsers(users){localStorage.setItem(LS_USERS,JSON.stringify(users));}
+
+function tryLogin(username,password){
+  const users=loadUsers();
+  const u=users.find(x=>x.username.toLowerCase()===username.toLowerCase()&&x.password===hashPass(password));
+  return u||null;
+}
+
+function startSession(user){
+  currentUser={id:user.id,name:user.name,username:user.username,role:user.role};
+  sessionStorage.setItem(LS_SESSION,JSON.stringify(currentUser));
+}
+
+function endSession(){
+  currentUser=null;
+  sessionStorage.removeItem(LS_SESSION);
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('app').style.display='none';
+}
+
+function resumeSession(){
+  try{const s=sessionStorage.getItem(LS_SESSION);if(s){currentUser=JSON.parse(s);return true;}}catch(e){}
+  return false;
+}
+
+function renderUsers(){
+  const users=loadUsers();
+  const label=document.getElementById('currentUserLabel');
+  if(label&&currentUser)label.textContent=`Signed in as ${currentUser.name} (${currentUser.role})`;
+  const list=document.getElementById('userList');if(!list)return;
+  list.innerHTML=users.map(u=>`<div class="user-card">
+    <div class="user-avatar">${(u.name||'?')[0].toUpperCase()}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:700">${esc(u.name)}</div>
+      <div style="font-size:11px;color:var(--text-3)">@${esc(u.username)} · <span class="badge ${u.role==='admin'?'badge-purple':'badge-blue'}">${u.role}</span></div>
+    </div>
+    ${u.id!=='u_admin'?`<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">✕</button>`:'<span style="font-size:11px;color:var(--text-3)">protected</span>'}
+  </div>`).join('');
+}
+
+let editingUserId=null;
+function openUserModal(id=null){
+  editingUserId=id;
+  document.getElementById('userModalTitle').textContent=id?'Edit User':'Add User';
+  ['um-name','um-username','um-password'].forEach(k=>{const el=document.getElementById(k);if(el)el.value='';});
+  document.getElementById('um-role').value='staff';
+  if(id){const u=loadUsers().find(x=>x.id===id);if(u){document.getElementById('um-name').value=u.name;document.getElementById('um-username').value=u.username;document.getElementById('um-role').value=u.role;}}
+  openModal('userModal');
+}
+
+function saveUser(){
+  const name=(document.getElementById('um-name')?.value||'').trim();
+  const username=(document.getElementById('um-username')?.value||'').trim().toLowerCase();
+  const password=(document.getElementById('um-password')?.value||'').trim();
+  const role=document.getElementById('um-role')?.value||'staff';
+  const missing=[];
+  if(!name)missing.push('Full Name');
+  if(!username)missing.push('Username');
+  if(!editingUserId&&!password)missing.push('Password');
+  if(missing.length){toast(`Missing: ${missing.join(', ')}`,'error');return;}
+  if(!editingUserId&&password.length<6){toast('Password must be at least 6 characters.','error');return;}
+  const users=loadUsers();
+  const dup=users.find(u=>u.username===username&&u.id!==editingUserId);
+  if(dup){toast('Username already taken.','error');return;}
+  if(editingUserId){
+    const i=users.findIndex(u=>u.id===editingUserId);
+    if(i>=0){users[i]={...users[i],name,username,role};if(password)users[i].password=hashPass(password);}
+  }else{
+    users.push({id:genId(),name,username,password:hashPass(password),role,createdAt:new Date().toISOString()});
+  }
+  saveUsers(users);closeModal('userModal');renderUsers();toast('User saved.');
+}
+
+function deleteUser(id){
+  if(currentUser?.id===id){toast('Cannot delete your own account.','error');return;}
+  confirmDialog('⚠ Delete User','This user will permanently lose access to the system. This action cannot be undone.','🗑',()=>{
+    const users=loadUsers().filter(u=>u.id!==id);
+    saveUsers(users);renderUsers();toast('User deleted.','warning');
+  });
+}
+
+// Login wiring
+document.getElementById('loginBtn').addEventListener('click',doLogin);
+document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+document.getElementById('loginUser').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('loginPass').focus();});
+document.getElementById('logoutBtn').addEventListener('click',()=>{
+  confirmDialog('Sign Out?','You will be returned to the login screen.','⏏',()=>endSession());
+});
+
+function doLogin(){
+  const u=(document.getElementById('loginUser')?.value||'').trim();
+  const p=document.getElementById('loginPass')?.value||'';
+  const err=document.getElementById('loginErr');
+  if(!u||!p){err.textContent='Enter username and password.';err.classList.add('show');return;}
+  const user=tryLogin(u,p);
+  if(!user){err.textContent='Invalid username or password.';err.classList.add('show');return;}
+  err.classList.remove('show');
+  startSession(user);
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  init();
+}
+
+// ============================================================
+// EXCEL IMPORT / EXPORT (SheetJS)
+// ============================================================
+function saveAsExcel(){
+  if(typeof XLSX==='undefined'){toast('SheetJS not loaded. Check internet connection.','error');return;}
+  try{
+    const wb=XLSX.utils.book_new();
+    // Bookings sheet
+    const bkHeaders=['ID','Guest','Check-in','Check-out','Nights','Platform','Property','Rate','Promo','Booking Fee','Net Revenue','Store Sales','Deposit','Dep Collected','Dep Refunded','Payment','Status','Notes','Guest Prefs','Created At'];
+    const bkRows=bookings.map(b=>{const t=calcTotals(b);return[b.id,b.guest,b.checkin,b.checkout,t.nights,b.platform,propName(b.property),b.rate||0,b.promo||0,b.bookingFee||0,t.netRevenue,b.storeSales||0,b.deposit||0,b.depositCollected?'Yes':'No',b.depositRefunded?'Yes':'No',b.payment||'',b.status||'',b.notes||'',b.guestPrefs||'',b.createdAt||''];});
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([bkHeaders,...bkRows]),'Bookings');
+    // Properties sheet
+    const prHeaders=['ID','Name','City','Address','Beds','Base Guests','Max Guests','Base Rate','Extra Guest Fee','Blocked Dates','Notes'];
+    const prRows=properties.map(p=>[p.id,p.name,p.city,p.address||'',p.beds||0,p.baseGuests||2,p.maxGuests||4,p.baseRate||0,p.extraGuestFee||0,(p.blockedDates||[]).join(','),p.notes||'']);
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([prHeaders,...prRows]),'Properties');
+    // Platforms sheet
+    const plHeaders=['ID','Name','Commission %','VAT %','Color'];
+    const plRows=platforms.map(p=>[p.id,p.name,p.commission,p.vat,p.color]);
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([plHeaders,...plRows]),'Platforms');
+    // Expenses sheet
+    const expHeaders=['ID','Month','Property','Promo Cost','Cleaning Cost','Water','Electricity','Supplies','Maintenance','Other Expenses','Total','Notes'];
+    const expRows=expenses.map(e=>{
+      const bksCI=bookings.filter(b=>b.status!=='Cancelled'&&b.checkin&&b.checkin.startsWith(e.month)&&(e.prop==='all'||b.property===e.prop));
+      const bksCO=expBookings(e.month,e.prop);
+      const promoCost=bksCI.reduce((s,b)=>s+(+b.promo||0),0);
+      const cleaningFromBks=bksCO.reduce((s,b)=>s+(+b.cleaningFee||0),0);
+      const cleaningCost=cleaningFromBks||e.cleaning||0;
+      const rowTotal=promoCost+cleaningCost+(e.water||0)+(e.electricity||0)+(e.supplies||0)+(e.maintenance||0)+(e.other||0);
+      return[e.id,e.month,e.prop==='all'?'All':propName(e.prop),promoCost,cleaningCost,e.water||0,e.electricity||0,e.supplies||0,e.maintenance||0,e.other||0,rowTotal,e.notes||''];
+    });
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([expHeaders,...expRows]),'Expenses');
+    XLSX.writeFile(wb,`bloomstone-${todayISO()}.xlsx`);
+    toast('Excel file downloaded.','success');
+  }catch(e){console.error(e);toast('Export failed: '+e.message,'error');}
+}
+
+function loadFromExcel(){
+  const input=document.createElement('input');input.type='file';input.accept='.xlsx,.xls,.csv';
+  input.onchange=e=>{
+    const file=e.target.files[0];if(!file)return;
+    if(typeof XLSX==='undefined'){toast('SheetJS not loaded.','error');return;}
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const wb=XLSX.read(ev.target.result,{type:'binary'});
+        let imported={bookings:0,properties:0,platforms:0,expenses:0};
+        // Bookings
+        if(wb.SheetNames.includes('Bookings')){
+          const rows=XLSX.utils.sheet_to_json(wb.Sheets['Bookings'],{defval:''});
+          const newBks=rows.map(r=>({
+            id:r.ID||genId(),guest:r.Guest||'',checkin:r['Check-in']||'',checkout:r['Check-out']||'',
+            platform:r.Platform||'',property:properties.find(p=>p.name===r.Property)?.id||r.Property||'',
+            rate:+r.Rate||0,promo:+r.Promo||0,bookingFee:+r['Booking Fee']||0,
+            storeSales:+r['Store Sales']||0,deposit:+r.Deposit||0,
+            depositCollected:r['Dep Collected']==='Yes',depositRefunded:r['Dep Refunded']==='Yes',
+            payment:r.Payment||'',status:r.Status||'Confirmed',notes:r.Notes||'',guestPrefs:r['Guest Prefs']||'',
+            tasks:{},createdAt:r['Created At']||new Date().toISOString(),
+          })).filter(b=>b.checkin&&b.checkout&&b.guest);
+          bookings=newBks;imported.bookings=newBks.length;
+        }
+        // Properties (optional - only if sheet exists and has rows)
+        if(wb.SheetNames.includes('Properties')){
+          const rows=XLSX.utils.sheet_to_json(wb.Sheets['Properties'],{defval:''});
+          if(rows.length){
+            properties=rows.map(r=>({
+              id:r.ID||genId(),name:r.Name||'',city:r.City||'',address:r.Address||'',
+              beds:+r.Beds||0,baseGuests:+r['Base Guests']||2,maxGuests:+r['Max Guests']||4,
+              baseRate:+r['Base Rate']||0,extraGuestFee:+r['Extra Guest Fee']||300,
+              blockedDates:r['Blocked Dates']?String(r['Blocked Dates']).split(',').filter(Boolean):[],
+              notes:r.Notes||'',
+            }));
+            imported.properties=properties.length;
+          }
+        }
+        // Platforms
+        if(wb.SheetNames.includes('Platforms')){
+          const rows=XLSX.utils.sheet_to_json(wb.Sheets['Platforms'],{defval:''});
+          if(rows.length){platforms=rows.map(r=>({id:r.ID||genId(),name:r.Name||'',commission:+r['Commission %']||0,vat:+r['VAT %']||0,color:r.Color||'#888'}));imported.platforms=platforms.length;}
+        }
+        // Expenses
+        if(wb.SheetNames.includes('Expenses')){
+          const rows=XLSX.utils.sheet_to_json(wb.Sheets['Expenses'],{defval:''});
+          if(rows.length){expenses=rows.map(r=>({id:r.ID||genId(),month:r.Month||'',prop:properties.find(p=>p.name===r.Property)?.id||'all',water:+r.Water||0,electricity:+r.Electricity||0,supplies:+r.Supplies||0,maintenance:+r.Maintenance||0,cleaning:+r.Cleaning||0,other:+r.Other||0,amount:+r.Total||0,notes:r.Notes||''}));imported.expenses=expenses.length;}
+        }
+        saveAll();renderView(currentWs);populateSelects();
+        toast(`Loaded from Excel: ${imported.bookings} bookings, ${imported.properties} properties.`,'success');
+      }catch(err){console.error(err);toast('Failed to read Excel: '+err.message,'error');}
+    };
+    reader.readAsBinaryString(file);
+  };
+  input.click();
+}
+
+document.getElementById('excelSaveBtn').addEventListener('click',saveAsExcel);
+document.getElementById('excelLoadBtn').addEventListener('click',()=>{
+  confirmDialog('Load from Excel?','This will replace ALL current data with data from the Excel file. Make sure you have a backup first.','📂',()=>loadFromExcel());
+});
+const EXP_CATS = ['water','electricity','supplies','maintenance','cleaning','other'];
+const DEFAULT_TASKS = [
+  {key:'checkInReady',label:'Check-in Ready'},
+  {key:'cleaningDone',label:'Cleaning Done'},
+  {key:'depositCollected',label:'Deposit Collected'},
+  {key:'depositReturned',label:'Deposit Returned'},
+  {key:'suppliesRestocked',label:'Supplies Restocked'},
+  {key:'paymentConfirmed',label:'Payment Confirmed'},
+];
+
+const DEFAULT_PLATFORMS = [
+  {id:'p_airbnb', name:'Airbnb',         commission:3,  vat:12, color:'#FF5A5F'},
+  {id:'p_booking',name:'Booking.com',    commission:15, vat:0,  color:'#003580'},
+  {id:'p_agoda',  name:'Agoda',          commission:15, vat:0,  color:'#E31837'},
+  {id:'p_trip',   name:'Trip.com',       commission:12, vat:0,  color:'#287DFA'},
+  {id:'p_yr',     name:'Your.Rentals',   commission:5,  vat:0,  color:'#00A699'},
+  {id:'p_direct', name:'Direct Booking', commission:0,  vat:0,  color:'#5B4BDB'},
+];
+
+const DEFAULT_PROPERTIES = [
+  {id:'pr_1',city:'Gensan',   name:'2BR Family Suite',      address:'General Santos City',map:'',beds:2,baseGuests:2,maxGuests:4,baseRate:2500,extraGuestFee:300,blockedDates:[],notes:''},
+  {id:'pr_2',city:'Gensan',   name:'Urban Chill Cabin',     address:'General Santos City',map:'',beds:1,baseGuests:2,maxGuests:2,baseRate:1800,extraGuestFee:300,blockedDates:[],notes:''},
+  {id:'pr_3',city:'Gensan',   name:'3BR Cozy Home',         address:'General Santos City',map:'',beds:3,baseGuests:2,maxGuests:6,baseRate:3200,extraGuestFee:300,blockedDates:[],notes:''},
+  {id:'pr_4',city:'Dumaguete',name:'2BR Town House Aurora', address:'Dumaguete City',     map:'',beds:2,baseGuests:2,maxGuests:4,baseRate:2200,extraGuestFee:300,blockedDates:[],notes:''},
+  {id:'pr_5',city:'Dumaguete',name:'2BR Town House Bliss',  address:'Dumaguete City',     map:'',beds:2,baseGuests:2,maxGuests:4,baseRate:2200,extraGuestFee:300,blockedDates:[],notes:''},
+  {id:'pr_6',city:'Dumaguete',name:'4BR Twin Town Houses',  address:'Dumaguete City',     map:'',beds:4,baseGuests:2,maxGuests:8,baseRate:4500,extraGuestFee:300,blockedDates:[],notes:''},
+];
+
+// ---- STATE
+let bookings=[], properties=[], platforms=[], expenses=[], trash=[];
+let settings={currency:'\u20b1',appName:'Bloomstone'};
+let driveConfig={connected:false,folderId:'',folderName:'',clientId:'',lastSync:null};
+let editingBookingId=null, editingPropId=null, editingExpId=null, editingPlatId=null;
+let currentWs='today', currentSubView='';
+let calView='month', calDate=new Date(), calPropFilter='all', calPlatFilter='all';
+let drawerUnsaved=false, cmdSelectedIdx=-1;
+let _currentAdjustments=[];
+
+// ---- PERSISTENCE
+let _isPulling=false;      // true while a pull is running
+let _pullCooldownUntil=0;  // timestamp — no auto-push before this time
+function saveAll(){
+  try{ localStorage.setItem(LS_KEY,JSON.stringify({bookings,properties,platforms,expenses,trash})); }
+  catch(e){ console.error('save failed',e); }
+  if(!_isPulling)scheduleSheetsAutoPush();
+}
+
+// ── Live sync: debounced auto-push ──────────────────────────
+let _autoPushTimer=null;
+function scheduleSheetsAutoPush(){
+  if(!sheetsConfig.connected||!sheetsConfig.url)return;
+  if(Date.now()<_pullCooldownUntil)return; // inside post-pull cooldown, skip
+  if(!bookings.length&&!properties.length)return; // never push empty data
+  clearTimeout(_autoPushTimer);
+  _autoPushTimer=setTimeout(()=>sheetsPush(true),4000);
+}
+
+// ── Live sync: poll Sheets every 30 s for external changes ──
+let _pollTimer=null;
+function startSheetsPolling(){
+  stopSheetsPolling();
+  _pollTimer=setInterval(()=>sheetsQuietPull(),30000);
+}
+function stopSheetsPolling(){
+  if(_pollTimer){clearInterval(_pollTimer);_pollTimer=null;}
+}
+async function sheetsQuietPull(){
+  if(!sheetsConfig.connected||!sheetsConfig.url)return;
+  if(_isPulling||Date.now()<_pullCooldownUntil)return; // skip during/after manual pull
+  try{
+    const url=sheetsConfig.url+'?user=auto&t='+Date.now();
+    const r=await fetch(url,{method:'GET'});
+    if(!r.ok)return;
+    const data=await r.json();
+    if(data.error)return;
+    // Only apply if the sheet has newer data than our last push
+    if(!data.exportedAt)return;
+    const sheetTime=new Date(data.exportedAt).getTime();
+    const lastPush=sheetsConfig.lastSync?new Date(sheetsConfig.lastSync).getTime():0;
+    // If sheet was updated more than 10s after our last push, someone edited it externally
+    if(sheetTime>lastPush+10000){
+      _isPulling=true;
+      clearTimeout(_autoPushTimer);
+      applySheetsPullData(data);
+      if(bookings.length||properties.length){
+        saveAll();populateSelects();renderView(currentWs);
+        sheetsConfig.lastSync=new Date().toISOString();
+        saveSheetsConfig();renderSheetsStatus();
+        toast('📊 Sheets updated externally — data refreshed.','info');
+      }
+      _isPulling=false;
+    }
+  }catch(e){}
+}
+function loadAll(){
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    if(!raw){
+      properties=DEFAULT_PROPERTIES.map(p=>({...p}));
+      platforms=DEFAULT_PLATFORMS.map(p=>({...p}));
+      bookings=[];expenses=[];trash=[];
+      saveAll();return;
+    }
+    const d=JSON.parse(raw);
+    bookings  =Array.isArray(d.bookings)  ?d.bookings  :[];
+    properties=Array.isArray(d.properties)&&d.properties.length?d.properties:DEFAULT_PROPERTIES.map(p=>({...p}));
+    platforms =Array.isArray(d.platforms) &&d.platforms.length ?d.platforms :DEFAULT_PLATFORMS.map(p=>({...p}));
+    // Migrate: fill in missing colors using DEFAULT_PLATFORMS name-match or a fallback
+    platforms=platforms.map(p=>({...p,color:p.color||(DEFAULT_PLATFORMS.find(d=>d.name===p.name)?.color)||'#888'}));
+    expenses  =Array.isArray(d.expenses)  ?d.expenses  :[];
+    trash     =Array.isArray(d.trash)     ?d.trash     :[];
+    properties=properties.map(p=>({baseGuests:2,maxGuests:Math.max(2,(p.beds||1)*2),extraGuestFee:300,baseRate:0,blockedDates:[],...p}));
+    bookings=bookings.map(b=>({tasks:{},...b,
+      bookingFee:b.bookingFee??b.bookingfee??0,
+      guestCount:b.guestCount??b.guestcount??1,
+      storeSales:b.storeSales??b.storeSale??0,
+    }));
+  }catch(e){
+    console.error('load failed',e);
+    properties=DEFAULT_PROPERTIES.map(p=>({...p}));
+    platforms=DEFAULT_PLATFORMS.map(p=>({...p}));
+  }
+}
+function loadSettings(){
+  try{const s=localStorage.getItem(LS_SETTINGS);if(s)settings={...settings,...JSON.parse(s)};}catch(e){}
+}
+function loadDriveConfig(){
+  try{const d=localStorage.getItem(LS_DRIVE);if(d)driveConfig={...driveConfig,...JSON.parse(d)};}catch(e){}
+}
+function saveDriveConfig(){ localStorage.setItem(LS_DRIVE,JSON.stringify(driveConfig)); }
+
+const genId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+
+// ---- UTILS
+const C=()=>settings.currency||'\u20b1';
+function fmtMoney(n){return C()+Number(n||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtDate(d){if(!d)return'';const dt=new Date(d+'T12:00:00');if(isNaN(dt.getTime()))return d;return`${MONTHS_LONG[dt.getMonth()]} ${dt.getDate()}, ${dt.getFullYear()}`;}
+function fmtMonthYear(iso){if(!iso)return'';const[y,m]=iso.split('-');return new Date(+y,+m-1).toLocaleString('default',{month:'long',year:'numeric'});}
+const MONTHS_LONG=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_SHORT=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtDateRange(ci,co){
+  if(!ci||!co)return{range:'',nightsText:''};
+  const d1=new Date(ci+'T12:00:00'),d2=new Date(co+'T12:00:00');
+  const nights=nightsBetween(ci,co);
+  const nightsText=`${nights} night${nights!==1?'s':''}`;
+  const sameYear=d1.getFullYear()===d2.getFullYear();
+  const sameMonth=sameYear&&d1.getMonth()===d2.getMonth();
+  let range;
+  if(sameMonth){
+    range=`${MONTHS_LONG[d1.getMonth()]} ${d1.getDate()}–${d2.getDate()}, ${d1.getFullYear()}`;
+  }else if(sameYear){
+    range=`${MONTHS_SHORT[d1.getMonth()]} ${d1.getDate()} – ${MONTHS_SHORT[d2.getMonth()]} ${d2.getDate()}, ${d1.getFullYear()}`;
+  }else{
+    range=`${MONTHS_SHORT[d1.getMonth()]} ${d1.getDate()}, ${d1.getFullYear()} – ${MONTHS_SHORT[d2.getMonth()]} ${d2.getDate()}, ${d2.getFullYear()}`;
+  }
+  return{range,nightsText};
+}
+function updateDateRangeDisplay(){
+  const ci=document.getElementById('f-checkin')?.value||'';
+  const co=document.getElementById('f-checkout')?.value||'';
+  const el=document.getElementById('dateRangeDisplay');if(!el)return;
+  const bar=document.getElementById('drawerAccentBar');
+  const platName=document.getElementById('f-platform')?.value||'';
+  if(bar)bar.style.background=platName?platformColor(platName):'var(--border)';
+  if(!ci||!co){el.style.display='none';return;}
+  const{range,nightsText}=fmtDateRange(ci,co);
+  const rangeEl=document.getElementById('dateRangeText');
+  const nightsEl=document.getElementById('dateNightsText');
+  if(rangeEl)rangeEl.textContent=range;
+  if(nightsEl){nightsEl.textContent=nightsText;nightsEl.style.cssText='font-size:16px;font-weight:900;color:var(--accent);margin-left:10px';}
+  el.style.borderLeftColor=platName?platformColor(platName):'var(--accent)';
+  el.style.display='flex';el.style.alignItems='baseline';el.style.gap='4px';
+}
+function updateDrawerProfile(){
+  const el=document.getElementById('drawerGuestProfile');if(!el)return;
+  const guest=(document.getElementById('f-guest')?.value||'').trim();
+  if(!guest){el.style.display='none';return;}
+  const gBks=bookings.filter(b=>(b.guest||'').toLowerCase().trim()===guest.toLowerCase().trim());
+  if(gBks.length>1){
+    const lifetime=gBks.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
+    const firstStay=fmtDate(gBks.map(b=>b.checkin).filter(Boolean).sort()[0]);
+    el.innerHTML=`<div style="background:var(--purple-bg);border-radius:var(--radius);padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="background:var(--purple);color:#fff;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:800;white-space:nowrap">↩ REPEAT GUEST</span>
+      <span style="color:var(--purple);font-weight:700;font-size:12px">${gBks.length} stays</span>
+      <span style="color:var(--text-3);font-size:12px">·  ${fmtMoney(lifetime)} lifetime  ·  since ${firstStay}</span>
+    </div>`;
+    el.style.display='block';
+  }else{el.style.display='none';}
+}
+function todayISO(){return new Date().toISOString().slice(0,10);}
+function dateToISO(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function nightsBetween(a,b){if(!a||!b)return 0;return Math.max(0,Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000));}
+function properCase(s){return(s||'').toLowerCase().replace(/\s+/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function getPlatform(name){return platforms.find(p=>p.name===name)||null;}
+function platformColor(name){return(getPlatform(name)||{color:'#888'}).color;}
+function platformPillHtml(name){const c=platformColor(name);return`<span class="platform-pill" style="background:${c}22;color:${c}"><span style="width:5px;height:5px;border-radius:50%;background:${c};display:inline-block"></span> ${esc(name||'\u2014')}</span>`;}
+function propName(id){return(properties.find(p=>p.id===id)||{name:'\u2014'}).name;}
+// Assigns a stable distinct color per property from a curated palette
+const _PROP_PALETTE=['#0ea5e9','#10b981','#8b5cf6','#f59e0b','#ef4444','#06b6d4','#ec4899','#84cc16','#f97316','#6366f1','#14b8a6','#e879f9'];
+function propertyColor(propId){
+  const idx=properties.findIndex(p=>p.id===propId);
+  return _PROP_PALETTE[Math.max(0,idx)%_PROP_PALETTE.length];
+}
+function propCity(id){return(properties.find(p=>p.id===id)||{city:''}).city;}
+function statusBadgeHtml(s){const m={'Confirmed':'badge-green','Pending':'badge-orange','Checked-In':'badge-blue','Cancelled':'badge-red'};return`<span class="badge ${m[s]||'badge-neutral'}">${esc(s||'Pending')}</span>`;}
+function statusColorStyle(s){
+  const m={'Confirmed':{bg:'var(--green-bg)',color:'var(--green)',border:'rgba(45,106,31,.3)'},
+           'Pending':{bg:'var(--orange-bg)',color:'var(--orange)',border:'rgba(196,124,10,.3)'},
+           'Checked-In':{bg:'var(--blue-bg)',color:'var(--blue)',border:'rgba(26,86,219,.3)'},
+           'Cancelled':{bg:'var(--red-bg)',color:'var(--red)',border:'rgba(192,57,43,.3)'}};
+  return m[s]||{bg:'',color:'',border:''};
+}
+function applyStatusColor(sel){
+  if(!sel)return;
+  const c=statusColorStyle(sel.value);
+  sel.style.background=c.bg;sel.style.color=c.color;sel.style.borderColor=c.border;sel.style.fontWeight='700';
+}
+
+function renderRecentBookings(containerEl){
+  if(!containerEl)return;
+  const recent=bookings.slice().sort((a,b)=>(b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||'')).slice(0,8);
+  if(!recent.length){containerEl.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:10px 14px">No bookings yet.</div>';return;}
+  containerEl.innerHTML=recent.map(b=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s" onmouseenter="this.style.background='var(--surface-2)'" onmouseleave="this.style.background=''" onclick="closeRecentPanel();openBookingDrawer('${b.id}')">
+      <div style="width:3px;height:28px;border-radius:2px;background:${platformColor(b.platform)};flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.guest)}</div>
+        <div style="font-size:10px;color:var(--text-3)">${esc(propName(b.property))} · ${fmtDate(b.checkin)}</div>
+      </div>
+      ${statusBadgeHtml(b.status)}
+    </div>`).join('');
+}
+
+function toggleRecentPanel(){
+  const p=document.getElementById('recentBookingsPanel');
+  if(!p)return;
+  const isOpen=p.style.display!=='none'&&p.style.display!=='';
+  if(isOpen){p.style.display='none';}else{
+    p.style.display='block';
+    renderRecentBookings(document.getElementById('recentBookingsList'));
+  }
+}
+function closeRecentPanel(){const p=document.getElementById('recentBookingsPanel');if(p)p.style.display='none';}
+
+function printBooking(){
+  const bkData=editingBookingId?bookings.find(x=>x.id===editingBookingId):null;
+  const fGuest=document.getElementById('f-guest')?.value||'Guest';
+  const fCI=document.getElementById('f-checkin')?.value||'';
+  const fCO=document.getElementById('f-checkout')?.value||'';
+  const fRate=+document.getElementById('f-rate')?.value||0;
+  const fPromo=+document.getElementById('f-promo')?.value||0;
+  const fSvc=+document.getElementById('f-servicefee')?.value||0;
+  const fPlatform=document.getElementById('f-platform')?.value||'';
+  const fProp=document.getElementById('f-property')?.value||'';
+  const fPayment=document.getElementById('f-payment')?.value||'';
+  const fStatus=document.getElementById('f-status')?.value||'';
+  const fNotes=document.getElementById('f-notes')?.value||'';
+  const fDeposit=+document.getElementById('f-deposit')?.value||0;
+  const bTemp={checkin:fCI,checkout:fCO,rate:fRate,promo:fPromo,serviceFee:fSvc,platform:fPlatform,property:fProp,extraGuests:0,storeSales:0,adjustments:_currentAdjustments};
+  const t=calcTotals(bTemp);
+  const propObj=properties.find(p=>p.id===fProp);
+  const propDisplay=propObj?propObj.name:fProp;
+  const propAddr=propObj?.address||propObj?.city||'';
+  const dateRange=fCI&&fCO?`${fmtDate(fCI)} → ${fmtDate(fCO)}`:'';
+  const adjRows=(_currentAdjustments||[]).filter(a=>a.desc||a.amount).map(a=>`
+    <tr><td style="padding:4px 0;color:#555">${esc(a.desc||'Adjustment')}</td><td style="text-align:right">${a.amount>=0?'+':''}${fmtMoney(a.amount)}</td></tr>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Booking Summary</title>
+  <style>
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:0;color:#1a1a1a;background:#fff}
+    .page{max-width:560px;margin:0 auto;padding:32px 28px}
+    .logo{font-size:22px;font-weight:900;letter-spacing:-.04em;margin-bottom:4px}
+    .logo span{color:#888;font-weight:400}
+    .divider{border:none;border-top:1px solid #e8e6e1;margin:18px 0}
+    h2{font-size:18px;font-weight:800;margin:0 0 4px}
+    .meta{font-size:12px;color:#666;margin-bottom:18px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    td{padding:5px 0;vertical-align:top}
+    td:last-child{text-align:right;font-weight:600}
+    .section-title{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#999;padding:14px 0 6px}
+    .total-row td{font-size:16px;font-weight:900;border-top:2px solid #1a1a1a;padding-top:10px}
+    .badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700}
+    .green{background:#edf7ea;color:#2d6a1f}.orange{background:#fef8ec;color:#c47c0a}
+    .blue{background:#eef4ff;color:#1a56db}.red{background:#fdf0ee;color:#c0392b}
+    @media print{body{margin:0}@page{margin:16mm}}
+  </style></head><body><div class="page">
+    <div class="logo">Bloomstone<span> PMS</span></div>
+    <div style="font-size:11px;color:#999;margin-bottom:20px">Booking Confirmation</div>
+    <hr class="divider"/>
+    <h2>${esc(fGuest)}</h2>
+    <div class="meta">${esc(propDisplay)}${propAddr?' · '+esc(propAddr):''}</div>
+    <table>
+      <tr><td style="color:#555">Check-in</td><td>${fmtDate(fCI)||'—'}</td></tr>
+      <tr><td style="color:#555">Check-out</td><td>${fmtDate(fCO)||'—'}</td></tr>
+      <tr><td style="color:#555">Nights</td><td>${t.nights}</td></tr>
+      <tr><td style="color:#555">Platform</td><td>${esc(fPlatform)||'—'}</td></tr>
+      <tr><td style="color:#555">Payment</td><td>${esc(fPayment)||'—'}</td></tr>
+      <tr><td style="color:#555">Status</td><td><span class="badge ${fStatus==='Confirmed'?'green':fStatus==='Pending'?'orange':fStatus==='Checked-In'?'blue':'red'}">${esc(fStatus)}</span></td></tr>
+    </table>
+    <hr class="divider"/>
+    <div class="section-title">Revenue Breakdown</div>
+    <table>
+      <tr><td>Booking Fee <span style="color:#999;font-size:11px">${t.nights} nights × ${fmtMoney(fRate)}</span></td><td>${fmtMoney(t.bkFee)}</td></tr>
+      ${t.promoTotal?`<tr><td style='color:#555'>Promo Discount <span style='opacity:.6;font-size:11px'>${t.nights}x${C()}${fPromo}</span></td><td style='color:#6d28d9'>-${fmtMoney(t.promoTotal)}</td></tr>`:''}
+      ${t.svcFee?`<tr><td style="color:#555">Service Fee</td><td style="color:#c0392b">−${fmtMoney(t.svcFee)}</td></tr>`:''}
+      ${t.platFee?`<tr><td style="color:#555">${esc(fPlatform||'Platform')} (${t.comm}%${t.vat?'+'+t.vat+'%VAT':''})</td><td style="color:#c0392b">−${fmtMoney(t.platFee)}</td></tr>`:''}
+      ${adjRows}
+      ${t.extraFee?`<tr><td style="color:#555">Extra Guest Fee</td><td>+${fmtMoney(t.extraFee)}</td></tr>`:''}
+      <tr class="total-row"><td>Total Net</td><td style="color:#2d6a1f">${fmtMoney(t.netRevenue)}</td></tr>
+    </table>
+    ${fDeposit?`<hr class="divider"/><table><tr><td style="color:#555">Security Deposit</td><td>${fmtMoney(fDeposit)}</td></tr></table>`:''}
+    ${fNotes?`<hr class="divider"/><div class="section-title">Notes</div><div style="font-size:13px;color:#444">${esc(fNotes)}</div>`:''}
+    <hr class="divider"/>
+    <div style="font-size:10px;color:#aaa;text-align:center">Generated by Bloomstone PMS · ${new Date().toLocaleDateString()}</div>
+  </div></body></html>`;
+  const win=window.open('','_blank','width=640,height=780');
+  win.document.write(html);win.document.close();win.focus();
+  setTimeout(()=>win.print(),400);
+}
+
+function showGuestHistory(){
+  const guest=(document.getElementById('f-guest')?.value||'').trim();
+  if(!guest){toast('Enter a guest name first.','warning');return;}
+  const gBks=bookings.filter(b=>(b.guest||'').toLowerCase().trim()===guest.toLowerCase().trim()).sort((a,b)=>b.checkin.localeCompare(a.checkin));
+  if(!gBks.length){toast(`No history found for "${guest}".`,'warning');return;}
+  const rows=gBks.map(b=>{const t=calcTotals(b);return`
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="closeModal('confirmModal');openBookingDrawer('${b.id}')">
+      <div style="width:3px;height:28px;border-radius:2px;background:${platformColor(b.platform)};flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700">${esc(propName(b.property))}</div>
+        <div style="font-size:11px;color:var(--text-3)">${fmtDate(b.checkin)} → ${fmtDate(b.checkout)} · ${t.nights} nights</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:12px;font-weight:700;color:var(--green)">${fmtMoney(t.netRevenue)}</div>
+        ${statusBadgeHtml(b.status)}
+      </div>
+    </div>`}).join('');
+  const lifetime=gBks.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
+  confirmDialog(`${esc(guest)} — Booking History`,
+    `<div style="font-size:12px;color:var(--text-3);margin-bottom:10px">${gBks.length} booking${gBks.length!==1?'s':''} · ${fmtMoney(lifetime)} lifetime value</div>${rows}`,
+    '📋',()=>{},'Close',{html:true,wide:true,btnClass:'btn-secondary'});
+}
+
+// ---- FINANCIALS
+function calcTotals(b){
+  const nights=nightsBetween(b.checkin,b.checkout);
+  const rate=+b.rate||0;
+  const promo=+b.promo||0;
+  const bkFee=rate*nights;                       // raw: nights × rate
+  const promoTotal=promo*nights;                  // per-night discount × nights
+  const stayFee=Math.max(0,bkFee-promoTotal);    // after promo deduction
+  const prop=properties.find(p=>p.id===b.property);
+  const feePerG=prop?(+prop.extraGuestFee??300):300;
+  const baseG=prop?(+prop.baseGuests||2):2;
+  const maxG=prop?(+prop.maxGuests||8):8;
+  const extraG=+b.extraGuests||0;
+  const extraFee=extraG*feePerG*nights;
+  const svcFee=+b.serviceFee||0;
+  const plat=getPlatform(b.platform);
+  const comm=plat?(+plat.commission||0):0;
+  const vat=plat?(+plat.vat||0):0;
+  const platFee=Math.max(0,stayFee)*(comm/100)*(1+vat/100);
+  const storeSales=+b.storeSales||0;
+  const adjTotal=(b.adjustments||[]).reduce((s,a)=>s+(+a.amount||0),0);
+  const totalWithout=stayFee-svcFee-platFee;  // net before extras & adjustments
+  const netRevenue=totalWithout+extraFee+adjTotal;
+  return{nights,rate,promo,promoTotal,stayFee,bkFee,extraFee,svcFee,platFee,totalWithout,netRevenue,storeSales,extraG,comm,vat,feePerG,baseG,maxG,adjTotal};
+}
+
+function bookingsOverlap(a,b){
+  if(a.checkout===b.checkin||b.checkout===a.checkin)return false;
+  return a.checkin<b.checkout&&b.checkin<a.checkout;
+}
+function hasConflict(b){
+  if(!b||!b.checkin||!b.checkout||b.status==='Cancelled')return false;
+  return bookings.some(o=>o.id!==b.id&&o.property===b.property&&o.status!=='Cancelled'&&bookingsOverlap(b,o));
+}
+function isRepeat(name){
+  if(!name)return false;
+  const n=name.toLowerCase().trim();
+  return bookings.filter(b=>(b.guest||'').toLowerCase().trim()===n).length>1;
+}
+function tasksDone(b){if(!b.tasks)return 0;return DEFAULT_TASKS.filter(t=>b.tasks[t.key]).length;}
+function tasksTotal(){return DEFAULT_TASKS.length;}
+
+// ---- TOAST
+function toast(msg,type='success',durationOrUndo=null){
+  const host=document.getElementById('toastHost');
+  const el=document.createElement('div');
+  el.className=`toast ${type}`;
+  const undoFn=typeof durationOrUndo==='function'?durationOrUndo:null;
+  const duration=typeof durationOrUndo==='number'?durationOrUndo:(undoFn?6000:2800);
+  el.innerHTML=`<span>${esc(msg)}</span>${undoFn?'<button class="undo">Undo</button>':''}`;
+  if(undoFn)el.querySelector('.undo').onclick=()=>{undoFn();el.remove();};
+  host.appendChild(el);
+  setTimeout(()=>el.remove(),duration);
+}
+
+// ---- CONFIRM
+function confirmDialog(title,text,icon,onOk,confirmLabel='Confirm',opts={}){
+  document.getElementById('confirmTitle').textContent=title;
+  const textEl=document.getElementById('confirmText');
+  if(opts.html){textEl.innerHTML=text;}else{textEl.textContent=text;}
+  document.getElementById('confirmIcon').textContent=icon||'\u26a0';
+  const modal=document.getElementById('confirmModal');
+  if(opts.wide)modal.classList.add('wide');else modal.classList.remove('wide');
+  const btn=document.getElementById('confirmBtn');
+  btn.textContent=confirmLabel;
+  btn.className='btn '+(opts.btnClass||'btn-danger');
+  btn.style.minWidth='110px';
+  btn.onclick=()=>{closeModal('confirmModal');onOk();};
+  openModal('confirmModal');
+}
+
+// ---- MODALS
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.addEventListener('click',e=>{
+  if(e.target.classList.contains('modal-overlay'))e.target.classList.remove('open');
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open'));
+    closeDrawer();closeCmdPalette();
+  }
+});
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+const NAV_STRUCTURE=[
+  {id:'today',    icon:'\u25ce',label:'Today',      sub:[]},
+  {id:'operations',icon:'\u229f',label:'Operations',sub:[
+    {id:'calendar',label:'Calendar'},
+    {id:'bookings',label:'Bookings'},
+  ]},
+  {id:'finance',  icon:'\u20b1',label:'Finance',    sub:[
+    {id:'finance-overview',label:'Overview'},
+    {id:'finance-expenses',label:'Expenses'},
+    {id:'finance-deposits',label:'Deposits'},
+    {id:'finance-platforms',label:'Platforms'},
+  ]},
+  {id:'properties',icon:'\u2302',label:'Properties',sub:[]},
+  {id:'reports',  icon:'\u2197',label:'Reports',    sub:[]},
+  {id:'system',   icon:'\u2699',label:'System',     sub:[
+    {id:'system-imports',label:'Imports'},
+    {id:'system-integrations',label:'Integrations'},
+    {id:'system-settings',label:'Settings'},
+    {id:'system-trash',label:'Trash'},
+  ]},
+  {id:'users',    icon:'\u{1F464}',label:'Users',    sub:[]},
+];
+
+function buildSidebarNav(){
+  const nav=document.getElementById('sidebarNav');
+  nav.innerHTML=NAV_STRUCTURE.map(ws=>{
+    const hasSub=ws.sub.length>0;
+    return`<div class="ws-item">
+      <button class="ws-btn" data-ws="${ws.id}" onclick="wsClick('${ws.id}',${hasSub})">
+        <span class="ws-icon">${ws.icon}</span>
+        <span class="ws-label">${ws.label}</span>
+        ${hasSub?'<span class="ws-chevron">\u203a</span>':''}
+      </button>
+      ${hasSub?`<div class="sub-nav" id="sub-${ws.id}">${ws.sub.map(s=>`<button class="sub-btn" data-sub="${s.id}" onclick="subClick('${ws.id}','${s.id}')">${s.label}</button>`).join('')}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function wsClick(wsId,hasSub){
+  if(hasSub){
+    const subEl=document.getElementById('sub-'+wsId);
+    const btn=document.querySelector(`.ws-btn[data-ws="${wsId}"]`);
+    const isOpen=subEl.classList.contains('open');
+    document.querySelectorAll('.sub-nav.open').forEach(s=>s.classList.remove('open'));
+    document.querySelectorAll('.ws-btn.open').forEach(b=>b.classList.remove('open'));
+    if(!isOpen){subEl.classList.add('open');btn.classList.add('open');}
+    if(!isOpen){
+      const first=NAV_STRUCTURE.find(w=>w.id===wsId)?.sub[0];
+      if(first)subClick(wsId,first.id);
+    }
+  }else{
+    document.querySelectorAll('.sub-nav.open').forEach(s=>s.classList.remove('open'));
+    document.querySelectorAll('.ws-btn.open').forEach(b=>b.classList.remove('open'));
+    navigateTo(wsId);
+  }
+  document.querySelectorAll('.ws-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`.ws-btn[data-ws="${wsId}"]`)?.classList.add('active');
+}
+
+function subClick(wsId,subId){
+  document.querySelectorAll('.sub-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`.sub-btn[data-sub="${subId}"]`)?.classList.add('active');
+  document.querySelectorAll('.ws-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`.ws-btn[data-ws="${wsId}"]`)?.classList.add('active');
+  navigateTo(subId);
+}
+
+function navigateTo(viewId){
+  currentWs=viewId;
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  const viewEl=document.getElementById('view-'+viewId);
+  if(viewEl)viewEl.classList.add('active');
+  const ws=NAV_STRUCTURE.find(w=>w.id===viewId||w.sub.some(s=>s.id===viewId));
+  const sub=ws?.sub.find(s=>s.id===viewId);
+  document.getElementById('topbarTitle').textContent=sub?sub.label:(ws?.label||viewId);
+  const sidebar=document.getElementById('sidebar');
+  if(sidebar.classList.contains('mobile-open')){
+    sidebar.classList.remove('mobile-open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+  }
+  renderView(viewId);
+}
+
+function mobileNavClick(wsId){
+  document.querySelectorAll('.mobile-nav-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`.mobile-nav-btn[data-ws="${wsId}"]`)?.classList.add('active');
+  const ws=NAV_STRUCTURE.find(w=>w.id===wsId);
+  if(ws&&ws.sub.length>0)subClick(wsId,ws.sub[0].id);
+  else wsClick(wsId,false);
+}
+
+function renderView(viewId){
+  const map={
+    'today':renderToday,
+    'bookings':renderBookings,
+    'calendar':renderCalendar,
+    'finance-overview':renderFinanceOverview,
+    'finance-expenses':renderExpenses,
+    'finance-deposits':renderDeposits,
+    'finance-platforms':renderPlatforms,
+    'properties':renderProperties,
+    'reports':renderReports,
+    'system-imports':populateBulkSelect,
+    'system-trash':renderTrash,
+    'system-settings':()=>{},
+    'system-integrations':()=>{renderDriveStatus();renderSheetsStatus();},
+    'users':renderUsers,
+  };
+  if(map[viewId])map[viewId]();
+  populateSelects();
+}
+
+function buildPlatPickerOptions(){
+  const list=document.getElementById('platPickerList');
+  if(!list)return;
+  const cur=document.getElementById('f-platform')?.value||'';
+  list.innerHTML=`<div class="plat-picker-opt${!cur?' selected':''}" onclick="selectPlatform('')"><span style="color:var(--text-3)">Select\u2026</span></div>`
+    +platforms.map(p=>`<div class="plat-picker-opt${cur===p.name?' selected':''}" onclick="selectPlatform('${esc(p.name)}')">${platformPillHtml(p.name)}</div>`).join('');
+}
+function togglePlatPicker(){
+  const btn=document.getElementById('platPickerBtn');
+  const list=document.getElementById('platPickerList');
+  if(!btn||!list)return;
+  const isOpen=list.classList.contains('open');
+  list.classList.toggle('open',!isOpen);
+  btn.classList.toggle('open',!isOpen);
+}
+function selectPlatform(name){
+  const inp=document.getElementById('f-platform');
+  if(inp)inp.value=name;
+  const label=document.getElementById('platPickerLabel');
+  if(label){
+    if(name){label.innerHTML=platformPillHtml(name);label.style.color='';}
+    else{label.textContent='Select\u2026';label.style.color='var(--text-3)';}
+  }
+  const btn=document.getElementById('platPickerBtn');
+  const list=document.getElementById('platPickerList');
+  if(btn)btn.classList.remove('open');
+  if(list)list.classList.remove('open');
+  buildPlatPickerOptions();
+  calcFinancials();
+  updateDrawerSummary();
+}
+function setPlatPickerValue(name){
+  const inp=document.getElementById('f-platform');
+  if(inp)inp.value=name||'';
+  const label=document.getElementById('platPickerLabel');
+  if(label){
+    if(name){label.innerHTML=platformPillHtml(name);label.style.color='';}
+    else{label.textContent='Select\u2026';label.style.color='var(--text-3)';}
+  }
+  buildPlatPickerOptions();
+}
+// Close picker when clicking outside
+document.addEventListener('click',e=>{
+  const wrap=document.getElementById('platPickerWrap');
+  if(wrap&&!wrap.contains(e.target)){
+    document.getElementById('platPickerList')?.classList.remove('open');
+    document.getElementById('platPickerBtn')?.classList.remove('open');
+  }
+});
+function populateSelects(){
+  const prOpts='<option value="">Select…</option>'+properties.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  // Rebuild custom platform picker options (preserves current selection)
+  buildPlatPickerOptions();
+  const fProp=document.getElementById('f-property');if(fProp){const c=fProp.value;fProp.innerHTML=prOpts;if(c)fProp.value=c;}
+  [['bk-prop',true],['cal-prop',true],['fin-prop',true],['rep-prop',true]].forEach(([id,all])=>{
+    const el=document.getElementById(id);if(!el)return;
+    const c=el.value;
+    el.innerHTML=(all?'<option value="all">All Properties</option>':'')+properties.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+    if(c)el.value=c;
+  });
+  [['bk-plat',true],['cal-plat',true],['rep-plat',true]].forEach(([id])=>{
+    const el=document.getElementById(id);if(!el)return;
+    const c=el.value;
+    el.innerHTML='<option value="all">All Platforms</option>'+platforms.map(p=>`<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
+    if(c)el.value=c;
+  });
+  const dates=bookings.map(b=>b.checkin).concat(expenses.map(e=>e.month||'')).filter(Boolean);
+  const curMonth=todayISO().slice(0,7);
+  const months=[...new Set([curMonth,...dates.map(d=>d.slice(0,7))])].sort().reverse();
+  ['bk-month','exp-month','dep-month'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    const c=el.value;
+    el.innerHTML='<option value="all">All Months</option>'+months.map(m=>`<option value="${m}">${fmtMonthYear(m+'-01')}</option>`).join('');
+    if(c)el.value=c;
+  });
+  const feProp=document.getElementById('fe-prop');
+  if(feProp){const c=feProp.value;feProp.innerHTML='<option value="all">All Properties</option>'+properties.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');if(c)feProp.value=c;}
+}
+
+// ============================================================
+// TODAY VIEW
+// ============================================================
+function renderToday(){
+  const today=todayISO();
+  const checkIns=bookings.filter(b=>b.checkin===today&&b.status!=='Cancelled');
+  const checkOuts=bookings.filter(b=>b.checkout===today&&b.status!=='Cancelled');
+  const active=bookings.filter(b=>b.status!=='Cancelled'&&b.checkin<=today&&b.checkout>today);
+  const pendingDep=bookings.filter(b=>b.status!=='Cancelled'&&!b.depositCollected&&b.checkin>=today);
+  document.getElementById('todayStats').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Check-ins Today</div><div class="stat-value">${checkIns.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Check-outs Today</div><div class="stat-value">${checkOuts.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Active Stays</div><div class="stat-value">${active.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Pending Deposits</div><div class="stat-value">${pendingDep.length}</div></div>`;
+  const sec=(title,items,icon,fn)=>{
+    if(!items.length)return`<div class="today-card"><div class="today-card-header"><div class="today-card-title">${icon} ${title}</div><span class="badge badge-neutral">0</span></div><div class="empty" style="padding:20px"><div class="empty-text">None today</div></div></div>`;
+    return`<div class="today-card"><div class="today-card-header"><div class="today-card-title">${icon} ${title}</div><span class="badge badge-green">${items.length}</span></div>${items.map(b=>`<div class="today-item" onclick="openBookingDrawer('${b.id}')"><div style="width:4px;height:36px;border-radius:2px;background:${platformColor(b.platform)};flex-shrink:0"></div><div class="today-item-info"><div class="today-item-name">${esc(b.guest)}${isRepeat(b.guest)?'<span class="badge badge-purple" style="margin-left:6px;font-size:9px">REPEAT</span>':''}</div><div class="today-item-meta">${esc(propName(b.property))}</div></div>${fn?fn(b):''}</div>`).join('')}</div>`;
+  };
+  document.getElementById('todaySections').innerHTML=
+    sec('Check-ins',checkIns,'\u2192',b=>`<span class="badge badge-blue">${b.guestCount||1} guest${b.guestCount!=1?'s':''}</span>`)+
+    sec('Check-outs',checkOuts,'\u2190',b=>`<span class="badge badge-green">${fmtMoney(calcTotals(b).netRevenue)}</span>`);
+  const tl=[...checkIns,...checkOuts,...active.filter(b=>!checkIns.find(c=>c.id===b.id)&&!checkOuts.find(c=>c.id===b.id))];
+  document.getElementById('todayTimeline').innerHTML=`
+    <div class="today-card-header"><div class="today-card-title">\u25f7 Today's Timeline</div></div>
+    ${tl.length?tl.map(b=>{
+      const isIn=b.checkin===today,isOut=b.checkout===today;
+      return`<div class="today-item" onclick="openBookingDrawer('${b.id}')"><div style="width:4px;height:36px;border-radius:2px;background:${platformColor(b.platform)};flex-shrink:0"></div><div class="today-item-info"><div class="today-item-name">${esc(b.guest)}</div><div class="today-item-meta">${esc(propName(b.property))} \u00b7 ${isIn?'Check-in':isOut?'Check-out':'Active stay'}</div></div><div style="display:flex;gap:6px;align-items:center">${statusBadgeHtml(b.status)}<span class="badge badge-neutral">${tasksDone(b)}/${tasksTotal()} tasks</span></div></div>`;
+    }).join(''):`<div class="empty" style="padding:20px"><div class="empty-text">No activity today</div></div>`}`;
+}
+
+// ============================================================
+// BOOKINGS VIEW
+// ============================================================
+function clearBookingFilters(){
+  ['bk-month','bk-prop','bk-plat','bk-status'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='all';});
+  renderBookings();
+}
+function getFilteredBookings(){
+  const m=document.getElementById('bk-month')?.value||'all';
+  const pr=document.getElementById('bk-prop')?.value||'all';
+  const pl=document.getElementById('bk-plat')?.value||'all';
+  const st=document.getElementById('bk-status')?.value||'all';
+  return bookings.filter(b=>{
+    if(m!=='all'){const[y,mo]=m.split('-').map(Number);const d=new Date(b.checkin);if(d.getFullYear()!==y||d.getMonth()+1!==mo)return false;}
+    if(pr!=='all'&&b.property!==pr)return false;
+    if(pl!=='all'&&b.platform!==pl)return false;
+    if(st!=='all'&&b.status!==st)return false;
+    return true;
+  }).sort((a,b)=>b.checkin.localeCompare(a.checkin));
+}
+function renderBookings(){
+  const list=getFilteredBookings();
+  const cnt=document.getElementById('bkCount');
+  if(cnt)cnt.textContent=`${list.length} booking${list.length!==1?'s':''}`;
+  const isMobile=window.innerWidth<768;
+  const cards=document.getElementById('bookingCards');
+  const tblWrap=document.querySelector('#view-bookings .table-wrap');
+  if(isMobile){
+    if(tblWrap)tblWrap.style.display='none';
+    if(cards){
+      cards.style.display='block';
+      if(!list.length){cards.innerHTML=`<div class="empty"><div class="empty-icon">\ud83d\udccb</div><div class="empty-text">No bookings match filters</div></div>`;return;}
+      cards.innerHTML=list.map(b=>{const t=calcTotals(b);const c=platformColor(b.platform);
+        return`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:10px;cursor:pointer" onclick="openBookingDrawer('${b.id}')">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:4px;height:36px;border-radius:2px;background:${c};flex-shrink:0"></div><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700">${esc(b.guest)}${isRepeat(b.guest)?'<span class="badge badge-purple" style="margin-left:6px;font-size:9px">REPEAT</span>':''}</div><div style="font-size:12px;color:var(--text-3)">${esc(propName(b.property))}</div></div>${statusBadgeHtml(b.status)}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">${platformPillHtml(b.platform)}<span style="font-size:12px;color:var(--text-3)">${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)}</span><span style="font-size:12px;font-weight:700;margin-left:auto">${fmtMoney(t.netRevenue)}</span></div>
+        </div>`;}).join('');
+    }
+    return;
+  }
+  if(tblWrap)tblWrap.style.display='';
+  if(cards)cards.style.display='none';
+  const tbody=document.getElementById('bookingsTbody');
+  if(!list.length){tbody.innerHTML=`<tr><td colspan="21"><div class="empty"><div class="empty-text">No bookings match filters</div></div></td></tr>`;return;}
+  tbody.innerHTML=list.map(b=>{
+    const t=calcTotals(b);const c=platformColor(b.platform);
+    const td=tasksDone(b),tt=tasksTotal();
+    const conflict=hasConflict(b);
+    const svcFee=b.serviceFee||0;
+    const cleanFee=b.cleaningFee||0;
+    const storeSales=b.storeSales||0;
+    const platComm=b.platformCommission??t.platFee;
+    const extraG=b.extraGuests??t.extraG;
+    const extraFeeAmt=b.extraGuestFee??t.extraFee;
+    return`<tr${conflict?' style="background:var(--orange-bg)"':''} onclick="openBookingDrawer('${b.id}')">
+      <td class="col-stripe"><div class="col-stripe-bar" style="background:${c}"></div></td>
+      <td style="white-space:nowrap">${fmtDate(b.checkin)}</td>
+      <td style="white-space:nowrap">${fmtDate(b.checkout)}</td>
+      <td><strong>${t.nights}</strong></td>
+      <td>${platformPillHtml(b.platform)}</td>
+      <td style="white-space:nowrap"><strong>${esc(b.guest)}</strong>${isRepeat(b.guest)?'<span class="badge badge-purple" style="margin-left:4px;font-size:9px">REPEAT</span>':''}</td>
+      <td style="color:var(--text-2);white-space:nowrap">${esc(propName(b.property))}</td>
+      <td>${fmtMoney(b.rate)}</td>
+      <td style="color:var(--purple);font-weight:700">${b.promo?`−${fmtMoney(b.promo)}`:'—'}</td>
+      <td>${fmtMoney(t.bkFee)}</td>
+      <td>${svcFee?fmtMoney(svcFee):'—'}</td>
+      <td>${extraG||'—'}</td>
+      <td>${extraFeeAmt?fmtMoney(extraFeeAmt):'—'}</td>
+      <td style="color:var(--red)">${platComm?`−${fmtMoney(platComm)}`:'—'}</td>
+      <td><strong style="color:var(--green)">${fmtMoney(t.netRevenue)}</strong></td>
+      <td>${storeSales?fmtMoney(storeSales):'—'}</td>
+      <td>${cleanFee?fmtMoney(cleanFee):'—'}</td>
+      <td style="white-space:nowrap">${esc(b.payment||'—')}</td>
+      <td>${statusBadgeHtml(b.status)}</td>
+      <td><span style="font-size:11px;color:${td===tt?'var(--green)':'var(--text-3)'}">${td}/${tt}</span></td>
+      <td onclick="event.stopPropagation()"><button class="btn btn-ghost btn-sm" onclick="openBookingDrawer('${b.id}')">&#x270e;</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ============================================================
+// BOOKING DRAWER
+// ============================================================
+function updateDrawerSummary(){
+  // Accent bar colour from platform
+  const platName=document.getElementById('f-platform')?.value||'';
+  const bar=document.getElementById('drawerAccentBar');
+  if(bar)bar.style.background=platName?platformColor(platName):'var(--border)';
+  // Status badge in header
+  const badgeEl=document.getElementById('drawerStatusBadge');
+  if(badgeEl){
+    const status=document.getElementById('f-status')?.value||'';
+    const ci=document.getElementById('f-checkin')?.value||'';
+    const co=document.getElementById('f-checkout')?.value||'';
+    const today=todayISO();
+    let badge='';
+    if(status==='Cancelled')badge='<span class="badge badge-red">Cancelled</span>';
+    else if(co&&co<today)badge='<span class="badge badge-neutral">✓ Checked Out</span>';
+    else if(co&&co===today)badge='<span class="badge badge-orange">↑ Checking Out Today</span>';
+    else if(ci&&ci===today)badge='<span class="badge badge-blue">↓ Check-in Today</span>';
+    else if(ci&&ci<=today&&co&&co>today)badge='<span class="badge badge-green">Active Stay</span>';
+    badgeEl.innerHTML=badge;
+  }
+  updateDrawerProfile();
+  updateDateRangeDisplay();
+}
+function openBookingDrawer(id=null){
+  editingBookingId=id;
+  drawerUnsaved=false;
+  populateSelects();
+  const isNew=!id;
+  document.getElementById('drawerTitle').textContent=isNew?'New Booking':'Edit Booking';
+  document.getElementById('drawerDeleteBtn').style.display=isNew?'none':'';
+  document.getElementById('drawerSaveBtn').style.display='';
+  document.getElementById('drawerSaveBtn').textContent=isNew?'\u2713 Save Booking':'\u270e Update Booking';
+  document.getElementById('drawerCancelBtn').textContent='Cancel';
+  ['f-checkin','f-checkout','f-guest','f-rate','f-notes'].forEach(k=>{const el=document.getElementById(k);if(el)el.value=''});
+  // promo + servicefee intentionally left blank so yellow highlight prompts user
+  ['f-promo','f-servicefee'].forEach(k=>{const el=document.getElementById(k);if(el){el.value='';el.classList.remove('error');}});
+  ['f-store','f-cleaning','f-extraguests'].forEach(k=>{const el=document.getElementById(k);if(el)el.value=0;});
+  document.getElementById('f-deposit').value=1000;
+  _currentAdjustments=[];
+  setPlatPickerValue('');
+  document.getElementById('f-property').value='';
+  document.getElementById('f-status').value='Confirmed';
+  applyStatusColor(document.getElementById('f-status'));
+  document.getElementById('f-payment').value='Platform (Auto)';
+  document.getElementById('f-dep-collected').checked=false;
+  document.getElementById('f-dep-refunded').checked=false;
+  document.getElementById('f-nights').value='';
+  document.getElementById('overlapAlert').classList.remove('show');
+  if(id){
+    const b=bookings.find(x=>x.id===id);
+    if(b){
+      document.getElementById('f-checkin').value=b.checkin||'';
+      document.getElementById('f-checkout').value=b.checkout||'';
+      document.getElementById('f-guest').value=b.guest||'';
+      setPlatPickerValue(b.platform||'');
+      document.getElementById('f-property').value=b.property||'';
+      document.getElementById('f-rate').value=b.rate??'';
+      const promoEl=document.getElementById('f-promo');
+      if(promoEl){promoEl.value=b.promo??0;promoEl.classList.remove('error');}
+      // bookingFee auto-calculated
+      const svcEl=document.getElementById('f-servicefee');
+      if(svcEl){svcEl.value=b.serviceFee??0;svcEl.classList.remove('error');}
+      document.getElementById('f-extraguests').value=b.extraGuests??0;
+      document.getElementById('f-store').value=b.storeSales??0;
+      document.getElementById('f-cleaning').value=b.cleaningFee??0;
+      document.getElementById('f-deposit').value=b.deposit??1000;
+      document.getElementById('f-status').value=b.status||'Confirmed';
+      applyStatusColor(document.getElementById('f-status'));
+      document.getElementById('f-payment').value=b.payment||'Platform (Auto)';
+      document.getElementById('f-notes').value=b.notes||'';
+      // guestPrefs merged into notes
+      document.getElementById('f-dep-collected').checked=!!b.depositCollected;
+      document.getElementById('f-dep-refunded').checked=!!b.depositRefunded;
+      onDatesChange();onPropertyChange();
+      _currentAdjustments=(b.adjustments||[]).map(a=>({...a}));
+      renderDrawerHistory(b);renderGuestProfile(b.guest);
+      renderAdjustments();
+    }
+  }else{
+    const recent=bookings.slice().sort((a,b)=>(b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||'')).slice(0,4);
+    document.getElementById('drawerHistory').innerHTML=recent.length?
+      '<div style="font-size:11px;font-weight:700;color:var(--text-3);margin-bottom:6px">Recent bookings:</div>'+
+      recent.map(b=>`<div style="display:flex;align-items:center;gap:6px;padding:4px 0;cursor:pointer" onclick="closeDrawer();setTimeout(()=>openBookingDrawer('${b.id}'),150)">
+        <div style="width:3px;height:22px;border-radius:2px;background:${platformColor(b.platform)};flex-shrink:0"></div>
+        <div style="flex:1;font-size:11px"><strong>${esc(b.guest)}</strong> · ${esc(propName(b.property))} · ${fmtDate(b.checkin)}</div>
+        ${statusBadgeHtml(b.status)}</div>`).join('')
+      :'<div style="color:var(--text-3);font-size:12px">New booking — no history yet</div>';
+    renderAdjustments();
+  }
+  updateDrawerSummary();
+  updateStoreSalesState();
+  calcFinancials();
+  document.getElementById('drawerBody')?.scrollTo(0,0);
+  document.getElementById('bookingDrawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function closeDrawer(){
+  document.getElementById('bookingDrawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+// switchDrawerTab kept as no-op for backward compatibility (tabs removed, all panels always visible)
+function switchDrawerTab(tabId){}
+
+function renderDrawerTasks(b){/* tasks section removed */}
+function toggleTask(key){
+  if(!editingBookingId)return;
+  const b=bookings.find(x=>x.id===editingBookingId);if(!b)return;
+  if(!b.tasks)b.tasks={};
+  b.tasks[key]=!b.tasks[key];
+  saveAll();
+}
+
+// ── Adjustments ───────────────────────────────────────────────
+function renderAdjustments(){
+  const el=document.getElementById('adjList');if(!el)return;
+  if(!_currentAdjustments.length){
+    el.innerHTML='<div style="font-size:12px;color:var(--text-3);padding:4px 0 6px">No adjustments. Use buttons below to add.</div>';
+    return;
+  }
+  el.innerHTML=_currentAdjustments.map((a,i)=>`
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <input class="input" style="flex:1;font-size:13px" value="${esc(a.desc)}" placeholder="e.g. Extra guest night 3–5"
+             oninput="_currentAdjustments[${i}].desc=this.value"/>
+      <input class="input" type="number" style="width:110px;font-size:13px" value="${a.amount||''}" placeholder="₱ 0"
+             oninput="_currentAdjustments[${i}].amount=+this.value;calcFinancials()"/>
+      <button class="btn-icon btn-sm" onclick="removeAdj(${i})" title="Remove">×</button>
+    </div>`).join('');
+}
+function addAdjustment(desc){
+  _currentAdjustments.push({id:'adj_'+Date.now(),desc:desc||'',amount:0});
+  renderAdjustments();calcFinancials();
+  setTimeout(()=>{
+    const rows=document.querySelectorAll('#adjList .input');
+    if(rows.length){const last=rows[rows.length-2];last?.focus();if(desc&&last)last.select();}
+  },40);
+}
+function removeAdj(i){
+  _currentAdjustments.splice(i,1);
+  renderAdjustments();calcFinancials();
+}
+
+function renderDrawerHistory(b){
+  const lines=[];
+  if(b.createdAt)lines.push(`Created: ${new Date(b.createdAt).toLocaleString()}`);
+  if(b.updatedAt)lines.push(`Last updated: ${new Date(b.updatedAt).toLocaleString()}`);
+  document.getElementById('drawerHistory').innerHTML=lines.map(l=>`<div>${l}</div>`).join('');
+}
+
+function renderGuestProfile(name){ updateDrawerProfile(); }
+
+document.getElementById('drawerCloseBtn').addEventListener('click',closeDrawer);
+document.getElementById('drawerOverlay').addEventListener('click',closeDrawer);
+document.getElementById('drawerCancelBtn').addEventListener('click',closeDrawer);
+document.getElementById('drawerSaveBtn').addEventListener('click',saveBooking);
+document.getElementById('drawerDeleteBtn').addEventListener('click',()=>deleteBooking(editingBookingId));
+// ── Guest name suggestions ────────────────────────────────
+let _pendingSuggestName=null;
+
+function _knownGuests(){
+  const seen=new Map();
+  bookings.slice().sort((a,b)=>(b.checkin||'').localeCompare(a.checkin||'')).forEach(b=>{
+    if(b.guest&&!seen.has(b.guest.toLowerCase()))seen.set(b.guest.toLowerCase(),b);
+  });
+  return[...seen.values()];
+}
+
+function showGuestSuggestions(query){
+  const box=document.getElementById('guestSuggestBox');
+  if(!box)return;
+  const q=query.trim().toLowerCase();
+  if(q.length<2){box.style.display='none';return;}
+  const matches=_knownGuests().filter(b=>b.guest.toLowerCase().includes(q)&&b.guest.toLowerCase()!==q);
+  if(!matches.length){box.style.display='none';return;}
+  box.style.display='block';
+  box.innerHTML=matches.slice(0,6).map(b=>{
+    const stays=bookings.filter(x=>x.guest===b.guest&&x.status!=='Cancelled').length;
+    const last=fmtDate(b.checkin);
+    const safeQ=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    const hi=b.guest.replace(new RegExp('('+safeQ+')','gi'),'<mark style="background:rgba(251,191,36,.4);border-radius:2px;padding:0 2px">$1</mark>');
+    return`<div class="guest-suggest-item" onmousedown="event.preventDefault()" onclick="pendingGuestSuggest('${esc(b.guest)}')"><span class="gs-name">${hi}</span><span class="gs-meta">${stays} stay${stays!==1?'s':''} \u00b7 Last ${last}</span></div>`;
+  }).join('');
+}
+
+function pendingGuestSuggest(name){
+  const box=document.getElementById('guestSuggestBox');
+  if(box)box.style.display='none';
+  _pendingSuggestName=name;
+  const banner=document.getElementById('guestConfirmBanner');
+  const label=document.getElementById('guestConfirmName');
+  if(banner&&label){label.textContent=name;banner.style.display='flex';}
+}
+
+function confirmGuestSuggest(){
+  const inp=document.getElementById('f-guest');
+  if(inp&&_pendingSuggestName)inp.value=_pendingSuggestName;
+  const pos=_pendingSuggestName;
+  dismissGuestConfirm();
+  renderGuestProfile(pos||'');
+  updateDrawerSummary();
+  _pendingSuggestName=null;
+}
+
+function dismissGuestConfirm(){
+  const banner=document.getElementById('guestConfirmBanner');
+  if(banner)banner.style.display='none';
+  _pendingSuggestName=null;
+}
+
+document.getElementById('f-guest').addEventListener('input',e=>{
+  const pos=e.target.selectionStart;
+  e.target.value=properCase(e.target.value);
+  try{e.target.setSelectionRange(pos,pos);}catch(_){}
+  showGuestSuggestions(e.target.value);
+  dismissGuestConfirm();
+  renderGuestProfile(e.target.value);
+  updateDrawerSummary();
+});
+document.getElementById('f-guest').addEventListener('blur',()=>{
+  setTimeout(()=>{const box=document.getElementById('guestSuggestBox');if(box)box.style.display='none';},180);
+});
+document.getElementById('f-status').addEventListener('change',e=>{applyStatusColor(e.target);updateDrawerSummary();});
+
+function onDatesChange(){
+  const ci=document.getElementById('f-checkin').value;
+  const co=document.getElementById('f-checkout').value;
+  const nf=document.getElementById('f-nights');
+  if(ci&&co){const n=nightsBetween(ci,co);nf.value=n>0?n:0;}else nf.value='';
+  updateStoreSalesState();
+  calcFinancials();checkOverlap();
+  updateDateRangeDisplay();
+  updateDrawerSummary();
+}
+
+function onPropertyChange(){
+  const pid=document.getElementById('f-property').value;
+  const prop=properties.find(p=>p.id===pid);
+  const hint=document.getElementById('f-cap-hint');
+  // City badge
+  const badge=document.getElementById('f-prop-city-badge');
+  const cityIcon=document.getElementById('f-prop-city-icon');
+  const cityText=document.getElementById('f-prop-city-text');
+  if(prop){
+    if(hint)hint.textContent=`Base ${prop.baseGuests} guests · max ${prop.maxGuests} · ${C()}${prop.extraGuestFee}/extra/night`;
+    if(badge&&cityText){
+      if(cityIcon)cityIcon.innerHTML=propIconHtml(prop,16);
+      cityText.textContent=prop.city||'';
+      badge.style.display=prop.city?'inline-flex':'none';
+    }
+    const maxExtra=prop.maxGuests-prop.baseGuests;
+    const eg=document.getElementById('f-extraguests');
+    if(eg){eg.max=maxExtra;if(+eg.value>maxExtra)eg.value=maxExtra;}
+    // Always auto-fill base rate when property changes
+    const rateEl=document.getElementById('f-rate');
+    if(rateEl&&prop.baseRate)rateEl.value=prop.baseRate;
+  }else{
+    if(hint)hint.textContent='';
+    if(badge)badge.style.display='none';
+  }
+  calcFinancials();
+  updateDrawerSummary();
+}
+
+function updatePostCheckoutFields(){
+  const co=document.getElementById('f-checkout')?.value||'';
+  const checkedOut=co&&co<=todayISO();
+  // helper: lock or unlock a post-checkout field
+  function setField(inputId,hintId,labelId,lockedLabel,unlockedLabel){
+    const el=document.getElementById(inputId);
+    const hint=document.getElementById(hintId);
+    const lbl=document.getElementById(labelId);
+    if(!el)return;
+    el.disabled=!checkedOut;
+    el.style.opacity=checkedOut?'1':'0.45';
+    el.style.cursor=checkedOut?'':'not-allowed';
+    if(hint)hint.style.display=checkedOut?'none':'block';
+    if(lbl)lbl.textContent=checkedOut?unlockedLabel:lockedLabel;
+  }
+  setField('f-store','f-store-hint','f-store-label',
+    'Store / Add-on Sales (₱) — locked until checkout',
+    'Store / Add-on Sales (₱)');
+  setField('f-cleaning','f-cleaning-hint','f-cleaning-label',
+    'Cleaning Fee (₱) — locked until checkout',
+    'Cleaning Fee (₱)');
+}
+// keep old name as alias so existing calls don't break
+function updateStoreSalesState(){ updatePostCheckoutFields(); }
+
+function calcFinancials(){
+  const pid=document.getElementById('f-property')?.value||'';
+  const extraG=+document.getElementById('f-extraguests')?.value||0;
+  const b={
+    checkin:document.getElementById('f-checkin')?.value||'',
+    checkout:document.getElementById('f-checkout')?.value||'',
+    rate:document.getElementById('f-rate')?.value||0,
+    promo:document.getElementById('f-promo')?.value||0,
+    serviceFee:document.getElementById('f-servicefee')?.value||0,
+    platform:document.getElementById('f-platform')?.value||'',
+    property:pid,
+    extraGuests:extraG,
+    storeSales:document.getElementById('f-store')?.value||0,
+    adjustments:_currentAdjustments,
+  };
+  const t=calcTotals(b);
+  const n=document.getElementById('f-nights');if(n)n.value=t.nights||'';
+  const _set=(id,text,color)=>{const el=document.getElementById(id);if(!el)return;el.textContent=text;if(color!==undefined)el.style.color=color;};
+  // Booking fee label: "2 nights × ₱2,500"
+  const bkLbl=document.getElementById('s-bkfee-label');
+  if(bkLbl&&t.nights)bkLbl.textContent=`${t.nights} night${t.nights!==1?'s':''} × ${C()}${(+b.rate||0).toLocaleString()}`;
+  else if(bkLbl)bkLbl.textContent='';
+  _set('s-bkfee',t.bkFee?fmtMoney(t.bkFee):'—','var(--text)');
+  _set('s-promo',t.promoTotal?`−${fmtMoney(t.promoTotal)}`:'—','var(--purple)');
+  const promoSubLbl=document.getElementById('s-promo-sublabel');
+  if(promoSubLbl)promoSubLbl.textContent=(t.promo&&t.nights>1)?`${t.nights} nights × ${C()}${(+b.promo||0).toLocaleString()}`:'';
+  _set('s-svcfee',t.svcFee?`−${fmtMoney(t.svcFee)}`:'—','var(--red)');
+  // Platform fee label with platform name
+  const platLbl=document.getElementById('s-platfee-label');
+  const platName=b.platform||'';
+  if(platLbl)platLbl.textContent=platName&&t.comm?`${platName} (${t.comm}%${t.vat?'+'+t.vat+'% VAT':''})`:platName?platName:'Platform Fee';
+  _set('s-platfee',t.platFee?`−${fmtMoney(t.platFee)}`:'—','var(--red)');
+  _set('s-extra',t.extraFee?`+${fmtMoney(t.extraFee)}`:'—','var(--text-2)');
+  _set('s-adj',t.adjTotal?`${t.adjTotal>=0?'+':''} ${fmtMoney(Math.abs(t.adjTotal))}`:'—','var(--text-2)');
+  _set('s-net',fmtMoney(t.netRevenue),'var(--green)');
+  _set('s-store',t.storeSales?`+${fmtMoney(t.storeSales)}`:'—','var(--text-2)');
+  checkOverlap();
+}
+
+function checkOverlap(){
+  const ci=document.getElementById('f-checkin')?.value;
+  const co=document.getElementById('f-checkout')?.value;
+  const pr=document.getElementById('f-property')?.value;
+  const alertEl=document.getElementById('overlapAlert');
+  if(!ci||!co||!pr){alertEl.classList.remove('show');return;}
+  const cand={id:editingBookingId||'',checkin:ci,checkout:co,property:pr,status:'Confirmed'};
+  const ov=bookings.filter(o=>o.id!==editingBookingId&&o.property===pr&&o.status!=='Cancelled'&&bookingsOverlap(cand,o));
+  if(!ov.length){alertEl.classList.remove('show');alertEl.onclick=null;alertEl.style.cursor='';return;}
+  alertEl.classList.add('show','danger');
+  document.getElementById('overlapText').textContent=`Conflict with ${ov.map(o=>o.guest).join(', ')} — tap to view`;
+  alertEl.style.cursor='pointer';
+  alertEl.onclick=()=>{closeDrawer();setTimeout(()=>openBookingDrawer(ov[0].id),180);};
+}
+
+function _buildBookingFromForm(existing){
+  const ci=document.getElementById('f-checkin').value;
+  const co=document.getElementById('f-checkout').value;
+  const bk={
+    id:editingBookingId||genId(),
+    guest:properCase(document.getElementById('f-guest').value),
+    checkin:ci,checkout:co,
+    platform:document.getElementById('f-platform').value,
+    property:document.getElementById('f-property').value,
+    rate:+document.getElementById('f-rate').value||0,
+    promo:+document.getElementById('f-promo').value||0,
+    bookingFee:0, // will be recalculated below from calcTotals
+    serviceFee:+document.getElementById('f-servicefee').value||0,
+    extraGuests:+document.getElementById('f-extraguests').value||0,
+    adjustments:_currentAdjustments.filter(a=>a.desc||a.amount).map(a=>({...a})),
+    storeSales:+document.getElementById('f-store').value||0,
+    cleaningFee:+document.getElementById('f-cleaning').value||0,
+    deposit:+document.getElementById('f-deposit').value||0,
+    status:document.getElementById('f-status').value,
+    payment:document.getElementById('f-payment').value,
+    notes:document.getElementById('f-notes').value,
+    guestPrefs:'',
+    depositCollected:document.getElementById('f-dep-collected').checked,
+    depositRefunded:document.getElementById('f-dep-refunded').checked,
+    tasks:existing?.tasks||{},
+    createdAt:existing?.createdAt||new Date().toISOString(),
+    updatedAt:new Date().toISOString(),
+  };
+  const t=calcTotals(bk);
+  bk.bookingFee=t.bkFee;bk.extraGuests=t.extraG;bk.extraGuestFee=t.extraFee;
+  bk.totalWithout=t.totalWithout;bk.netRevenue=t.netRevenue;bk.platformCommission=t.platFee;
+  return bk;
+}
+
+function _commitBooking(bk,isNew){
+  if(!isNew){const i=bookings.findIndex(b=>b.id===editingBookingId);if(i>=0)bookings[i]=bk;toast('Booking updated.');}
+  else{bookings.unshift(bk);toast('Booking added.');}
+  saveAll();closeDrawer();renderView(currentWs);driveAutoBackup();
+}
+
+function _buildChangeDiff(orig,bk){
+  const rows=[];
+  const fmt=v=>v===true?'Yes':v===false?'No':(v===0||v===''||v==null)?'—':String(v);
+  const fmtM=v=>v?fmtMoney(v):'—';
+  const fmtD=v=>v?fmtDate(v):'—';
+  const checks=[
+    {label:'Guest',       o:orig.guest,          n:bk.guest},
+    {label:'Check-in',    o:fmtD(orig.checkin),  n:fmtD(bk.checkin)},
+    {label:'Check-out',   o:fmtD(orig.checkout), n:fmtD(bk.checkout)},
+    {label:'Property',    o:propName(orig.property), n:propName(bk.property)},
+    {label:'Platform',    o:orig.platform,       n:bk.platform},
+    {label:'Status',      o:orig.status,         n:bk.status},
+    {label:'Payment',     o:orig.payment,        n:bk.payment},
+    {label:'Rate',        o:fmtM(orig.rate),     n:fmtM(bk.rate)},
+    {label:'Promo',       o:fmtM(orig.promo),    n:fmtM(bk.promo)},
+    {label:'Service Fee', o:fmtM(orig.serviceFee),n:fmtM(bk.serviceFee)},
+    {label:'Cleaning',    o:fmtM(orig.cleaningFee),n:fmtM(bk.cleaningFee)},
+    {label:'Deposit',     o:fmtM(orig.deposit),  n:fmtM(bk.deposit)},
+    {label:'Dep.Collected',o:fmt(orig.depositCollected),n:fmt(bk.depositCollected)},
+    {label:'Dep.Refunded', o:fmt(orig.depositRefunded), n:fmt(bk.depositRefunded)},
+    {label:'Guest Count', o:fmt(orig.guestCount),n:fmt(bk.guestCount)},
+    {label:'Notes',       o:orig.notes||'—',     n:bk.notes||'—'},
+  ];
+  checks.forEach(c=>{
+    if(String(c.o)!==String(c.n))rows.push(c);
+  });
+  return rows;
+}
+
+function saveBooking(){
+  const REQUIRED_FIELDS=[
+    {id:'f-guest',      label:'Guest Name'},
+    {id:'f-checkin',    label:'Check-in Date'},
+    {id:'f-checkout',   label:'Check-out Date'},
+    {id:'f-platform',   label:'Platform'},
+    {id:'f-property',   label:'Property'},
+    {id:'f-rate',       label:'Nightly Rate'},
+    {id:'f-status',     label:'Status'},
+    {id:'f-payment',    label:'Payment'},
+  ];
+  // Number fields that must have a value (0 is OK, empty string is not)
+  const REQUIRED_NUMBER_FIELDS=[
+    {id:'f-promo',      label:'Promo / Discount (enter 0 if none)'},
+    {id:'f-servicefee', label:'Service Fee (enter 0 if none)'},
+  ];
+  const missing=[];
+  REQUIRED_FIELDS.forEach(({id,label})=>{
+    const el=document.getElementById(id);
+    const val=id==='f-platform'?el?.value:(el?.value||'');
+    const empty=!val||!String(val).trim();
+    if(empty){el?.classList.add('error');missing.push(label);}else el?.classList.remove('error');
+  });
+  REQUIRED_NUMBER_FIELDS.forEach(({id,label})=>{
+    const el=document.getElementById(id);
+    // Empty string = missing. '0' or any number = OK.
+    const empty=el?.value===''||el?.value===null||el?.value===undefined;
+    if(empty){el?.classList.add('error');missing.push(label);}else el?.classList.remove('error');
+  });
+  if(missing.length){
+    toast(`Required: ${missing.join(' · ')}`, 'error');
+    // Scroll to first error
+    const firstErr=document.querySelector('#drawerBody .error');
+    if(firstErr)firstErr.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
+  const ci=document.getElementById('f-checkin').value;
+  const co=document.getElementById('f-checkout').value;
+  if(co<=ci){toast('Check-out must be after check-in date.','error');return;}
+  // Blocked dates check
+  const propId=document.getElementById('f-property').value;
+  const prop=properties.find(p=>p.id===propId);
+  if(prop&&(prop.blockedDates||[]).length){
+    const blocked=[];
+    for(let d=new Date(ci+'T12:00:00');dateToISO(d)<co;d.setDate(d.getDate()+1)){
+      const ds=dateToISO(d);
+      if(prop.blockedDates.includes(ds))blocked.push(ds);
+    }
+    if(blocked.length){
+      toast(`Dates blocked for ${prop.name}: ${blocked.map(fmtDate).join(', ')}`, 'error');
+      return;
+    }
+  }
+  const existing=editingBookingId?bookings.find(b=>b.id===editingBookingId):null;
+  const bk=_buildBookingFromForm(existing);
+
+  // New booking — save directly
+  if(!editingBookingId){_commitBooking(bk,true);return;}
+
+  // Edit — diff and confirm
+  const changes=_buildChangeDiff(existing,bk);
+  if(!changes.length){
+    toast('No changes detected.','warning');return;
+  }
+  const rows=changes.map(c=>`<div class="change-row">
+    <span class="change-field">${esc(c.label)}</span>
+    <span class="change-old">${esc(String(c.o))}</span>
+    <span class="change-arrow">\u2192</span>
+    <span class="change-new">${esc(String(c.n))}</span>
+  </div>`).join('');
+  const html=`<div style="text-align:left;margin-bottom:4px;font-size:12px;font-weight:700;color:var(--text-2)">${changes.length} change${changes.length!==1?'s':''} to save:</div>
+    <div style="background:var(--surface-2);border-radius:var(--radius);padding:8px 12px;margin-bottom:4px">${rows}</div>`;
+  confirmDialog(
+    '\u270e Confirm Update',
+    html,
+    '\u270e',
+    ()=>_commitBooking(bk,false),
+    'Save Changes',
+    {html:true,wide:true,btnClass:'btn-primary'}
+  );
+}
+
+function deleteBooking(id){
+  const b=bookings.find(x=>x.id===id);
+  const label=b?`"${b.guest}" (${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)})`:'this booking';
+  confirmDialog(
+    '\u26a0 Delete Booking',
+    `You are about to delete ${label}. It will be moved to Trash and can be restored. All booking data and financial records will be removed from reports.`,
+    '\ud83d\uddd1',
+    ()=>{
+      if(!b)return;
+      trash.unshift({...b,deletedAt:new Date().toISOString(),type:'booking'});
+      bookings=bookings.filter(x=>x.id!==id);
+      saveAll();closeDrawer();renderView(currentWs);
+      toast('Moved to Trash.',  'warning',()=>{
+        const i=trash.findIndex(t=>t.id===id);
+        if(i>=0){const item=trash.splice(i,1)[0];delete item.deletedAt;delete item.type;bookings.unshift(item);saveAll();renderView(currentWs);}
+      });
+    }
+  );
+}
+
+// ============================================================
+// CALENDAR ENGINE
+// ============================================================
+function renderCalPropPills(){
+  const container=document.getElementById('calPropPills');if(!container)return;
+  const isAll=calPropFilter==='all';
+  container.innerHTML=
+    `<button class="prop-pill${isAll?' active':''}" onclick="setCalPropFilter('all')">All Properties</button>`+
+    properties.map(p=>{
+      const pc=propertyColor(p.id);
+      const isActive=calPropFilter===p.id;
+      return`<button class="prop-pill${isActive?' active':''}" data-color="${pc}" onclick="setCalPropFilter('${p.id}')" style="--prop-color:${pc};border-left:3px solid ${pc}"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${pc};margin-right:5px;vertical-align:middle;margin-top:-1px;flex-shrink:0"></span>${esc(p.name)}</button>`;
+    }).join('');
+}
+
+function setCalPropFilter(id){
+  calPropFilter=id;
+  const sel=document.getElementById('cal-prop');
+  if(sel)sel.value=id;
+  renderCalPropPills();
+  renderCalendar();
+}
+
+function renderCalendar(){
+  renderCalPropPills();
+  const y=calDate.getFullYear(),m=calDate.getMonth();
+  const labels={
+    month:calDate.toLocaleString('default',{month:'long',year:'numeric'}),
+    week:'Week of '+fmtDate(dateToISO(getWeekStart(calDate))),
+    day:fmtDate(dateToISO(calDate)),
+    timeline:calDate.toLocaleString('default',{month:'long',year:'numeric'}),
+    availability:calDate.toLocaleString('default',{month:'long',year:'numeric'}),
+    occupancy:calDate.toLocaleString('default',{month:'long',year:'numeric'}),
+  };
+  document.getElementById('calPeriodLabel').textContent=labels[calView]||'';
+  document.querySelectorAll('.cal-view-tab').forEach(t=>t.classList.toggle('active',t.dataset.view===calView));
+  const body=document.getElementById('calBody');
+  const platF=document.getElementById('cal-plat')?.value||'all';
+  const shown=bookings.filter(b=>{
+    if(b.status==='Cancelled')return false;
+    if(calPropFilter!=='all'&&b.property!==calPropFilter)return false;
+    if(platF!=='all'&&b.platform!==platF)return false;
+    return true;
+  });
+  if(calView==='month')renderMonthCal(body,y,m,shown);
+  else if(calView==='week')renderWeekCal(body,shown);
+  else if(calView==='day')renderDayCal(body,shown);
+  else if(calView==='timeline')renderTimelineCal(body,y,m,shown);
+  else if(calView==='availability')renderAvailabilityCal(body,y,m);
+  else if(calView==='occupancy')renderOccupancyCal(body,y,m,shown);
+}
+
+function getWeekStart(d){const dt=new Date(d);dt.setDate(dt.getDate()-dt.getDay());return dt;}
+
+function renderMonthCal(body,y,m,shown){
+  const today=todayISO();
+  const firstDow=new Date(y,m,1).getDay();
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const cells=[];
+  for(let i=0;i<firstDow;i++){const d=new Date(y,m,i-firstDow+1);cells.push({date:dateToISO(d),in:false});}
+  for(let d=1;d<=daysInMonth;d++)cells.push({date:dateToISO(new Date(y,m,d)),in:true});
+  while(cells.length%7!==0){const last=new Date(cells[cells.length-1].date+'T12:00:00');last.setDate(last.getDate()+1);cells.push({date:dateToISO(last),in:false});}
+  body.innerHTML=`<div class="month-grid">
+    ${dayNames.map(d=>`<div class="month-day-name">${d}</div>`).join('')}
+    ${cells.map(cell=>`<div class="month-cell${cell.in?'':' other-month'}${cell.date===today?' today':''}" data-date="${cell.date}">
+      <div class="month-cell-num">${+cell.date.slice(8,10)}</div>
+      <div class="month-cell-events" data-date="${cell.date}"></div>
+    </div>`).join('')}
+  </div>`;
+  shown.slice().sort((a,b)=>a.checkin.localeCompare(b.checkin)).forEach(b=>{
+    const isAllProps=calPropFilter==='all';
+    const conflict=hasConflict(b);
+    const totalN=nightsBetween(b.checkin,b.checkout);
+    const today=todayISO();
+    for(let d=new Date(b.checkin+'T12:00:00');dateToISO(d)<b.checkout;d.setDate(d.getDate()+1)){
+      const ds=dateToISO(d);
+      const container=body.querySelector(`.month-cell-events[data-date="${ds}"]`);
+      if(!container)continue;
+      if(isAllProps){
+        // All Properties mode: rich card pill with property, guest, day counter
+        const isStart=ds===b.checkin;
+        const nextD=new Date(d);nextD.setDate(nextD.getDate()+1);
+        const isEnd=dateToISO(nextD)===b.checkout;
+        // Dim this SPECIFIC DAY if it has already passed — not the whole booking
+        // so long stays only grey their past days, keeping ongoing/future days vivid
+        const isDayPast=ds<today;
+        const isToday=ds===today;
+        const platC=platformColor(b.platform);
+        // Day number within the stay (1 = checkin day)
+        const dayNum=nightsBetween(b.checkin,ds)+1;
+        const pill=document.createElement('div');
+        if(conflict)pill.style.outline='2px solid var(--orange)';
+        if(isDayPast){
+          // Past day: single compact line, heavily muted — no clutter
+          pill.style.cssText=`display:flex;align-items:center;gap:5px;padding:3px 7px;border-radius:6px;margin-bottom:3px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;opacity:0.28;min-height:20px`;
+          pill.innerHTML=`<span style="font-size:10px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(propName(b.property))}</span><span style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60px">${esc(b.guest.split(' ')[0])}</span>`;
+        }else{
+          // Active/upcoming day: full card with property, guest, day counter + IN/OUT badge
+          const badge=isStart
+            ?`<span style="font-size:9px;font-weight:800;background:rgba(0,0,0,.25);border-radius:3px;padding:1px 5px;white-space:nowrap;letter-spacing:.3px">CHECK IN</span>`
+            :isEnd
+            ?`<span style="font-size:9px;font-weight:800;background:rgba(0,0,0,.25);border-radius:3px;padding:1px 5px;white-space:nowrap;letter-spacing:.3px">CHECK OUT</span>`
+            :'';
+          const dayLabel=totalN>1?`<span style="font-size:9px;opacity:.75;white-space:nowrap">Day ${dayNum}/${totalN}</span>`:'';
+          pill.style.cssText=`display:flex;flex-direction:column;gap:2px;padding:5px 7px;border-radius:6px;margin-bottom:3px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;opacity:1;${isToday?'box-shadow:0 0 0 2px #fff,0 0 0 3.5px '+platC+';':''}`;
+          pill.innerHTML=`
+            <div style="display:flex;align-items:center;gap:4px;min-width:0">
+              <span style="font-size:11px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;line-height:1.3">${esc(propName(b.property))}</span>
+              ${badge}
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;min-width:0">
+              <span style="font-size:10px;opacity:.82;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(b.guest)}</span>
+              ${dayLabel}
+            </div>`;
+        }
+        pill.title=`${esc(b.guest)} \u00b7 ${propName(b.property)} \u00b7 ${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)}`;
+        pill.addEventListener('click',e=>{e.stopPropagation();openBookingDrawer(b.id);});
+        container.appendChild(pill);
+      }else{
+        // Single property mode: spanning bar with guest name
+        const isStart=ds===b.checkin;
+        const nextD=new Date(d);nextD.setDate(nextD.getDate()+1);
+        const isEnd=dateToISO(nextD)===b.checkout;
+        const isPast=b.checkout<today;
+        let cls='cal-event-bar';
+        if(totalN>1){if(isStart)cls+=' bar-start';else if(isEnd)cls+=' bar-end';else cls+=' bar-mid';}
+        if(conflict)cls+=' bar-conflict';
+        const bar=document.createElement('div');
+        bar.className=cls;
+        bar.style.background=platformColor(b.platform);
+        if(isPast)bar.style.opacity='0.55';
+        bar.title=`${b.guest} \u00b7 ${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)}`;
+        if(isStart||totalN===1){
+          const tag=`<span style="font-size:10px;font-weight:800;opacity:.9;background:rgba(0,0,0,.22);border-radius:3px;padding:0 5px;margin-left:5px;vertical-align:middle">IN</span>`;
+          bar.innerHTML=`${esc(b.guest)}${tag}`;
+        }else if(isEnd){
+          bar.innerHTML=`<span style="font-size:10px;font-weight:800;opacity:.9;background:rgba(0,0,0,.22);border-radius:3px;padding:0 5px">OUT</span>`;
+          bar.style.display='flex';bar.style.alignItems='center';bar.style.justifyContent='flex-end';
+        }else{
+          bar.textContent='';
+        }
+        bar.addEventListener('click',e=>{e.stopPropagation();openBookingDrawer(b.id);});
+        container.appendChild(bar);
+      }
+    }
+  });
+  // Show blocked dates
+  if(calPropFilter!=='all'){
+    const prop=properties.find(p=>p.id===calPropFilter);
+    if(prop&&(prop.blockedDates||[]).length){
+      prop.blockedDates.forEach(ds=>{
+        const cell=body.querySelector(`.month-cell[data-date="${ds}"]`);
+        if(cell){cell.style.background='var(--red-bg)';cell.title='Blocked';}
+      });
+    }
+  }
+  body.querySelectorAll('.month-cell').forEach(cell=>{
+    cell.addEventListener('click',()=>openDayModal(cell.dataset.date));
+  });
+}
+
+function openDayModal(dateStr){
+  const matches=bookings.filter(b=>b.status!=='Cancelled'&&b.checkin<=dateStr&&dateStr<b.checkout&&(calPropFilter==='all'||b.property===calPropFilter));
+  const prop=calPropFilter!=='all'?properties.find(p=>p.id===calPropFilter):null;
+  const isBlocked=prop&&(prop.blockedDates||[]).includes(dateStr);
+  document.getElementById('dayModalTitle').textContent='\ud83d\udcc5 '+fmtDate(dateStr)+(isBlocked?' \u2014 \ud83d\udd34 Blocked':'');
+  document.getElementById('dayModalBody').innerHTML=
+    (isBlocked?`<div class="alert-bar show warning" style="display:block;margin-bottom:12px">\ud83d\udd34 This date is blocked for ${esc(prop.name)}. No new bookings accepted.</div>`:'')
+    +(matches.length?matches.map(b=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;cursor:pointer;background:var(--surface-2)" onclick="closeModal('dayModal');openBookingDrawer('${b.id}')"><div style="width:4px;height:36px;border-radius:2px;background:${platformColor(b.platform)};flex-shrink:0"></div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${esc(b.guest)}</div><div style="font-size:11px;color:var(--text-3)">${esc(propName(b.property))} \u00b7 ${platformPillHtml(b.platform)}</div></div>${statusBadgeHtml(b.status)}</div>`).join('')
+    :`<div class="empty" style="padding:24px 0"><div class="empty-text">No bookings on this day.</div></div>`);
+  document.getElementById('dayModalAddBtn').onclick=()=>{
+    closeModal('dayModal');
+    openBookingDrawer();
+    document.getElementById('f-checkin').value=dateStr;
+    const nd=new Date(dateStr+'T12:00:00');nd.setDate(nd.getDate()+1);
+    document.getElementById('f-checkout').value=dateToISO(nd);
+    if(propId!=='all')document.getElementById('f-property').value=propId;
+    onDatesChange();onPropertyChange();
+  };
+  openModal('dayModal');
+}
+
+function renderWeekCal(body,shown){
+  const ws=getWeekStart(calDate);
+  const days=[];
+  for(let i=0;i<7;i++){const d=new Date(ws);d.setDate(ws.getDate()+i);days.push(dateToISO(d));}
+  const today=todayISO();
+  body.innerHTML=`<div style="display:grid;grid-template-columns:repeat(7,1fr);min-width:700px">
+    ${days.map(ds=>`<div class="week-header-cell${ds===today?' today-col':''}">${new Date(ds+'T12:00:00').toLocaleDateString('default',{weekday:'short',month:'short',day:'numeric'})}</div>`).join('')}
+    ${days.map(ds=>{
+      const dayB=shown.filter(b=>b.checkin<=ds&&ds<b.checkout);
+      return`<div class="week-col${ds===today?' today-col':''}" style="padding:6px;min-height:200px">
+        ${dayB.map(b=>{
+          const isAllProps=calPropFilter==='all';
+          const _today=todayISO();
+          const isPast=b.checkout<_today;
+          const platC=platformColor(b.platform);
+          const isStart=ds===b.checkin;
+          const nextD=new Date(ds+'T12:00:00');nextD.setDate(nextD.getDate()+1);
+          const isEnd=dateToISO(nextD)===b.checkout;
+          const tag=isStart?`<span style="font-size:10px;font-weight:800;background:rgba(0,0,0,.22);border-radius:3px;padding:1px 5px;margin-left:5px;opacity:.95">IN</span>`
+                   :isEnd?`<span style="font-size:10px;font-weight:800;background:rgba(0,0,0,.22);border-radius:3px;padding:1px 5px;margin-left:5px;opacity:.95">OUT</span>`:'';
+          if(isAllProps){
+            const _totalN=nightsBetween(b.checkin,b.checkout);
+            const _dayNum=nightsBetween(b.checkin,ds)+1;
+            const _isToday=ds===_today;
+            const _isDayPast=ds<_today;
+            if(_isDayPast){
+              return`<div style="display:flex;align-items:center;gap:5px;padding:3px 7px;border-radius:6px;margin-bottom:3px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;opacity:0.28" onclick="openBookingDrawer('${b.id}')">
+                <span style="font-size:10px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(propName(b.property))}</span>
+                <span style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55px">${esc(b.guest.split(' ')[0])}</span>
+              </div>`;
+            }
+            const _badge=isStart
+              ?`<span style="font-size:9px;font-weight:800;background:rgba(0,0,0,.25);border-radius:3px;padding:1px 4px;white-space:nowrap;letter-spacing:.3px">CHECK IN</span>`
+              :isEnd
+              ?`<span style="font-size:9px;font-weight:800;background:rgba(0,0,0,.25);border-radius:3px;padding:1px 4px;white-space:nowrap;letter-spacing:.3px">CHECK OUT</span>`
+              :'';
+            const _dayLbl=_totalN>1?`<span style="font-size:9px;opacity:.75;white-space:nowrap">Day ${_dayNum}/${_totalN}</span>`:'';
+            return`<div style="display:flex;flex-direction:column;gap:2px;padding:5px 7px;border-radius:6px;margin-bottom:3px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;${_isToday?'box-shadow:0 0 0 2px #fff,0 0 0 3.5px '+platC+';':''}" onclick="openBookingDrawer('${b.id}')">
+              <div style="display:flex;align-items:center;gap:4px;min-width:0">
+                <span style="font-size:11px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;line-height:1.3">${esc(propName(b.property))}</span>
+                ${_badge}
+              </div>
+              <div style="display:flex;align-items:center;gap:4px;min-width:0">
+                <span style="font-size:10px;opacity:.82;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(b.guest)}</span>
+                ${_dayLbl}
+              </div>
+            </div>`;
+          }
+          return`<div class="cal-event-bar" style="background:${platC};height:auto;padding:6px 8px;margin-bottom:4px;line-height:1.4;white-space:normal;overflow:visible;opacity:${isPast?'0.55':'1'}" onclick="openBookingDrawer('${b.id}')">
+            <div style="display:flex;align-items:center"><strong style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.guest)}</strong>${tag}</div>
+            <div style="font-size:10px;opacity:.8">${esc(isAllProps?propName(b.property):b.platform)}</div></div>`;
+        }).join('')}
+        <div style="font-size:20px;color:var(--border-2);text-align:center;margin-top:4px;cursor:pointer;line-height:2" onclick="openBookingDrawer()">+</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderDayCal(body,shown){
+  const ds=dateToISO(calDate);
+  const today=todayISO();
+  const dayB=shown.filter(b=>b.checkin<=ds&&ds<b.checkout);
+  body.innerHTML=`<div style="padding:4px">
+    <div style="font-size:16px;font-weight:700;margin-bottom:14px">${fmtDate(ds)}</div>
+    ${dayB.length?dayB.map(b=>{
+      const t=calcTotals(b);
+      const isCheckinDay=b.checkin===ds;
+      const isCheckoutDay=b.checkout===ds;
+      const nextD=new Date(ds+'T12:00:00');nextD.setDate(nextD.getDate()+1);
+      const isLastNight=dateToISO(nextD)===b.checkout;
+      const isPast=b.checkout<today;
+      const statusBadge=isPast
+        ?`<span style="background:var(--surface-2);color:var(--text-3);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap">\u2713 Checked out</span>`
+        :isCheckinDay
+        ?`<span style="background:var(--green-bg);color:var(--green);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap">\u2193 Check-in Today</span>`
+        :isCheckoutDay
+        ?`<span style="background:var(--orange-bg);color:var(--orange);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap">\u2191 Checking Out Today</span>`
+        :isLastNight
+        ?`<span style="background:var(--orange-bg);color:var(--orange);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap">\u2191 Check-out Tomorrow</span>`
+        :`<span style="background:var(--accent-soft);color:var(--accent);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap">Active Stay</span>`;
+      return`<div style="background:var(--surface);border:1px solid var(--border);border-left:4px solid ${platformColor(b.platform)};border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:10px;cursor:pointer;opacity:${isPast?'0.7':'1'}" onclick="openBookingDrawer('${b.id}')">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">${statusBadge}</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">${esc(b.guest)}</div>
+      <div style="font-size:12px;color:var(--text-3);margin-bottom:8px">${esc(propName(b.property))} \u00b7 ${platformPillHtml(b.platform)}</div>
+      <div style="display:flex;gap:10px;font-size:12px;flex-wrap:wrap"><span>${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)}</span><span style="font-weight:700">${fmtMoney(t.netRevenue)}</span>${statusBadgeHtml(b.status)}</div>
+    </div>`;}).join(''):`<div class="empty"><div class="empty-text">No bookings on ${fmtDate(ds)}</div></div>`}
+    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="openBookingDrawer()">+ Add Booking</button>
+  </div>`;
+}
+
+function renderTimelineCal(body,y,m,shown){
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const today=todayISO();
+  const propsToShow=calPropFilter==='all'?properties:properties.filter(p=>p.id===calPropFilter);
+  const days=[];
+  for(let d=1;d<=daysInMonth;d++)days.push(dateToISO(new Date(y,m,d)));
+  body.innerHTML=`<div class="timeline-wrap"><div class="timeline-grid">
+    <div class="timeline-header">
+      <div class="timeline-prop-col">Property</div>
+      <div class="timeline-dates">${days.map(ds=>`<div class="timeline-date-cell${ds===today?' today-col':''}">${+ds.slice(8,10)}</div>`).join('')}</div>
+    </div>
+    ${propsToShow.map(prop=>{
+      const propB=shown.filter(b=>b.property===prop.id);
+      return`<div class="timeline-row">
+        <div class="timeline-prop-label">${esc(prop.name)}</div>
+        <div class="timeline-cells" style="position:relative">
+          ${days.map(ds=>{const bl=isDateBlocked(ds,prop.id);return`<div class="timeline-cell${ds===today?' today-col':''}" data-date="${ds}" data-prop="${prop.id}" style="${bl?'background:var(--red-bg)':''}" title="${bl?'Blocked':''}"></div>`;}).join('')}
+          ${propB.map(b=>{
+            const startIdx=days.indexOf(b.checkin);
+            if(startIdx===-1)return'';
+            const endRaw=days.indexOf(b.checkout);
+            const endIdx=endRaw===-1?days.length:endRaw;
+            const width=((endIdx-startIdx)/days.length*100).toFixed(2);
+            const left=(startIdx/days.length*100).toFixed(2);
+            const isAllProps=calPropFilter==='all';
+            const tbg=isAllProps?propertyColor(b.property):platformColor(b.platform);
+            const tContent=isAllProps?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.85);border:1.5px solid ${platformColor(b.platform)};margin-right:5px;vertical-align:middle;flex-shrink:0;box-sizing:border-box"></span>${esc(b.guest)}`:esc(b.guest);
+            return`<div class="timeline-bar" style="left:${left}%;width:${width}%;background:${tbg}" onclick="openBookingDrawer('${b.id}')" title="${esc(b.guest)}">${tContent}</div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('')}
+  </div></div>`;
+  body.querySelectorAll('.timeline-cell').forEach(cell=>{
+    cell.addEventListener('click',()=>{
+      document.getElementById('f-checkin').value=cell.dataset.date;
+      const nd=new Date(cell.dataset.date+'T12:00:00');nd.setDate(nd.getDate()+1);
+      document.getElementById('f-checkout').value=dateToISO(nd);
+      document.getElementById('f-property').value=cell.dataset.prop;
+      openBookingDrawer();onDatesChange();onPropertyChange();
+    });
+  });
+}
+
+function renderAvailabilityCal(body,y,m){
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const firstDow=new Date(y,m,1).getDay();
+  const today=todayISO();
+  const monthStr=`${y}-${String(m+1).padStart(2,'0')}`;
+  const propsToShow=calPropFilter==='all'?properties:properties.filter(p=>p.id===calPropFilter);
+  const dayNames=['S','M','T','W','T','F','S'];
+
+  const cards=propsToShow.map((prop,pi)=>{
+    const pc=propertyColor(prop.id);
+    // Build booked map: date \u2192 booking
+    const bookedMap={};
+    bookings.filter(b=>b.property===prop.id&&b.status!=='Cancelled').forEach(b=>{
+      for(let d=new Date(b.checkin+'T12:00:00');dateToISO(d)<b.checkout;d.setDate(d.getDate()+1)){
+        bookedMap[dateToISO(d)]=b;
+      }
+    });
+    const blockedSet=new Set(prop.blockedDates||[]);
+
+    // Day name headers
+    let cells=dayNames.map(d=>`<div class="avail-day-name">${d}</div>`).join('');
+    // Use grid-column-start on day 1 instead of empty divs \u2014 eliminates the blank first-row gap
+    // Day cells
+    for(let d=1;d<=daysInMonth;d++){
+      const ds=dateToISO(new Date(y,m,d));
+      const b=bookedMap[ds];
+      const isBlocked=blockedSet.has(ds);
+      const isToday=ds===today;
+      const col=b?platformColor(b.platform):'';
+      let cls='avail-day';
+      let style=d===1&&firstDow>0?`grid-column-start:${firstDow+1};`:'';
+      let titleTxt='';
+      if(isBlocked){cls+=' blocked-avail';titleTxt='Blocked';}
+      else if(b){
+        cls+=' booked';
+        style+=`background:${col}`;
+        titleTxt=`${b.guest} \u00b7 ${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)}`;
+      }else{cls+=' available';titleTxt='Available';}
+      if(isToday)cls+=' today-avail';
+      cells+=`<div class="${cls}" style="${style}" title="${titleTxt}" onclick="openDayModal('${ds}')">${d}</div>`;
+    }
+
+    const bookedCount=Object.keys(bookedMap).filter(ds=>ds.startsWith(monthStr)).length;
+    const blockedCount=[...blockedSet].filter(ds=>ds.startsWith(monthStr)).length;
+    const availCount=daysInMonth-bookedCount-blockedCount;
+    const pct=Math.round((availCount/daysInMonth)*100);
+
+    return`<div class="avail-card">
+      <div class="avail-prop-header">
+        <div class="avail-prop-dot" style="background:${pc}"></div>
+        <div class="avail-prop-name">${esc(prop.name)}</div>
+        <div class="avail-prop-sub">${availCount}/${daysInMonth} free \u00b7 ${pct}%</div>
+      </div>
+      <div class="avail-cal">${cells}</div>
+    </div>`;
+  }).join('');
+
+  body.innerHTML=`<div class="avail-grid">${cards}
+    <div class="avail-legend">
+      <div class="avail-legend-item"><div class="avail-legend-dot" style="background:var(--green-bg);border:1px solid var(--green)"></div>Available</div>
+      <div class="avail-legend-item"><div class="avail-legend-dot" style="background:#2196f3"></div>Booked (color = platform)</div>
+      <div class="avail-legend-item"><div class="avail-legend-dot" style="background:var(--red-bg);border:1px solid var(--red)"></div>Blocked</div>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn btn-secondary btn-sm" onclick="exportAvailability()">\u2b07 Export CSV</button>
+        <button class="btn btn-secondary btn-sm" onclick="printAvailability()">\ud83d\udda8 Print</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function exportAvailability(){
+  const y=calDate.getFullYear(),m=calDate.getMonth();
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const rows=[['Property',...Array.from({length:daysInMonth},(_,i)=>String(i+1))]];
+  properties.forEach(prop=>{
+    const bookedSet=new Set();
+    bookings.filter(b=>b.property===prop.id&&b.status!=='Cancelled').forEach(b=>{
+      for(let d=new Date(b.checkin+'T12:00:00');dateToISO(d)<b.checkout;d.setDate(d.getDate()+1))bookedSet.add(dateToISO(d));
+    });
+    rows.push([prop.name,...Array.from({length:daysInMonth},(_,i)=>{const ds=dateToISO(new Date(y,m,i+1));return bookedSet.has(ds)?'Booked':'Available';})]);
+  });
+  downloadCSV(`bloomstone-availability-${y}-${m+1}.csv`,rows);
+}
+
+function printAvailability(){
+  const el=document.querySelector('.avail-grid');if(!el)return;
+  const win=window.open('','_blank');if(!win)return;
+  win.document.write(`<!DOCTYPE html><html><head><title>Availability</title><style>body{font-family:Inter,sans-serif;padding:20px}.avail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.avail-card{border:1px solid #e8e6e1;border-radius:10px;padding:14px}.avail-prop-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}.avail-prop-dot{width:10px;height:10px;border-radius:3px}.avail-prop-name{font-size:13px;font-weight:700}.avail-prop-sub{font-size:11px;color:#888;margin-left:auto}.avail-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}.avail-day-name{text-align:center;font-size:9px;font-weight:700;color:#888;padding:2px 0 4px}.avail-day{width:100%;height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;box-sizing:border-box}.avail-day.available{background:#edf7ea;color:#2d6a1f}.avail-day.booked{color:#fff}.avail-day.blocked-avail{background:#fdf0ee;color:#c0392b}.avail-day.empty{background:transparent}.avail-legend{display:none}</style></head><body>${el.outerHTML}</body></html>`);
+  win.document.close();win.print();
+}
+
+function renderOccupancyCal(body,y,m,shown){
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const today=todayISO();
+  const propsToShow=calPropFilter==='all'?properties:properties.filter(p=>p.id===calPropFilter);
+  const days=Array.from({length:daysInMonth},(_,i)=>dateToISO(new Date(y,m,i+1)));
+  const totalBooked=shown.reduce((s,b)=>{
+    for(let d=new Date(b.checkin+'T12:00:00');dateToISO(d)<b.checkout;d.setDate(d.getDate()+1)){if(days.includes(dateToISO(d)))s++;}
+    return s;
+  },0);
+  const occupancyPct=Math.round(totalBooked/(propsToShow.length*daysInMonth)*100);
+  body.innerHTML=`<div class="occ-grid">
+    <div style="padding:10px 0 16px;font-size:14px;color:var(--text-2)">Overall occupancy: <strong style="color:var(--text);font-size:18px">${occupancyPct}%</strong> \u00b7 ${totalBooked} booked nights</div>
+    ${propsToShow.map(prop=>{
+      const bookedMap={};
+      shown.filter(b=>b.property===prop.id).forEach(b=>{
+        for(let d=new Date(b.checkin+'T12:00:00');dateToISO(d)<b.checkout;d.setDate(d.getDate()+1))bookedMap[dateToISO(d)]=b;
+      });
+      const booked=days.filter(ds=>bookedMap[ds]).length;
+      const pct=Math.round(booked/daysInMonth*100);
+      return`<div class="occ-row">
+        <div class="occ-prop-name">${esc(prop.name)} <span style="float:right;font-size:13px;font-weight:800;color:${pct>70?'var(--green)':pct>40?'var(--orange)':'var(--red)'}">${pct}%</span></div>
+        <div class="occ-bar-wrap">${days.map(ds=>{const b=bookedMap[ds];return`<div class="occ-day${b?' booked':' available'}" style="${b?`background:${platformColor(b.platform)}`:''};${ds===today?'outline:2px solid var(--text)':''}" title="${ds}${b?': '+b.guest:''}"></div>`;}).join('')}</div>
+      </div>`;
+    }).join('')}
+    <div class="occ-legend"><div class="occ-legend-item"><div class="occ-dot" style="background:var(--surface-3)"></div>Available</div>${platforms.map(p=>`<div class="occ-legend-item"><div class="occ-dot" style="background:${p.color}"></div>${esc(p.name)}</div>`).join('')}</div>
+  </div>`;
+}
+
+document.getElementById('calPrev').addEventListener('click',()=>{
+  if(['month','timeline','availability','occupancy'].includes(calView))calDate=new Date(calDate.getFullYear(),calDate.getMonth()-1,1);
+  else if(calView==='week'){calDate=new Date(calDate);calDate.setDate(calDate.getDate()-7);}
+  else{calDate=new Date(calDate);calDate.setDate(calDate.getDate()-1);}
+  renderCalendar();
+});
+document.getElementById('calNext').addEventListener('click',()=>{
+  if(['month','timeline','availability','occupancy'].includes(calView))calDate=new Date(calDate.getFullYear(),calDate.getMonth()+1,1);
+  else if(calView==='week'){calDate=new Date(calDate);calDate.setDate(calDate.getDate()+7);}
+  else{calDate=new Date(calDate);calDate.setDate(calDate.getDate()+1);}
+  renderCalendar();
+});
+document.getElementById('calToday').addEventListener('click',()=>{calDate=new Date();renderCalendar();});
+document.getElementById('calViewTabs').addEventListener('click',e=>{const tab=e.target.closest('.cal-view-tab');if(tab){calView=tab.dataset.view;renderCalendar();}});
+// cal-prop select hidden but kept for compatibility
+const calPropSel=document.getElementById('cal-prop');if(calPropSel)calPropSel.addEventListener('change',e=>{calPropFilter=e.target.value;renderCalPropPills();renderCalendar();});
+document.getElementById('cal-plat').addEventListener('change',e=>{calPlatFilter=e.target.value;renderCalendar();});
+document.getElementById('calExportBtn').addEventListener('click',exportAvailability);
+
+// ============================================================
+// FINANCE, EXPENSES, DEPOSITS, PLATFORMS, PROPERTIES, REPORTS
+// ============================================================
+function getFinanceList(){
+  const f=document.getElementById('fin-period')?.value||'thismonth';
+  const pr=document.getElementById('fin-prop')?.value||'all';
+  const now=new Date();
+  let list=bookings.filter(b=>b.status!=='Cancelled');
+  if(f==='thismonth')list=list.filter(b=>{const d=new Date(b.checkin);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();});
+  else if(f==='lastmonth'){const lm=new Date(now.getFullYear(),now.getMonth()-1,1);list=list.filter(b=>{const d=new Date(b.checkin);return d.getMonth()===lm.getMonth()&&d.getFullYear()===lm.getFullYear();});}
+  else if(f==='thisyear')list=list.filter(b=>new Date(b.checkin).getFullYear()===now.getFullYear());
+  if(pr!=='all')list=list.filter(b=>b.property===pr);
+  return list;
+}
+
+function renderFinanceOverview(){
+  const list=getFinanceList();
+  const totalRev=list.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
+  const totalRoom=list.reduce((s,b)=>s+calcTotals(b).stayFee,0);
+  const totalExtra=list.reduce((s,b)=>s+calcTotals(b).extraFee,0);
+  const totalAddons=list.reduce((s,b)=>s+(+b.storeSales||0),0);
+  const totalPlatFee=list.reduce((s,b)=>s+calcTotals(b).platFee,0);
+  const totalPromo=list.reduce((s,b)=>s+(+b.promo||0),0);
+  const totalExp=expenses.reduce((s,e)=>s+(e.amount||0),0);
+  const netProfit=totalRev+totalAddons-totalExp;
+  document.getElementById('finStats').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Net Revenue</div><div class="stat-value">${fmtMoney(totalRev)}</div><div class="stat-sub">${list.length} bookings</div></div>
+    <div class="stat-card"><div class="stat-label">Add-on Sales</div><div class="stat-value">${fmtMoney(totalAddons)}</div></div>
+    <div class="stat-card"><div class="stat-label">Total Expenses</div><div class="stat-value">${fmtMoney(totalExp)}</div></div>
+    <div class="stat-card"><div class="stat-label">Net Profit</div><div class="stat-value" style="color:${netProfit>=0?'var(--green)':'var(--red)'}">${fmtMoney(netProfit)}</div></div>`;
+  document.getElementById('finBlocks').innerHTML=`
+    <div class="finance-block"><div class="finance-block-title">Revenue</div>
+      <div class="finance-row"><span class="label">Room Revenue</span><span class="val">${fmtMoney(totalRoom)}</span></div>
+      <div class="finance-row"><span class="label">Extra Guest Fees</span><span class="val">${fmtMoney(totalExtra)}</span></div>
+      <div class="finance-row"><span class="label">Add-ons / Store</span><span class="val">${fmtMoney(totalAddons)}</span></div>
+      <div class="finance-row"><span class="label">Total Revenue</span><span class="val pos">${fmtMoney(totalRev+totalAddons)}</span></div>
+    </div>
+    <div class="finance-block"><div class="finance-block-title">Deductions</div>
+      <div class="finance-row"><span class="label">Platform Fees</span><span class="val neg">\u2212${fmtMoney(totalPlatFee)}</span></div>
+      <div class="finance-row"><span class="label">Discounts / Promos</span><span class="val neg">\u2212${fmtMoney(totalPromo)}</span></div>
+      <div class="finance-row"><span class="label">Expenses</span><span class="val neg">\u2212${fmtMoney(totalExp)}</span></div>
+      <div class="finance-row"><span class="label">Total Deductions</span><span class="val neg">\u2212${fmtMoney(totalPlatFee+totalPromo+totalExp)}</span></div>
+    </div>
+    <div class="finance-block"><div class="finance-block-title">Profit</div>
+      <div class="finance-row"><span class="label">Total Revenue</span><span class="val">${fmtMoney(totalRev+totalAddons)}</span></div>
+      <div class="finance-row"><span class="label">Total Deductions</span><span class="val neg">\u2212${fmtMoney(totalPlatFee+totalPromo+totalExp)}</span></div>
+      <div class="finance-row"><span class="label">Net Profit</span><span class="val pos">${fmtMoney(netProfit)}</span></div>
+    </div>`;
+  const wrap=document.getElementById('finCharts');
+  if(wrap){wrap.innerHTML=`<div class="card"><div class="section-title" style="margin-bottom:12px">Revenue by Platform</div><div class="chart-wrap"><canvas id="finPieCanvas" class="chart"></canvas></div></div><div class="card"><div class="section-title" style="margin-bottom:12px">6-Month Trend</div><div class="chart-wrap"><canvas id="finBarCanvas" class="chart"></canvas></div></div>`;setTimeout(()=>{drawPieChart('finPieCanvas',list);drawBarChart('finBarCanvas');},50);}
+}
+
+['fin-period','fin-prop'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',renderFinanceOverview);});
+
+function populateExpenseMonthYear(){
+  const now=new Date();
+  const mSel=document.getElementById('fe-month');const ySel=document.getElementById('fe-year');
+  if(!mSel||!ySel)return;
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  mSel.innerHTML=months.map((mo,i)=>`<option value="${i+1}"${i===now.getMonth()?' selected':''}>${mo}</option>`).join('');
+  const years=[];for(let y=now.getFullYear()+1;y>=now.getFullYear()-5;y--)years.push(y);
+  ySel.innerHTML=years.map(y=>`<option value="${y}"${y===now.getFullYear()?' selected':''}>${y}</option>`).join('');
+}
+
+function openExpenseModal(id=null){
+  editingExpId=id;
+  document.getElementById('expModalTitle').textContent=id?'Edit Expenses':'Add Expenses';
+  populateSelects();populateExpenseMonthYear();
+  EXP_CATS.forEach(c=>{const el=document.getElementById('fe-'+c);if(el){el.value=0;el.classList.remove('error');}
+    const er=document.getElementById('err-'+c);if(er)er.classList.remove('show');});
+  const now=new Date();
+  document.getElementById('fe-month').value=now.getMonth()+1;
+  document.getElementById('fe-year').value=now.getFullYear();
+  document.getElementById('fe-notes').value='';
+  document.getElementById('fe-prop').value='all';
+  if(id){
+    const e=expenses.find(x=>x.id===id);
+    if(e){
+      if(e.month){const[y,mo]=e.month.split('-');document.getElementById('fe-year').value=y;document.getElementById('fe-month').value=parseInt(mo,10);}
+      document.getElementById('fe-prop').value=e.prop||'all';
+      document.getElementById('fe-notes').value=e.notes||'';
+      EXP_CATS.forEach(c=>{const el=document.getElementById('fe-'+c);if(el)el.value=e[c]??0;});
+      // Auto-fill cleaning from bookings
+      const autoClean=bookings.filter(b=>b.status!=='Cancelled'&&b.checkout&&b.checkout.startsWith(e.month)&&(e.prop==='all'||b.property===e.prop)).reduce((s,b)=>s+(+b.cleaningFee||0),0);
+      if(autoClean){const cl=document.getElementById('fe-cleaning');if(cl)cl.value=autoClean;}
+    }
+  }else{
+    // New entry — try to auto-fill cleaning from current month
+    const now=new Date();
+    const monthStr=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const autoClean=bookings.filter(b=>b.status!=='Cancelled'&&b.checkout&&b.checkout.startsWith(monthStr)).reduce((s,b)=>s+(+b.cleaningFee||0),0);
+    if(autoClean){const cl=document.getElementById('fe-cleaning');if(cl)cl.value=autoClean;}
+  }
+  openModal('expenseModal');
+}
+
+function saveExpense(){
+  const mo=document.getElementById('fe-month').value;
+  const yr=document.getElementById('fe-year').value;
+  if(!mo||!yr){toast('Month and year required.','error');return;}
+  let err=false;
+  EXP_CATS.forEach(c=>{
+    const el=document.getElementById('fe-'+c);const erEl=document.getElementById('err-'+c);
+    if(!el)return;
+    if(el.value===''||isNaN(+el.value)||+el.value<0){el.classList.add('error');if(erEl)erEl.classList.add('show');err=true;}
+    else{el.classList.remove('error');if(erEl)erEl.classList.remove('show');}
+  });
+  if(err){toast('All amounts must be 0 or more.','error');return;}
+  const data={id:editingExpId||genId(),month:`${yr}-${String(mo).padStart(2,'0')}`,prop:document.getElementById('fe-prop').value,notes:document.getElementById('fe-notes').value};
+  EXP_CATS.forEach(c=>{data[c]=+document.getElementById('fe-'+c).value||0;});
+  data.amount=EXP_CATS.reduce((s,c)=>s+(data[c]||0),0);
+  if(editingExpId){const i=expenses.findIndex(e=>e.id===editingExpId);if(i>=0)expenses[i]=data;}
+  else expenses.unshift(data);
+  saveAll();closeModal('expenseModal');toast('Expenses saved.');renderExpenses();driveAutoBackup();
+}
+
+function deleteExpense(id){
+  const e=expenses.find(x=>x.id===id);
+  confirmDialog('\u26a0 Delete Expense Record',`You are about to permanently delete this expense record (${e?fmtMonthYear(e.month+'-01'):''}). This cannot be undone and will affect financial reports.`,'\ud83d\uddd1',()=>{
+    expenses=expenses.filter(ex=>ex.id!==id);saveAll();renderExpenses();toast('Expense deleted.','warning');
+  });
+}
+
+// Bookings whose checkout falls in the given month (YYYY-MM).
+// All per-stay costs (cleaning, promo discount) are attributed to checkout month —
+// that's when the stay settles: cleaning is done, revenue is realised.
+function expBookings(month,propId){
+  return bookings.filter(b=>{
+    if(b.status==='Cancelled'||!b.checkout)return false;
+    if(!b.checkout.startsWith(month))return false;
+    if(propId!=='all'&&b.property!==propId)return false;
+    return true;
+  });
+}
+function renderExpenses(){
+  const mo=document.getElementById('exp-month')?.value||'all';
+  const pr=document.getElementById('exp-prop')?.value||'all';
+  let list=[...expenses];
+  if(mo!=='all')list=list.filter(e=>(e.month||'').startsWith(mo));
+  if(pr!=='all')list=list.filter(e=>e.prop===pr);
+
+  // Stat card totals: promo by CHECKIN month, cleaning by checkout month
+  const bkForPromo=bookings.filter(b=>{
+    if(b.status==='Cancelled'||!b.checkin)return false;
+    if(mo!=='all'&&!b.checkin.startsWith(mo))return false;
+    if(pr!=='all'&&b.property!==pr)return false;
+    return true;
+  });
+  const bkForCleaning=bookings.filter(b=>{
+    if(b.status==='Cancelled'||!b.checkout)return false;
+    if(mo!=='all'&&!b.checkout.startsWith(mo))return false;
+    if(pr!=='all'&&b.property!==pr)return false;
+    return true;
+  });
+  const totalPromo=bkForPromo.reduce((s,b)=>s+(+b.promo||0),0);
+  const totalCleaningFromBks=bkForCleaning.reduce((s,b)=>s+(+b.cleaningFee||0),0);
+  const manualTotals={};EXP_CATS.filter(c=>c!=='cleaning').forEach(c=>manualTotals[c]=list.reduce((s,e)=>s+(e[c]||0),0));
+  const manualCleaning=list.reduce((s,e)=>s+(e.cleaning||0),0);
+  const totalCleaning=totalCleaningFromBks||manualCleaning;
+  const grandTotal=totalPromo+totalCleaning+Object.values(manualTotals).reduce((s,v)=>s+v,0);
+  document.getElementById('expStats').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Total Expenses</div><div class="stat-value" style="color:var(--red)">${fmtMoney(grandTotal)}</div><div class="stat-sub">${list.length} entries</div></div>
+    <div class="stat-card"><div class="stat-label">Promo Discounts</div><div class="stat-value" style="color:var(--purple)">${fmtMoney(totalPromo)}</div></div>
+    <div class="stat-card"><div class="stat-label">Cleaning Cost</div><div class="stat-value" style="color:var(--red)">${fmtMoney(totalCleaning)}</div></div>
+    <div class="stat-card"><div class="stat-label">Utilities</div><div class="stat-value" style="color:var(--red)">${fmtMoney(manualTotals.water+manualTotals.electricity)}</div></div>`;
+
+  const tbody=document.getElementById('expenseTbody');
+  if(!list.length){tbody.innerHTML=`<tr><td colspan="12"><div class="empty"><div class="empty-text">No expenses recorded.</div></div></td></tr>`;return;}
+
+  const auto=(v,color='')=>`<span style="color:${color||'var(--text)'};font-weight:600">${fmtMoney(v)}</span><span style="font-size:10px;color:var(--text-3);margin-left:3px">(auto)</span>`;
+  const cell=(v,color='var(--text-2)')=>v?`<span style="color:${color};font-weight:600">${fmtMoney(v)}</span>`:`<span style="color:var(--border-2)">\u2014</span>`;
+
+  // Sort by month YYYY-MM descending \u2014 most recent first
+  tbody.innerHTML=list.slice().sort((a,b)=>{
+    const ma=a.month||'0000-00',mb=b.month||'0000-00';
+    return mb.localeCompare(ma);
+  }).map(e=>{
+    // Promo: checkin month (discount applied when stay begins)
+    // Cleaning: checkout month (done after guest leaves)
+    const bksCheckin=bookings.filter(b=>{
+      if(b.status==='Cancelled'||!b.checkin)return false;
+      if(!b.checkin.startsWith(e.month))return false;
+      if(e.prop!=='all'&&b.property!==e.prop)return false;
+      return true;
+    });
+    const bksCheckout=expBookings(e.month,e.prop);
+    const promoCost=bksCheckin.reduce((s,b)=>s+(+b.promo||0),0);
+    const cleaningFromBks=bksCheckout.reduce((s,b)=>s+(+b.cleaningFee||0),0);
+    const cleaningCost=cleaningFromBks||e.cleaning||0;
+    const rowTotal=promoCost+cleaningCost+(e.water||0)+(e.electricity||0)+(e.supplies||0)+(e.maintenance||0)+(e.other||0);
+    return`<tr>
+    <td><strong>${e.month?fmtMonthYear(e.month+'-01'):fmtDate(e.date||'')}</strong></td>
+    <td>${e.prop==='all'?'All':esc(propName(e.prop))}</td>
+    <td>${promoCost?auto(promoCost,'var(--purple)'):`<span style="color:var(--border-2)">\u2014</span>`}</td>
+    <td>${cleaningFromBks?auto(cleaningCost,'var(--red)'):cleaningCost?cell(cleaningCost,'var(--red)'):`<span style="color:var(--border-2)">\u2014</span>`}</td>
+    <td>${cell(e.water||0,'var(--red)')}</td>
+    <td>${cell(e.electricity||0,'var(--red)')}</td>
+    <td>${cell(e.supplies||0,'var(--red)')}</td>
+    <td>${cell(e.maintenance||0,'var(--red)')}</td>
+    <td>${cell(e.other||0,'var(--red)')}</td>
+    <td><strong style="color:var(--red)">${fmtMoney(rowTotal)}</strong></td>
+    <td style="color:var(--text-3);font-size:12px">${esc(e.notes||'\u2014')}</td>
+    <td><button class="btn btn-ghost btn-sm" onclick="openExpenseModal('${e.id}')">&#x270e;</button> <button class="btn btn-ghost btn-sm" onclick="deleteExpense('${e.id}')">&#x2326;</button></td>
+  </tr>`;}).join('');
+}
+
+['exp-month','exp-prop'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',renderExpenses);});
+
+function renderDeposits(){
+  const mo=document.getElementById('dep-month')?.value||'all';
+  const st=document.getElementById('dep-status')?.value||'all';
+  let list=bookings.filter(b=>b.deposit&&b.status!=='Cancelled');
+  if(mo!=='all'){const[y,m]=mo.split('-').map(Number);list=list.filter(b=>{const d=new Date(b.checkin);return d.getFullYear()===y&&d.getMonth()+1===m;});}
+  if(st==='pending')list=list.filter(b=>!b.depositCollected);
+  else if(st==='collected')list=list.filter(b=>b.depositCollected&&!b.depositRefunded);
+  else if(st==='refunded')list=list.filter(b=>b.depositRefunded);
+  const totalDep=list.reduce((s,b)=>s+(+b.deposit||0),0);
+  document.getElementById('depStats').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Total Deposits</div><div class="stat-value">${fmtMoney(totalDep)}</div></div>
+    <div class="stat-card"><div class="stat-label">Collected</div><div class="stat-value">${list.filter(b=>b.depositCollected).length}</div></div>
+    <div class="stat-card"><div class="stat-label">Refunded</div><div class="stat-value">${list.filter(b=>b.depositRefunded).length}</div></div>`;
+  const tbody=document.getElementById('depositTbody');
+  if(!list.length){tbody.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="empty-text">No deposits found.</div></div></td></tr>`;return;}
+  tbody.innerHTML=list.map(b=>{
+    const sl=b.depositRefunded?'<span class="badge badge-neutral">Refunded</span>':b.depositCollected?'<span class="badge badge-green">Collected</span>':'<span class="badge badge-orange">Pending</span>';
+    return`<tr onclick="openBookingDrawer('${b.id}')"><td><strong>${esc(b.guest)}</strong></td><td>${esc(propName(b.property))}</td><td>${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)}</td><td><strong>${fmtMoney(b.deposit)}</strong></td><td>${b.depositCollected?'<span class="badge badge-green">\u2713</span>':'<span class="badge badge-orange">\u2014</span>'}</td><td>${b.depositRefunded?'<span class="badge badge-neutral">\u2713</span>':'\u2014'}</td><td>${sl}</td><td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openBookingDrawer('${b.id}')">&#x270e;</button></td></tr>`;
+  }).join('');
+}
+['dep-month','dep-status'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',renderDeposits);});
+
+function openPlatformModal(id=null){
+  editingPlatId=id;
+  document.getElementById('platModalTitle').textContent=id?'Edit Platform':'Add Platform';
+  document.getElementById('plat-name').value='';document.getElementById('plat-comm').value=0;document.getElementById('plat-vat').value=12;document.getElementById('plat-color').value='#5B4BDB';
+  if(id){const p=platforms.find(x=>x.id===id);if(p){document.getElementById('plat-name').value=p.name;document.getElementById('plat-comm').value=p.commission;document.getElementById('plat-vat').value=p.vat;document.getElementById('plat-color').value=p.color;}}
+  openModal('platformModal');
+}
+function savePlatform(){
+  const name=document.getElementById('plat-name').value.trim();if(!name){toast('Name required.','error');return;}
+  const data={id:editingPlatId||genId(),name,commission:+document.getElementById('plat-comm').value||0,vat:+document.getElementById('plat-vat').value||0,color:document.getElementById('plat-color').value||'#888'};
+  if(editingPlatId){
+    const i=platforms.findIndex(p=>p.id===editingPlatId);
+    if(i>=0){
+      const oldName=platforms[i].name;
+      platforms[i]=data;
+      // Propagate name change to all bookings
+      if(oldName&&oldName!==name){
+        let changed=0;
+        bookings.forEach(b=>{if(b.platform===oldName){b.platform=name;changed++;}});
+        if(changed)toast(`Updated platform name on ${changed} booking${changed!==1?'s':''}.`,'success');
+      }
+    }
+  }else platforms.push(data);
+  saveAll();closeModal('platformModal');toast('Platform saved.');renderPlatforms();populateSelects();
+  // If booking drawer is open, refresh its picker label in case it was affected
+  if(editingBookingId)updateDrawerSummary();
+}
+function deletePlatform(id){
+  const p=platforms.find(x=>x.id===id);
+  const cnt=bookings.filter(b=>b.platform===p?.name).length;
+  confirmDialog('\u26a0 Delete Platform',`You are about to delete "${p?.name}". ${cnt>0?`${cnt} existing booking(s) will retain the platform name but commission calculations may be affected. `:''}This cannot be undone.`,'\ud83d\uddd1',()=>{
+    platforms=platforms.filter(x=>x.id!==id);saveAll();renderPlatforms();populateSelects();toast('Platform deleted.','warning');
+  });
+}
+function renderPlatforms(){
+  const tbody=document.getElementById('platformTbody');
+  if(!platforms.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="empty-text">No platforms.</div></div></td></tr>`;return;}
+  tbody.innerHTML=platforms.map(p=>{
+    const cnt=bookings.filter(b=>b.platform===p.name&&b.status!=='Cancelled').length;
+    const rev=bookings.filter(b=>b.platform===p.name&&b.status!=='Cancelled').reduce((s,b)=>s+calcTotals(b).netRevenue,0);
+    return`<tr><td>${platformPillHtml(p.name)}</td><td>${p.commission}%</td><td>${p.vat}%</td><td>${cnt}</td><td>${fmtMoney(rev)}</td><td><div style="width:24px;height:24px;border-radius:5px;background:${p.color}"></div></td><td><button class="btn btn-ghost btn-sm" onclick="openPlatformModal('${p.id}')">&#x270e;</button> <button class="btn btn-ghost btn-sm" onclick="deletePlatform('${p.id}')">&#x2326;</button></td></tr>`;
+  }).join('');
+}
+
+// Temporary photo store for modal (before saving)
+// ── Property icon set — Phosphor Icons SVGs (phosphoricons.com) ──
+const PROP_ICONS=[
+  {id:'house',label:'House',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M219.31,108.68l-80-80a16,16,0,0,0-22.62,0l-80,80A15.87,15.87,0,0,0,32,120v96a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V160h32v56a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V120A15.87,15.87,0,0,0,219.31,108.68ZM208,208H160V152a8,8,0,0,0-8-8H104a8,8,0,0,0-8,8v56H48V120l80-80,80,80Z"/></svg>'},
+  {id:'house-line',label:'Villa',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M240,208H224V136l2.34,2.34A8,8,0,0,0,237.66,127L139.31,28.68a16,16,0,0,0-22.62,0L18.34,127a8,8,0,0,0,11.32,11.31L32,136v72H16a8,8,0,0,0,0,16H240a8,8,0,0,0,0-16ZM48,120l80-80,80,80v88H160V152a8,8,0,0,0-8-8H104a8,8,0,0,0-8,8v56H48Zm96,88H112V160h32Z"/></svg>'},
+  {id:'buildings',label:'Buildings',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M240,208h-8V88a8,8,0,0,0-8-8H160a8,8,0,0,0-8,8v40H104V40a8,8,0,0,0-8-8H32a8,8,0,0,0-8,8V208H16a8,8,0,0,0,0,16H240a8,8,0,0,0,0-16ZM168,96h48V208H168Zm-16,48v64H104V144ZM40,48H88V208H40ZM72,72V88a8,8,0,0,1-16,0V72a8,8,0,0,1,16,0Zm0,48v16a8,8,0,0,1-16,0V120a8,8,0,0,1,16,0Zm0,48v16a8,8,0,0,1-16,0V168a8,8,0,0,1,16,0Zm48,16V168a8,8,0,0,1,16,0v16a8,8,0,0,1-16,0Zm64,0V168a8,8,0,0,1,16,0v16a8,8,0,0,1-16,0Zm0-48V120a8,8,0,0,1,16,0v16a8,8,0,0,1-16,0Z"/></svg>'},
+  {id:'building-apartment',label:'Apartment',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M240,208h-8V72a8,8,0,0,0-8-8H184V40a8,8,0,0,0-8-8H80a8,8,0,0,0-8,8V96H32a8,8,0,0,0-8,8V208H16a8,8,0,0,0,0,16H240a8,8,0,0,0,0-16ZM40,112H80a8,8,0,0,0,8-8V48h80V72a8,8,0,0,0,8,8h40V208H152V168a8,8,0,0,0-8-8H112a8,8,0,0,0-8,8v40H40Zm96,96H120V176h16ZM112,72a8,8,0,0,1,8-8h16a8,8,0,0,1,0,16H120A8,8,0,0,1,112,72Zm0,32a8,8,0,0,1,8-8h16a8,8,0,0,1,0,16H120A8,8,0,0,1,112,104Zm56,0a8,8,0,0,1,8-8h16a8,8,0,0,1,0,16H176A8,8,0,0,1,168,104ZM88,136a8,8,0,0,1-8,8H64a8,8,0,0,1,0-16H80A8,8,0,0,1,88,136Zm0,32a8,8,0,0,1-8,8H64a8,8,0,0,1,0-16H80A8,8,0,0,1,88,168Zm24-32a8,8,0,0,1,8-8h16a8,8,0,0,1,0,16H120A8,8,0,0,1,112,136Zm56,0a8,8,0,0,1,8-8h16a8,8,0,0,1,0,16H176A8,8,0,0,1,168,136Zm0,32a8,8,0,0,1,8-8h16a8,8,0,0,1,0,16H176A8,8,0,0,1,168,168Z"/></svg>'},
+  {id:'city',label:'City',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M240,208h-8V88a8,8,0,0,0-8-8H160a8,8,0,0,0-8,8v40H104V40a8,8,0,0,0-8-8H32a8,8,0,0,0-8,8V208H16a8,8,0,0,0,0,16H240a8,8,0,0,0,0-16ZM168,96h48V208H168Zm-16,48v64H104V144ZM40,48H88V208H40ZM72,72V88a8,8,0,0,1-16,0V72a8,8,0,0,1,16,0Zm0,48v16a8,8,0,0,1-16,0V120a8,8,0,0,1,16,0Zm0,48v16a8,8,0,0,1-16,0V168a8,8,0,0,1,16,0Zm48,16V168a8,8,0,0,1,16,0v16a8,8,0,0,1-16,0Zm64,0V168a8,8,0,0,1,16,0v16a8,8,0,0,1-16,0Zm0-48V120a8,8,0,0,1,16,0v16a8,8,0,0,1-16,0Z"/></svg>'},
+  {id:'warehouse',label:'Warehouse',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M240,184h-8V57.9l9.67-2.08a8,8,0,1,0-3.35-15.64l-224,48A8,8,0,0,0,16,104a8.16,8.16,0,0,0,1.69-.18L24,102.47V184H16a8,8,0,0,0,0,16H240a8,8,0,0,0,0-16ZM40,99,216,61.33V184H192V128a8,8,0,0,0-8-8H72a8,8,0,0,0-8,8v56H40Zm136,53H80V136h96ZM80,168h96v16H80Z"/></svg>'},
+  {id:'castle-turret',label:'Castle',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M216,216H200V115.31L211.31,104A15.86,15.86,0,0,0,216,92.69V48a16,16,0,0,0-16-16H176a8,8,0,0,0-8,8V64H152V40a8,8,0,0,0-8-8H112a8,8,0,0,0-8,8V64H88V40a8,8,0,0,0-8-8H56A16,16,0,0,0,40,48V92.69A15.86,15.86,0,0,0,44.69,104L56,115.31V216H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16ZM69.66,106.34,56,92.69V48H72V72a8,8,0,0,0,8,8h32a8,8,0,0,0,8-8V48h16V72a8,8,0,0,0,8,8h32a8,8,0,0,0,8-8V48h16V92.69l-13.66,13.65A8,8,0,0,0,184,112V216H160V168a32,32,0,0,0-64,0v48H72V112A8,8,0,0,0,69.66,106.34ZM144,216H112V168a16,16,0,0,1,32,0Z"/></svg>'},
+  {id:'bed',label:'Hotel/BnB',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M216,72H32V48a8,8,0,0,0-16,0V208a8,8,0,0,0,16,0V176H240v32a8,8,0,0,0,16,0V112A40,40,0,0,0,216,72ZM32,88h72v72H32Zm88,72V88h96a24,24,0,0,1,24,24v48Z"/></svg>'},
+  {id:'key',label:'Rental',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M216.57,39.43A80,80,0,0,0,83.91,120.78L28.69,176A15.86,15.86,0,0,0,24,187.31V216a16,16,0,0,0,16,16H72a8,8,0,0,0,8-8V208H96a8,8,0,0,0,8-8V184h16a8,8,0,0,0,5.66-2.34l9.56-9.57A79.73,79.73,0,0,0,160,176h.1A80,80,0,0,0,216.57,39.43ZM224,98.1c-1.09,34.09-29.75,61.86-63.89,61.9H160a63.7,63.7,0,0,1-23.65-4.51,8,8,0,0,0-8.84,1.68L116.69,168H96a8,8,0,0,0-8,8v16H72a8,8,0,0,0-8,8v16H40V187.31l58.83-58.82a8,8,0,0,0,1.68-8.84A63.72,63.72,0,0,1,96,95.92c0-34.14,27.81-62.8,61.9-63.89A64,64,0,0,1,224,98.1ZM192,76a12,12,0,1,1-12-12A12,12,0,0,1,192,76Z"/></svg>'},
+  {id:'tent',label:'Glamping',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M255.31,188.75l-64-144A8,8,0,0,0,184,40H72a8,8,0,0,0-7.27,4.69.21.21,0,0,0,0,.06l0,.12,0,0L.69,188.75A8,8,0,0,0,8,200H248a8,8,0,0,0,7.31-11.25ZM64,184H20.31L64,85.7Zm16,0V85.7L123.69,184Zm61.2,0L84.31,56H178.8l56.89,128Z"/></svg>'},
+  {id:'tree-palm',label:'Beach',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M237.79,53.23a66.86,66.86,0,0,0-97.74,0,72.21,72.21,0,0,0-12.05,17,72.21,72.21,0,0,0-12-17,66.86,66.86,0,0,0-97.74,0,8,8,0,0,0,2.6,12.85L77,90.55a71.42,71.42,0,0,0-43.36,33.21,70.64,70.64,0,0,0-7.2,54.32A8,8,0,0,0,39,182.36l81-61.68V224a8,8,0,0,0,16,0V120.68l81,61.68a8,8,0,0,0,12.57-4.28,70.64,70.64,0,0,0-7.2-54.32A71.42,71.42,0,0,0,179,90.55l56.22-24.47a8,8,0,0,0,2.6-12.85ZM67.08,48a51.13,51.13,0,0,1,37.28,16.26,56.53,56.53,0,0,1,14.26,26.93L39,56.53A50.5,50.5,0,0,1,67.08,48ZM40,161.5a54.82,54.82,0,0,1,7.47-29.7,55.55,55.55,0,0,1,34-25.89A56.52,56.52,0,0,1,96.1,104a55.82,55.82,0,0,1,16.23,2.41ZM208.5,131.8A54.82,54.82,0,0,1,216,161.5l-72.3-55.1a56.3,56.3,0,0,1,64.83,25.4ZM137.38,91.19a56.53,56.53,0,0,1,14.26-26.93A51.13,51.13,0,0,1,188.92,48,50.5,50.5,0,0,1,217,56.53Z"/></svg>'},
+  {id:'waves',label:'Waterfront',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M222.16,177.25a8,8,0,0,1-1,11.25c-17.36,14.39-32.86,19.5-47,19.5-18.58,0-34.82-8.82-49.93-17-25.35-13.76-47.24-25.64-79.07.74a8,8,0,1,1-10.22-12.31c40.17-33.28,70.32-16.92,96.93-2.48,25.35,13.75,47.24,25.63,79.07-.74A8,8,0,0,1,222.16,177.25Zm-11.27-57c-31.83,26.38-53.72,14.5-79.07.74-26.61-14.43-56.76-30.79-96.93,2.49a8,8,0,0,0,10.22,12.31c31.83-26.38,53.72-14.5,79.07-.74,15.11,8.19,31.35,17,49.93,17,14.14,0,29.64-5.11,47-19.5a8,8,0,1,0-10.22-12.31ZM45.11,79.8c31.83-26.37,53.72-14.49,79.07-.74,15.11,8.2,31.35,17,49.93,17,14.14,0,29.64-5.12,47-19.5a8,8,0,1,0-10.22-12.31c-31.83,26.38-53.72,14.5-79.07.74C105.21,50.58,75.06,34.22,34.89,67.5A8,8,0,1,0,45.11,79.8Z"/></svg>'},
+  {id:'mountains',label:'Mountain',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M164,80a28,28,0,1,0-28-28A28,28,0,0,0,164,80Zm0-40a12,12,0,1,1-12,12A12,12,0,0,1,164,40Zm90.88,155.92-54.56-92.08A15.87,15.87,0,0,0,186.55,96h0a15.85,15.85,0,0,0-13.76,7.84L146.63,148l-44.84-76.1a16,16,0,0,0-27.58,0L1.11,195.94A8,8,0,0,0,8,208H248a8,8,0,0,0,6.88-12.08ZM88,80l23.57,40H64.43ZM22,192l33-56h66l18.74,31.8,0,0L154,192Zm150.57,0-16.66-28.28L186.55,112,234,192Z"/></svg>'},
+  {id:'campfire',label:'Campsite',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M223.62,226.42a8,8,0,0,1-10.05,5.2L128,204.39,42.43,231.62a8,8,0,1,1-4.85-15.25l64-20.37-64-20.38a8,8,0,1,1,4.85-15.24L128,187.6l85.57-27.22a8,8,0,1,1,4.85,15.24l-64,20.38,64,20.37A8,8,0,0,1,223.62,226.42ZM68,108c0-20.1,9.77-40.87,28.24-60a156,156,0,0,1,27.57-22.76,8,8,0,0,1,8.38,0C134.47,26.59,188,60.08,188,108a60,60,0,0,1-120,0Zm60,44a16,16,0,0,0,16-16c0-13.57-10-24.46-16-29.79-6,5.33-16,16.22-16,29.79A16,16,0,0,0,128,152ZM84,108a43.83,43.83,0,0,0,12.09,30.24c0-.74-.09-1.49-.09-2.24,0-28,26.44-45.91,27.56-46.66a8,8,0,0,1,8.88,0C133.56,90.09,160,108,160,136c0,.75,0,1.5-.09,2.24A43.83,43.83,0,0,0,172,108c0-32-32.26-58-44-66.34C116.27,50,84,76,84,108Z"/></svg>'},
+  {id:'island',label:'Island',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M238.25,229A8,8,0,0,1,227,230.25c-.37-.3-38.82-30.25-99-30.25S29.36,230,29,230.26a8,8,0,0,1-10-12.51c1.63-1.3,38.52-30.26,98.29-33.45A119.94,119.94,0,0,1,114,146.37c1.74-21.71,10.92-50.63,43-72.48A64.65,64.65,0,0,0,140.26,72c-19,.62-30.94,11.71-36.5,33.92A8,8,0,0,1,96,112a7.64,7.64,0,0,1-1.94-.24,8,8,0,0,1-5.82-9.7c9.25-36.95,33.11-45.42,51.5-46a81.48,81.48,0,0,1,21.68,2.45c-3.83-6.33-9.43-12.93-17.21-16.25-10-4.24-22.17-2.39-36.31,5.51a8,8,0,0,1-7.8-14c18.74-10.45,35.72-12.54,50.48-6.2,12.49,5.36,20.73,15.78,25.87,25,6.18-9.64,13.88-16.17,22.39-18.94,11.86-3.87,24.64-.72,38,9.37a8,8,0,0,1-9.64,12.76c-8.91-6.73-16.77-9.06-23.35-6.93-7.29,2.35-12.87,10-16.37,16.61A70.46,70.46,0,0,1,208,73.07c14.61,8.35,32,26.05,32,62.94a8,8,0,0,1-16,0c0-23.46-8.07-40-24-49a50.49,50.49,0,0,0-5.75-2.8,55.64,55.64,0,0,1,5.06,33.06,59.41,59.41,0,0,1-8.86,23.41,8,8,0,0,1-13.09-9.2c.74-1.09,16.33-24.38-3.26-49.37-27,15.21-41.89,37.25-44.16,65.59a104.27,104.27,0,0,0,3.83,36.44c62.65,1.81,101.52,32.33,103.2,33.66A8,8,0,0,1,238.25,229ZM24,140a28,28,0,1,1,28,28A28,28,0,0,1,24,140Zm16,0a12,12,0,1,0,12-12A12,12,0,0,0,40,140Z"/></svg>'},
+  {id:'swimming-pool',label:'Pool Villa',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M88,149.39a8,8,0,0,0,8-8V128h64v15.29a8,8,0,0,0,16,0V32a8,8,0,0,0-16,0V48H96V32a8,8,0,0,0-16,0V141.39A8,8,0,0,0,88,149.39ZM96,112V96h64v16Zm64-48V80H96V64ZM24,168a8,8,0,0,1,8-8c14.42,0,22.19,5.18,28.44,9.34C66,173.06,70.42,176,80,176s14-2.94,19.56-6.66c6.24-4.16,14-9.34,28.43-9.34s22.2,5.18,28.44,9.34c5.58,3.72,10,6.66,19.57,6.66s14-2.94,19.56-6.66c6.25-4.16,14-9.34,28.44-9.34a8,8,0,0,1,0,16c-9.58,0-14,2.94-19.56,6.66-6.25,4.16-14,9.34-28.44,9.34s-22.2-5.18-28.44-9.34C142,178.94,137.57,176,128,176s-14,2.94-19.56,6.66c-6.24,4.16-14,9.34-28.43,9.34s-22.19-5.18-28.44-9.34C46,178.94,41.58,176,32,176A8,8,0,0,1,24,168Zm208,40a8,8,0,0,1-8,8c-9.58,0-14,2.94-19.56,6.66-6.25,4.16-14,9.34-28.44,9.34s-22.2-5.18-28.44-9.34C142,218.94,137.57,216,128,216s-14,2.94-19.56,6.66c-6.24,4.16-14,9.34-28.43,9.34s-22.19-5.18-28.44-9.34C46,218.94,41.58,216,32,216a8,8,0,0,1,0-16c14.42,0,22.19,5.18,28.44,9.34C66,213.06,70.42,216,80,216s14-2.94,19.56-6.66c6.24-4.16,14-9.34,28.43-9.34s22.2,5.18,28.44,9.34c5.58,3.72,10,6.66,19.57,6.66s14-2.94,19.56-6.66c6.25-4.16,14-9.34,28.44-9.34A8,8,0,0,1,232,208Z"/></svg>'},
+  {id:'umbrella',label:'Resort',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M240,126.63A112.44,112.44,0,0,0,51.75,53.75a111.56,111.56,0,0,0-35.7,72.88A16,16,0,0,0,32,144h88v56a32,32,0,0,0,64,0,8,8,0,0,0-16,0,16,16,0,0,1-32,0V144h88a16,16,0,0,0,16-17.37ZM32,128l0,0a96.15,96.15,0,0,1,76.2-85.89C96.48,58,81.85,86.11,80.17,128Zm64.15,0c1.39-30.77,10.53-52.81,18.3-66.24A106.44,106.44,0,0,1,128,43.16a106.31,106.31,0,0,1,13.52,18.6C154.8,84.7,159,109.28,159.82,128Zm79.65,0c-1.68-41.89-16.31-70-28-85.94A96.07,96.07,0,0,1,224,128Z"/></svg>'},
+  {id:'star',label:'Luxury',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M239.18,97.26A16.38,16.38,0,0,0,224.92,86l-59-4.76L143.14,26.15a16.36,16.36,0,0,0-30.27,0L90.11,81.23,31.08,86a16.46,16.46,0,0,0-9.37,28.86l45,38.83L53,211.75a16.38,16.38,0,0,0,24.5,17.82L128,198.49l50.53,31.08A16.4,16.4,0,0,0,203,211.75l-13.76-58.07,45-38.83A16.43,16.43,0,0,0,239.18,97.26Zm-15.34,5.47-48.7,42a8,8,0,0,0-2.56,7.91l14.88,62.8a.37.37,0,0,1-.17.48c-.18.14-.23.11-.38,0l-54.72-33.65a8,8,0,0,0-8.38,0L69.09,215.94c-.15.09-.19.12-.38,0a.37.37,0,0,1-.17-.48l14.88-62.8a8,8,0,0,0-2.56-7.91l-48.7-42c-.12-.1-.23-.19-.13-.5s.18-.27.33-.29l63.92-5.16A8,8,0,0,0,103,91.86l24.62-59.61c.08-.17.11-.25.35-.25s.27.08.35.25L153,91.86a8,8,0,0,0,6.75,4.92l63.92,5.16c.15,0,.24,0,.33.29S224,102.63,223.84,102.73Z"/></svg>'},
+  {id:'crown',label:'Premium',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M248,80a28,28,0,1,0-51.12,15.77l-26.79,33L146,73.4a28,28,0,1,0-36.06,0L85.91,128.74l-26.79-33a28,28,0,1,0-26.6,12L47,194.63A16,16,0,0,0,62.78,208H193.22A16,16,0,0,0,209,194.63l14.47-86.85A28,28,0,0,0,248,80ZM128,40a12,12,0,1,1-12,12A12,12,0,0,1,128,40ZM24,80A12,12,0,1,1,36,92,12,12,0,0,1,24,80ZM193.22,192H62.78L48.86,108.52,81.79,149A8,8,0,0,0,88,152a7.83,7.83,0,0,0,1.08-.07,8,8,0,0,0,6.26-4.74l29.3-67.4a27,27,0,0,0,6.72,0l29.3,67.4a8,8,0,0,0,6.26,4.74A7.83,7.83,0,0,0,168,152a8,8,0,0,0,6.21-3l32.93-40.52ZM220,92a12,12,0,1,1,12-12A12,12,0,0,1,220,92Z"/></svg>'},
+  {id:'boat',label:'Houseboat',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M221.06,110.59,208,106.23V56a16,16,0,0,0-16-16H136V24a8,8,0,0,0-16,0V40H64A16,16,0,0,0,48,56v50.23l-13.06,4.36A16,16,0,0,0,24,125.77V152c0,61.54,97.89,86.72,102.06,87.76a8,8,0,0,0,3.88,0C134.11,238.72,232,213.54,232,152V125.77A16,16,0,0,0,221.06,110.59ZM64,56H192v44.9L130.53,80.41a8,8,0,0,0-5.06,0L64,100.9Zm152,96c0,24.91-23.68,43-43.55,53.83A228.13,228.13,0,0,1,128,223.72,226.85,226.85,0,0,1,83.81,206C47.6,186.35,40,165.79,40,152V125.77L120,99.1V168a8,8,0,0,0,16,0V99.1l80,26.67Z"/></svg>'},
+  // ── Extra residential/house variants ──
+  {id:'house-simple',label:'Simple Home',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M224,115.55V208a16,16,0,0,1-16,16H168a16,16,0,0,1-16-16V168H104v40a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V115.55a16,16,0,0,1,5.17-11.78l80-75.48.11-.11a16,16,0,0,1,21.46,0l.11.11,80,75.48A16,16,0,0,1,224,115.55Z"/></svg>'},
+  {id:'house-roof',label:'Rooftop',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M240,208H224V115.55a16,16,0,0,0-5.17-11.78l-80-75.48a16,16,0,0,0-21.7,0l-80,75.48A16,16,0,0,0,32,115.55V208H16a8,8,0,0,0,0,16H240a8,8,0,0,0,0-16ZM48,115.55l80-75.47,80,75.47V208H160V164a4,4,0,0,0-4-4H100a4,4,0,0,0-4,4v44H48ZM112,208V168h32v40Z"/></svg>'},
+  {id:'house-door',label:'Condo Unit',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M251.31,72.57,184,8.29a16,16,0,0,0-22.54.06L4.69,163.43A16,16,0,0,0,16,192H40v48a8,8,0,0,0,8,8H208a8,8,0,0,0,8-8V192h24a16,16,0,0,0,11.31-27.43ZM200,232H152V176H104v56H56V189.65L172.69,72.71,200,100ZM236.68,176H216V105.37l4.57-4.56,16.13,16.13Z"/></svg>'},
+  {id:'house-3',label:'3BR House',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M235.54,103.68l-104-88a8,8,0,0,0-10.54,0l-104,88A8,8,0,0,0,24,112V208a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V112A8,8,0,0,0,235.54,103.68ZM216,208H152V160a8,8,0,0,0-8-8H112a8,8,0,0,0-8,8v48H40V117.37l88-74.55,88,74.55ZM120,208V168h16v40Z"/></svg>'},
+  {id:'house-4',label:'4BR Home',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M128,24a104,104,0,1,0,104,104A104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm48-88a8,8,0,0,1-8,8H136v32a8,8,0,0,1-16,0V136H88a8,8,0,0,1,0-16h32V88a8,8,0,0,1,16,0v32h32A8,8,0,0,1,176,128Z"/></svg>'},
+  {id:'house-family',label:'Family Home',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M208,80H176V56a16,16,0,0,0-16-16H32A16,16,0,0,0,16,56V176a16,16,0,0,0,16,16H48a32,32,0,0,0,64,0h32a32,32,0,0,0,64,0h16a16,16,0,0,0,16-16V112A32,32,0,0,0,208,80ZM32,176V56H160v24H112A32,32,0,0,0,80,112v64Zm48,32a16,16,0,1,1,16-16A16,16,0,0,1,80,208Zm96,0a16,16,0,1,1,16-16A16,16,0,0,1,176,208Zm16-48H112V112a16,16,0,0,1,16-16h80a16,16,0,0,1,16,16Z"/></svg>'},
+  {id:'house-duplex',label:'Duplex',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M232,216H216V120l1.66,1.66a8,8,0,0,0,11.31-11.31l-98.34-98.32a8,8,0,0,0-11.26,0L21.34,110.34A8,8,0,1,0,32.66,121.66L128,26.33l80,80V216H152V176a8,8,0,0,0-8-8H112a8,8,0,0,0-8,8v40H48V128H32v88H24a8,8,0,0,0,0,16H232a8,8,0,0,0,0-16Zm-96,0H120V184h16Z"/></svg>'},
+  {id:'house-studio',label:'Studio',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M128,26a102,102,0,1,0,102,102A102.12,102.12,0,0,0,128,26Zm0,188a86,86,0,1,1,86-86A86.1,86.1,0,0,1,128,214ZM174,128a46,46,0,1,1-46-46A46.05,46.05,0,0,1,174,128Zm-16,0a30,30,0,1,0-30,30A30,30,0,0,0,158,128Z"/></svg>'},
+  {id:'house-corner',label:'Corner Unit',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M245.66,106.34l-96-96a8,8,0,0,0-11.32,0l-96,96A8,8,0,0,0,48,120v96a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V168h16v48a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V120A8,8,0,0,0,245.66,106.34ZM216,208H160V160a8,8,0,0,0-8-8H104a8,8,0,0,0-8,8v48H64V123.31L128,59.31l88,88Z"/></svg>'},
+  {id:'house-townhome',label:'Townhouse',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M136,188a12,12,0,1,1-12-12A12,12,0,0,1,136,188ZM222.83,79.17l-96-80a8,8,0,0,0-10.24,0l-96,80A8,8,0,0,0,16,86V200a8,8,0,0,0,8,8H232a8,8,0,0,0,8-8V86A8,8,0,0,0,222.83,79.17ZM216,200H40V89.36L128,16.44,216,89.36Z"/></svg>'},
+];
+
+// Helper: get the SVG or custom image HTML for a property icon at given size
+function propIconHtml(p,size=32){
+  if(!p)return`<svg width="${size}" height="${size}" viewBox="0 0 256 256" fill="currentColor"><path d="M219.31,108.68l-80-80a16,16,0,0,0-22.62,0l-80,80A15.87,15.87,0,0,0,32,120v96a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V160h32v56a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V120A15.87,15.87,0,0,0,219.31,108.68ZM208,208H160V152a8,8,0,0,0-8-8H104a8,8,0,0,0-8,8v56H48V120l80-80,80,80Z"/></svg>`;
+  if(p.iconCustom){
+    return`<img src="${p.iconCustom}" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:${size>24?'6px':'4px'};display:block" alt="icon"/>`;
+  }
+  const ic=PROP_ICONS.find(i=>i.id===(p.iconId||'house'))||PROP_ICONS[0];
+  const svg=ic.svg.replace('<svg ','<svg width="'+size+'" height="'+size+'" ');
+  return svg;
+}
+
+function renderPropIconGrid(selectedId){
+  const grid=document.getElementById('fp-icon-grid');
+  if(!grid)return;
+  grid.innerHTML=PROP_ICONS.map(({id,label,svg})=>`
+    <button type="button" class="prop-icon-btn${id===selectedId?' selected':''}" title="${label}" onclick="selectPropIcon('${id}')">
+      ${svg}
+      <span>${label}</span>
+    </button>`).join('');
+}
+
+function selectPropIcon(id){
+  document.getElementById('fp-icon-id').value=id;
+  // Clear custom upload when selecting from library
+  document.getElementById('fp-icon-custom').value='';
+  document.getElementById('fp-icon-clear').style.display='none';
+  renderPropIconGrid(id);
+  _updatePropIconPreview();
+}
+
+function handlePropIconUpload(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    document.getElementById('fp-icon-custom').value=e.target.result;
+    document.getElementById('fp-icon-clear').style.display='';
+    // Deselect grid icons
+    document.querySelectorAll('.prop-icon-btn').forEach(b=>b.classList.remove('selected'));
+    _updatePropIconPreview();
+  };
+  reader.readAsDataURL(file);
+  input.value='';
+}
+
+function clearPropIconUpload(){
+  document.getElementById('fp-icon-custom').value='';
+  document.getElementById('fp-icon-clear').style.display='none';
+  const id=document.getElementById('fp-icon-id').value||'house';
+  renderPropIconGrid(id);
+  _updatePropIconPreview();
+}
+
+function _updatePropIconPreview(){
+  const preview=document.getElementById('fp-icon-preview');
+  if(!preview)return;
+  const custom=document.getElementById('fp-icon-custom').value;
+  const id=document.getElementById('fp-icon-id').value||'house';
+  if(custom){
+    preview.innerHTML=`<img src="${custom}" style="width:52px;height:52px;object-fit:cover;border-radius:var(--radius)"/>`;
+  }else{
+    const ic=PROP_ICONS.find(i=>i.id===id)||PROP_ICONS[0];
+    const svg=ic.svg.replace('<svg ','<svg width="32" height="32" ');
+    preview.innerHTML=svg;
+  }
+}
+
+
+let _editingPhotos=[];
+
+function handlePropertyPhotoUpload(input){
+  const files=Array.from(input.files);
+  files.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      _editingPhotos.push(e.target.result);
+      renderPropPhotoList();
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value=''; // allow re-selecting same file
+}
+
+function renderPropPhotoList(){
+  const container=document.getElementById('fp-photo-list');
+  if(!container)return;
+  if(!_editingPhotos.length){container.innerHTML='';return;}
+  container.innerHTML=_editingPhotos.map((src,i)=>`
+    <div class="fp-photo-preview">
+      <img src="${src}" onclick="viewPropPhotoFull('${i}')"/>
+      <div class="remove-photo" onclick="removePropPhoto(${i})">×</div>
+    </div>`).join('');
+}
+
+function removePropPhoto(i){
+  _editingPhotos.splice(i,1);
+  renderPropPhotoList();
+}
+
+function viewPropPhotoFull(i){
+  const src=_editingPhotos[i];
+  if(!src)return;
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:pointer';
+  overlay.innerHTML=`<img src="${src}" style="max-width:90vw;max-height:90vh;border-radius:8px;object-fit:contain"/>`;
+  overlay.onclick=()=>overlay.remove();
+  document.body.appendChild(overlay);
+}
+
+function openPropertyModal(id=null){
+  editingPropId=id;
+  _editingPhotos=[];
+  document.getElementById('propModalTitle').textContent=id?'Edit Property':'Add Property';
+  ['fp-name','fp-city','fp-address','fp-map','fp-airbnb','fp-notes'].forEach(k=>{const el=document.getElementById(k);if(el)el.value='';});
+  document.getElementById('fp-beds').value='';
+  document.getElementById('fp-baseguests').value=2;
+  document.getElementById('fp-maxguests').value=4;
+  document.getElementById('fp-extrafee').value=300;
+  document.getElementById('fp-baserate').value=0;
+  renderPropPhotoList();
+  document.getElementById('fp-icon-id').value='house';
+  document.getElementById('fp-icon-custom').value='';
+  document.getElementById('fp-icon-clear').style.display='none';
+  if(id){
+    const p=properties.find(x=>x.id===id);
+    if(p){
+      document.getElementById('fp-name').value=p.name||'';
+      document.getElementById('fp-city').value=p.city||'';
+      document.getElementById('fp-address').value=p.address||'';
+      document.getElementById('fp-map').value=p.map||'';
+      document.getElementById('fp-airbnb').value=p.airbnbUrl||'';
+      document.getElementById('fp-notes').value=p.notes||'';
+      document.getElementById('fp-beds').value=p.beds??'';
+      document.getElementById('fp-baseguests').value=p.baseGuests??2;
+      document.getElementById('fp-maxguests').value=p.maxGuests??4;
+      document.getElementById('fp-extrafee').value=p.extraGuestFee??300;
+      document.getElementById('fp-baserate').value=p.baseRate??0;
+      _editingPhotos=[...(p.photos||[])];
+      renderPropPhotoList();
+      const iconId=p.iconId||'house';
+      const iconCustom=p.iconCustom||'';
+      document.getElementById('fp-icon-id').value=iconId;
+      document.getElementById('fp-icon-custom').value=iconCustom;
+      if(iconCustom)document.getElementById('fp-icon-clear').style.display='';
+    }
+  }
+  renderPropIconGrid(document.getElementById('fp-icon-id').value);
+  _updatePropIconPreview();
+  openModal('propertyModal');
+}
+function saveProperty(){
+  const name=(document.getElementById('fp-name')?.value||'').trim();
+  const city=(document.getElementById('fp-city')?.value||'').trim();
+  const missing=[];
+  if(!name)missing.push('Property Name');
+  if(!city)missing.push('City');
+  if(missing.length){toast(`Missing: ${missing.join(', ')}`,'error');return;}
+  const bg=Math.max(1,+document.getElementById('fp-baseguests').value||2);
+  let mg=Math.max(1,+document.getElementById('fp-maxguests').value||bg);if(mg<bg)mg=bg;
+  const existing=editingPropId?properties.find(p=>p.id===editingPropId):null;
+  const data={
+    id:editingPropId||genId(),name,city,
+    address:document.getElementById('fp-address').value,
+    map:document.getElementById('fp-map').value,
+    airbnbUrl:document.getElementById('fp-airbnb').value,
+    iconId:document.getElementById('fp-icon-id').value||'house',
+    iconCustom:document.getElementById('fp-icon-custom').value||'',
+    beds:+document.getElementById('fp-beds').value||0,
+    baseGuests:bg,maxGuests:mg,
+    baseRate:Math.max(0,+document.getElementById('fp-baserate').value||0),
+    extraGuestFee:Math.max(0,+document.getElementById('fp-extrafee').value||0),
+    blockedDates:existing?.blockedDates||[],
+    photos:[..._editingPhotos],
+    notes:document.getElementById('fp-notes').value,
+  };
+  if(editingPropId){const i=properties.findIndex(p=>p.id===editingPropId);if(i>=0)properties[i]=data;}
+  else properties.push(data);
+  saveAll();closeModal('propertyModal');toast('Property saved.');renderProperties();populateSelects();
+}
+function viewPropPhotos(propId,startIdx=0){
+  const p=properties.find(x=>x.id===propId);
+  if(!p||!(p.photos||[]).length)return;
+  const photos=p.photos;
+  let current=startIdx;
+  const overlay=document.createElement('div');
+  overlay.id='prop-photo-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px';
+  const render=()=>{
+    overlay.innerHTML=`<div style="color:#fff;font-size:13px;opacity:.6">${esc(p.name)} · Photo ${current+1} of ${photos.length}</div><img src="${photos[current]}" style="max-width:90vw;max-height:75vh;border-radius:10px;object-fit:contain"/><div style="display:flex;gap:12px">${photos.length>1?`<button onclick="event.stopPropagation();window._propPhotoNav(-1)" style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:18px">‹</button>`:''}<button onclick="document.getElementById('prop-photo-overlay').remove()" style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:14px">✕ Close</button>${photos.length>1?`<button onclick="event.stopPropagation();window._propPhotoNav(1)" style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:18px">›</button>`:''}</div>`;
+  };
+  window._propPhotoNav=(dir)=>{current=(current+dir+photos.length)%photos.length;render();};
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+  render();
+}
+function deleteProperty(id){
+  const p=properties.find(x=>x.id===id);
+  const cnt=bookings.filter(b=>b.property===id).length;
+  confirmDialog('\u26a0 Delete Property',`You are about to delete "${p?.name}". ${cnt>0?`This property has ${cnt} booking(s). The bookings will be kept but will show missing property. `:''}Property data cannot be recovered after deletion.`,'\ud83d\uddd1',()=>{
+    properties=properties.filter(x=>x.id!==id);saveAll();renderProperties();populateSelects();toast('Property deleted.','warning');
+  });
+}
+function renderProperties(){
+  const grid=document.getElementById('propGrid');
+  if(!properties.length){grid.innerHTML=`<div class="empty"><div class="empty-icon">\u2302</div><div class="empty-text">No properties. Add your first one.</div></div>`;return;}
+  grid.innerHTML=properties.map(p=>{
+    const bks=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled');
+    const rev=bks.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
+    const nights=bks.reduce((s,b)=>s+nightsBetween(b.checkin,b.checkout),0);
+    const occ=Math.min(100,Math.round(nights/Math.max(1,90)*100));
+    const upcoming=bks.filter(b=>b.checkin>=todayISO()).length;
+    const photos=p.photos||[];
+    const hero=photos.length?`<img class="prop-photo-hero" src="${photos[0]}" alt="Property photo" onclick="viewPropPhotos('${p.id}')" title="View photos"/>`:
+      `<div style="width:100%;height:80px;background:var(--surface-2);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin-bottom:8px;cursor:pointer;border:1px dashed var(--border-2);color:var(--text-2)" onclick="openPropertyModal('${p.id}')">${propIconHtml(p,40)}</div>`;
+    const extraPhotos=photos.length>1?`<div class="prop-photo-strip">${photos.slice(1,5).map((src,i)=>`<img class="prop-photo-thumb" src="${src}" onclick="viewPropPhotos('${p.id}',${i+1})" title="View photos"/>`).join('')}${photos.length>5?`<div style="width:60px;height:50px;border-radius:6px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text-2);cursor:pointer;border:1px solid var(--border)" onclick="viewPropPhotos('${p.id}')">+${photos.length-5}</div>`:''}
+    </div>`:'';
+    return`<div class="prop-card">
+      ${hero}${extraPhotos}
+      <div class="prop-card-header" style="margin-bottom:10px"><div class="prop-icon" style="display:flex;align-items:center;color:var(--text-2)">${propIconHtml(p,22)}</div>
+        <div style="flex:1;min-width:0"><div class="prop-card-name">${esc(p.name)}${p.beds?` <span style="color:var(--text-3);font-size:11px">${p.beds}BR</span>`:''}</div><div class="prop-card-meta">${esc(p.city)}${p.address?` \u00b7 ${esc(p.address)}`:''}</div></div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openPropertyModal('${p.id}')" title="Edit property">&#x270e;</button>
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openBlockDatesModal('${p.id}')" title="Block dates">🔴</button>
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Delete property">&#x2326;</button>
+        </div>
+      </div>
+      <div class="prop-stats">
+        <div><div class="prop-stat-label">Revenue</div><div class="prop-stat-value">${fmtMoney(rev)}</div></div>
+        <div><div class="prop-stat-label">Occupancy</div><div class="prop-stat-value" style="color:${occ>70?'var(--green)':occ>40?'var(--orange)':'var(--red)'}">${occ}%</div></div>
+        <div><div class="prop-stat-label">Base Rate</div><div class="prop-stat-value">${p.baseRate?fmtMoney(p.baseRate):'\u2014'}</div></div>
+      </div>
+      ${(p.blockedDates||[]).length?`<div style="font-size:11px;color:var(--red);margin-top:8px">🔴 ${p.blockedDates.length} date(s) blocked</div>`:''}
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        ${p.map?`<a href="${esc(p.map)}" target="_blank" class="btn btn-ghost btn-sm" style="justify-content:center;flex:1" onclick="event.stopPropagation()">📍 Map</a>`:''}
+        ${p.airbnbUrl?`<a href="${esc(p.airbnbUrl)}" target="_blank" class="btn btn-ghost btn-sm" style="justify-content:center;flex:1" onclick="event.stopPropagation()">🏡 Airbnb</a>`:''}
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="event.stopPropagation();openBlockDatesModal('${p.id}')">🔴 Block Dates${(p.blockedDates||[]).length?` (${p.blockedDates.length})`:''}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// BLOCK DATES
+// ============================================================
+let blockingPropId=null,blockCalDate=new Date();
+
+function openBlockDatesModal(propId){
+  blockingPropId=propId;
+  blockCalDate=new Date();
+  const p=properties.find(x=>x.id===propId);
+  document.getElementById('blockDatesTitle').textContent=`Block Dates — ${p?.name||''}`;
+  renderBlockCal();
+  openModal('blockDatesModal');
+}
+
+function blockCalNav(dir){
+  blockCalDate=new Date(blockCalDate.getFullYear(),blockCalDate.getMonth()+dir,1);
+  renderBlockCal();
+}
+
+function renderBlockCal(){
+  const p=properties.find(x=>x.id===blockingPropId);if(!p)return;
+  const y=blockCalDate.getFullYear(),m=blockCalDate.getMonth();
+  const blocked=new Set(p.blockedDates||[]);
+  const bookedSet=new Set();
+  bookings.filter(b=>b.property===blockingPropId&&b.status!=='Cancelled').forEach(b=>{
+    for(let d=new Date(b.checkin+'T12:00:00');dateToISO(d)<b.checkout;d.setDate(d.getDate()+1))bookedSet.add(dateToISO(d));
+  });
+  document.getElementById('blockCalLabel').textContent=new Date(y,m,1).toLocaleString('default',{month:'long',year:'numeric'});
+  const dayNames=['S','M','T','W','T','F','S'];
+  const firstDow=new Date(y,m,1).getDay();
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  let html=dayNames.map(d=>`<div class="block-cal-dn">${d}</div>`).join('');
+  for(let i=0;i<firstDow;i++)html+=`<div class="block-cal-day empty"></div>`;
+  for(let day=1;day<=daysInMonth;day++){
+    const ds=dateToISO(new Date(y,m,day));
+    const isBooked=bookedSet.has(ds);
+    const isBlocked=blocked.has(ds);
+    let cls='block-cal-day in';
+    if(isBooked)cls+=' has-booking';
+    else if(isBlocked)cls+=' blocked';
+    html+=`<div class="${cls}" onclick="${isBooked?'':''};toggleBlockDate('${ds}')" title="${ds}">${day}</div>`;
+  }
+  document.getElementById('blockCalGrid').innerHTML=html;
+}
+
+function toggleBlockDate(dateStr){
+  const p=properties.find(x=>x.id===blockingPropId);if(!p)return;
+  // Don't block dates that have bookings
+  const hasBooking=bookings.some(b=>b.property===blockingPropId&&b.status!=='Cancelled'&&b.checkin<=dateStr&&dateStr<b.checkout);
+  if(hasBooking){toast(`Cannot block ${fmtDate(dateStr)} — has an active booking.`,'warning');return;}
+  if(!p.blockedDates)p.blockedDates=[];
+  const idx=p.blockedDates.indexOf(dateStr);
+  if(idx>=0)p.blockedDates.splice(idx,1);
+  else p.blockedDates.push(dateStr);
+  saveAll();renderBlockCal();renderProperties();
+  if(currentWs==='calendar')renderCalendar();
+}
+
+function isDateBlocked(dateStr,propId){
+  const p=properties.find(x=>x.id===propId);
+  return p&&(p.blockedDates||[]).includes(dateStr);
+}
+
+// ============================================================
+// REPORTS & CHARTS
+// ============================================================
+function clearReportFilters(){
+  ['rep-prop','rep-plat'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='all';});
+  ['rep-from','rep-to'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  renderReports();
+}
+function getReportData(){
+  const group=document.getElementById('rep-group')?.value||'monthly';
+  const pr=document.getElementById('rep-prop')?.value||'all';
+  const pl=document.getElementById('rep-plat')?.value||'all';
+  const from=document.getElementById('rep-from')?.value||'';
+  const to=document.getElementById('rep-to')?.value||'';
+  let list=bookings.filter(b=>b.status!=='Cancelled');
+  if(pr!=='all')list=list.filter(b=>b.property===pr);
+  if(pl!=='all')list=list.filter(b=>b.platform===pl);
+  if(from)list=list.filter(b=>b.checkin>=from);
+  if(to)list=list.filter(b=>b.checkin<=to);
+  const groups={};
+  list.forEach(b=>{
+    const key=group==='yearly'?b.checkin.slice(0,4):b.checkin.slice(0,7);
+    if(!groups[key])groups[key]={key,bookings:[],revenue:0,nights:0,store:0};
+    const t=calcTotals(b);groups[key].bookings.push(b);groups[key].revenue+=t.netRevenue;groups[key].nights+=t.nights;groups[key].store+=(+b.storeSales||0);
+  });
+  return{groups,list,group};
+}
+function renderReports(){
+  const{groups,list,group}=getReportData();
+  const keys=Object.keys(groups).sort();
+  const totalRev=list.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
+  const totalNights=list.reduce((s,b)=>s+nightsBetween(b.checkin,b.checkout),0);
+  const totalStore=list.reduce((s,b)=>s+(+b.storeSales||0),0);
+  const avgRev=list.length?totalRev/list.length:0;
+  document.getElementById('repStats').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Total Revenue</div><div class="stat-value">${fmtMoney(totalRev)}</div></div>
+    <div class="stat-card"><div class="stat-label">Bookings</div><div class="stat-value">${list.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Total Nights</div><div class="stat-value">${totalNights}</div></div>
+    <div class="stat-card"><div class="stat-label">Avg / Booking</div><div class="stat-value">${fmtMoney(avgRev)}</div></div>`;
+  const topPlat=platforms.map(p=>({name:p.name,rev:list.filter(b=>b.platform===p.name).reduce((s,b)=>s+calcTotals(b).netRevenue,0)})).sort((a,b)=>b.rev-a.rev)[0];
+  const topProp=properties.map(p=>({name:p.name,rev:list.filter(b=>b.property===p.id).reduce((s,b)=>s+calcTotals(b).netRevenue,0)})).sort((a,b)=>b.rev-a.rev)[0];
+  document.getElementById('repSmartInsight').textContent=topPlat&&topProp?`Best platform: ${topPlat.name} \u00b7 Best property: ${topProp.name}`:'';
+  setTimeout(()=>{
+    drawBarChart2(keys,groups,'repBarCanvas');
+    drawPieChart('repPieCanvas',list);
+    drawOccupancyChart('repOccCanvas',list);
+  },50);
+  document.getElementById('repThead').innerHTML=`<tr><th>${group==='yearly'?'Year':'Month'}</th><th>Bookings</th><th>Nights</th><th>Net Revenue</th><th>Store Sales</th><th>Total</th></tr>`;
+  document.getElementById('repTbody').innerHTML=keys.map(k=>{const g=groups[k];return`<tr><td><strong>${group==='yearly'?k:fmtMonthYear(k+'-01')}</strong></td><td>${g.bookings.length}</td><td>${g.nights}</td><td>${fmtMoney(g.revenue)}</td><td>${fmtMoney(g.store)}</td><td><strong>${fmtMoney(g.revenue+g.store)}</strong></td></tr>`;}).join('');
+  document.getElementById('repTfoot').innerHTML=`<tr style="background:var(--surface-3);font-weight:700"><td>TOTAL</td><td>${list.length}</td><td>${totalNights}</td><td>${fmtMoney(totalRev)}</td><td>${fmtMoney(totalStore)}</td><td>${fmtMoney(totalRev+totalStore)}</td></tr>`;
+}
+['rep-group','rep-prop','rep-plat','rep-from','rep-to'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',renderReports);});
+
+// Charts
+function drawBarChart(canvasId){
+  const canvas=document.getElementById(canvasId);if(!canvas)return;
+  const now=new Date();
+  const months=[];
+  for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({label:d.toLocaleString('default',{month:'short'}),y:d.getFullYear(),m:d.getMonth()});}
+  const vals=months.map(mo=>bookings.filter(b=>b.status!=='Cancelled').filter(b=>{const d=new Date(b.checkin);return d.getFullYear()===mo.y&&d.getMonth()===mo.m;}).reduce((s,b)=>s+calcTotals(b).netRevenue,0));
+  drawBars(canvas,months.map(m=>m.label),vals,'#1a1a1a');
+}
+function drawBarChart2(keys,groups,canvasId){
+  const canvas=document.getElementById(canvasId);if(!canvas)return;
+  drawBars(canvas,keys.map(k=>k.length===7?k.slice(5):k),keys.map(k=>groups[k].revenue),'#1a1a1a');
+}
+function drawBars(canvas,labels,vals,color){
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.offsetWidth||400,H=220;
+  canvas.width=W*dpr;canvas.height=H*dpr;canvas.style.width=W+'px';canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
+  if(!vals.length)return;
+  const maxV=Math.max(...vals,1);
+  const PAD={t:14,r:10,b:30,l:55};
+  const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;
+  const bw=Math.max(6,cw/labels.length-6);
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const gridColor=isDark?'#333330':'#e8e6e1';
+  const textColor=isDark?'#666660':'#9a9a9a';
+  ctx.font='10px Inter';ctx.fillStyle=textColor;
+  for(let i=0;i<=4;i++){
+    const y=PAD.t+(ch/4)*i;
+    ctx.strokeStyle=gridColor;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(PAD.l,y);ctx.lineTo(PAD.l+cw,y);ctx.stroke();
+    const v=Math.round(maxV-(maxV/4)*i);
+    ctx.fillText(C()+(v>=1000?Math.round(v/1000)+'k':v),2,y+4);
+  }
+  labels.forEach((l,i)=>{
+    const x=PAD.l+(cw/labels.length)*i+(cw/labels.length-bw)/2;
+    const bh=(vals[i]/maxV)*ch||0;const y=PAD.t+ch-bh;
+    ctx.fillStyle=document.documentElement.getAttribute('data-theme')==='dark'?'#f0eeea':color;
+    ctx.beginPath();
+    if(ctx.roundRect)ctx.roundRect(x,y,bw,bh,3);else ctx.rect(x,y,bw,bh);
+    ctx.fill();
+    ctx.fillStyle=textColor;ctx.fillText(l,x+bw/2-ctx.measureText(l).width/2,H-PAD.b+14);
+  });
+}
+function drawPieChart(canvasId,list){
+  const canvas=document.getElementById(canvasId);if(!canvas)return;
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.offsetWidth||400,H=220;
+  canvas.width=W*dpr;canvas.height=H*dpr;canvas.style.width=W+'px';canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
+  const totals={};
+  list.forEach(b=>{totals[b.platform]=(totals[b.platform]||0)+calcTotals(b).netRevenue;});
+  const entries=Object.entries(totals).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  if(!entries.length)return;
+  const total=entries.reduce((s,[,v])=>s+v,0);
+  const cx=Math.min(W/2,90),cy=H/2,r=Math.min(cy-14,70);
+  let angle=-Math.PI/2;
+  entries.forEach(([name,val])=>{
+    const sl=(val/total)*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,angle,angle+sl);ctx.closePath();
+    ctx.fillStyle=platformColor(name);ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.05)';ctx.lineWidth=2;ctx.stroke();
+    angle+=sl;
+  });
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const textColor=isDark?'#a0a09a':'#5a5a5a';
+  const lx=cx+r+16;
+  ctx.font='11px Inter';
+  entries.forEach(([name,val],i)=>{
+    const ly=H/2-entries.length*12+i*22;
+    ctx.fillStyle=platformColor(name);ctx.fillRect(lx,ly,11,11);
+    ctx.fillStyle=textColor;ctx.fillText(`${name} (${Math.round(val/total*100)}%)`,lx+15,ly+9);
+  });
+}
+function drawOccupancyChart(canvasId,list){
+  const canvas=document.getElementById(canvasId);if(!canvas)return;
+  const now=new Date();
+  const months=[];
+  for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({label:d.toLocaleString('default',{month:'short'}),y:d.getFullYear(),m:d.getMonth(),days:new Date(d.getFullYear(),d.getMonth()+1,0).getDate()});}
+  const vals=months.map(mo=>{
+    const nights=list.filter(b=>{const d=new Date(b.checkin);return d.getFullYear()===mo.y&&d.getMonth()===mo.m;}).reduce((s,b)=>s+nightsBetween(b.checkin,b.checkout),0);
+    return Math.min(100,Math.round(nights/Math.max(1,properties.length*mo.days)*100));
+  });
+  drawBars(canvas,months.map(m=>m.label),vals,'#2d6a1f');
+}
+
+// ============================================================
+// TRASH & DAILY BRIEF
+// ============================================================
+function renderTrash(){
+  const list=document.getElementById('trashList');
+  if(!trash.length){list.innerHTML=`<div class="empty"><div class="empty-icon">&#x2326;</div><div class="empty-text">Trash is empty.</div></div>`;return;}
+  list.innerHTML=trash.map(item=>`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px">
+    <div style="font-size:20px;opacity:.4">&#x2326;</div>
+    <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${esc(item.guest||item.name||'Item')}</div><div style="font-size:11px;color:var(--text-3)">Deleted ${item.deletedAt?new Date(item.deletedAt).toLocaleString():'\u2014'}</div>${item.checkin?`<div style="font-size:11px;color:var(--text-3)">${fmtDate(item.checkin)} \u2192 ${fmtDate(item.checkout)}</div>`:''}</div>
+    <button class="btn btn-success btn-sm" onclick="restoreTrash('${item.id}')">\u21bb Restore</button>
+    <button class="btn btn-danger btn-sm" onclick="permDelete('${item.id}')">\u00d7</button>
+  </div>`).join('');
+}
+function restoreTrash(id){
+  const i=trash.findIndex(t=>t.id===id);if(i<0)return;
+  const item=trash.splice(i,1)[0];
+  if(item.type==='booking'){const{deletedAt,type,...rest}=item;bookings.unshift(rest);}
+  saveAll();renderTrash();toast('Restored.');
+}
+function permDelete(id){
+  const item=trash.find(t=>t.id===id);
+  confirmDialog('\u26a0 Permanently Delete','This will PERMANENTLY remove this item and it CANNOT be recovered. There is no undo.','\ud83d\uddd1',()=>{
+    trash=trash.filter(t=>t.id!==id);saveAll();renderTrash();toast('Permanently deleted.','warning');
+  });
+}
+function emptyTrash(){
+  if(!trash.length){toast('Trash is already empty.','warning');return;}
+  confirmDialog('\u26a0 Empty Trash \u2014 Caution!',`This will PERMANENTLY delete all ${trash.length} item(s) in trash. This action CANNOT be undone and all data will be lost forever.`,'\ud83d\uddd1',()=>{
+    trash=[];saveAll();renderTrash();toast('Trash emptied.','warning');
+  });
+}
+
+function openDailyBrief(){
+  const today=todayISO();
+  document.getElementById('dailyDate').textContent=new Date().toLocaleDateString('en-PH',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  const checkIns=bookings.filter(b=>b.checkin===today&&b.status!=='Cancelled');
+  const checkOuts=bookings.filter(b=>b.checkout===today&&b.status!=='Cancelled');
+  const conflicts=bookings.filter(b=>b.status!=='Cancelled'&&hasConflict(b));
+  const pendingTasks=bookings.filter(b=>b.status!=='Cancelled'&&b.checkin<=today&&b.checkout>today&&tasksDone(b)<tasksTotal());
+  function sec(title,items,bodyFn){if(!items.length)return'';return`<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);margin-bottom:8px">${title} (${items.length})</div>${items.map(bodyFn).join('')}</div>`;}
+  function item(b,extra=''){return`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface-2);border-radius:var(--radius);margin-bottom:6px;cursor:pointer" onclick="closeModal('dailyBriefModal');openBookingDrawer('${b.id}')"><div style="width:4px;height:30px;border-radius:2px;background:${platformColor(b.platform)};flex-shrink:0"></div><div style="flex:1"><div style="font-weight:600;font-size:13px">${esc(b.guest)}${isRepeat(b.guest)?'<span class="badge badge-purple" style="margin-left:5px;font-size:9px">REPEAT</span>':''}</div><div style="font-size:11px;color:var(--text-3)">${esc(propName(b.property))}</div></div>${extra}</div>`;}
+  let html='';
+  html+=sec('Check-ins Today',checkIns,b=>item(b,platformPillHtml(b.platform)));
+  html+=sec('Check-outs Today',checkOuts,b=>item(b,`<span class="badge badge-green">${fmtMoney(calcTotals(b).netRevenue)}</span>`));
+  html+=sec('Conflicts',conflicts,b=>item(b,'<span class="badge badge-red">CONFLICT</span>'));
+  html+=sec('Pending Tasks',pendingTasks,b=>item(b,`<span class="badge badge-orange">${tasksDone(b)}/${tasksTotal()}</span>`));
+  if(!html)html=`<div class="empty"><div class="empty-icon">\u2600</div><div class="empty-text">Nothing scheduled for today. Enjoy!</div></div>`;
+  document.getElementById('dailyBriefBody').innerHTML=html;
+  openModal('dailyBriefModal');
+}
+document.getElementById('dailyBriefBtn').addEventListener('click',openDailyBrief);
+
+// ============================================================
+// COMMAND PALETTE
+// ============================================================
+function openCmdPalette(){
+  document.getElementById('cmdOverlay').classList.add('open');
+  document.getElementById('cmdInput').value='';
+  cmdSelectedIdx=-1;renderCmdResults('');
+  setTimeout(()=>document.getElementById('cmdInput').focus(),50);
+}
+function closeCmdPalette(){document.getElementById('cmdOverlay').classList.remove('open');}
+function renderCmdResults(q){
+  const out=document.getElementById('cmdResults');const ql=q.toLowerCase();
+  const navItems=[
+    {icon:'\u25ce',label:'Today',hint:'Go to Today',action:()=>navigateTo('today')},
+    {icon:'\ud83d\udcc5',label:'Calendar',hint:'Operations',action:()=>subClick('operations','calendar')},
+    {icon:'\ud83d\udccb',label:'Bookings',hint:'Operations',action:()=>subClick('operations','bookings')},
+    {icon:'\u20b1',label:'Finance Overview',hint:'Finance',action:()=>subClick('finance','finance-overview')},
+    {icon:'\u2302',label:'Properties',hint:'Properties',action:()=>navigateTo('properties')},
+    {icon:'\u2197',label:'Reports',hint:'Reports',action:()=>navigateTo('reports')},
+    {icon:'\u2699',label:'Settings',hint:'System',action:()=>subClick('system','system-settings')},
+    {icon:'\u2601',label:'Google Drive',hint:'Integrations',action:()=>subClick('system','system-integrations')},
+    {icon:'+',label:'New Booking',hint:'Add booking',action:()=>openBookingDrawer()},
+    {icon:'+',label:'Add Expense',hint:'Expenses',action:()=>openExpenseModal()},
+    {icon:'+',label:'Add Property',hint:'Properties',action:()=>openPropertyModal()},
+    {icon:'+',label:'Add Platform',hint:'Platforms',action:()=>openPlatformModal()},
+  ];
+  const items=navItems.filter(i=>!ql||i.label.toLowerCase().includes(ql)||i.hint.toLowerCase().includes(ql));
+  if(ql){
+    const bkMatches=bookings.filter(b=>[b.guest,propName(b.property),b.platform,b.checkin].join(' ').toLowerCase().includes(ql)).slice(0,6);
+    items.push(...bkMatches.map(b=>({icon:'\ud83d\udccb',label:b.guest,hint:`${propName(b.property)} \u00b7 ${fmtDate(b.checkin)}`,type:'booking',action:()=>openBookingDrawer(b.id)})));
+  }
+  if(!items.length){out.innerHTML=`<div style="padding:14px 18px;color:var(--text-3);font-size:13px">No results for "${esc(q)}"</div>`;out._items=[];return;}
+  out.innerHTML=`<div class="cmd-section-label">${ql?'Results':'Quick Actions'}</div>${items.map((i,idx)=>`<div class="cmd-item" onclick="cmdExec(${idx})"><div class="cmd-item-icon">${i.icon}</div><div class="cmd-item-label">${esc(i.label)}</div><div class="cmd-item-hint">${esc(i.hint||'')}</div></div>`).join('')}`;
+  out._items=items;
+}
+function cmdExec(idx){
+  const items=document.getElementById('cmdResults')._items||[];
+  if(items[idx]){items[idx].action();closeCmdPalette();}
+}
+document.getElementById('cmdInput').addEventListener('input',e=>renderCmdResults(e.target.value));
+document.getElementById('cmdInput').addEventListener('keydown',e=>{
+  const items=document.getElementById('cmdResults')._items||[];
+  if(e.key==='ArrowDown'){e.preventDefault();cmdSelectedIdx=Math.min(cmdSelectedIdx+1,items.length-1);}
+  else if(e.key==='ArrowUp'){e.preventDefault();cmdSelectedIdx=Math.max(cmdSelectedIdx-1,0);}
+  else if(e.key==='Enter'&&cmdSelectedIdx>=0){cmdExec(cmdSelectedIdx);return;}
+  document.querySelectorAll('.cmd-item').forEach((el,i)=>el.classList.toggle('selected',i===cmdSelectedIdx));
+});
+document.getElementById('cmdOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeCmdPalette();});
+document.getElementById('cmdPaletteBtn').addEventListener('click',openCmdPalette);
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();openCmdPalette();}});
+
+// ============================================================
+// BULK IMPORT
+// ============================================================
+function populateBulkSelect(){
+  const sel=document.getElementById('bulkImportProperty');if(!sel)return;
+  sel.innerHTML='<option value="">Select Property</option>'+properties.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+}
+// Shared robust date parser — handles all formats including DD/MM/YYYY
+function parseAnyDate(v){
+  if(!v)return'';
+  let s=String(v).trim();
+  // Strip trailing day-of-week like ", Sat" / ", Saturday"
+  s=s.replace(/,?\s*(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon|Tue|Wed|Thu|Fri|Sat|Sun)\.?\s*$/i,'').trim();
+  if(!s)return'';
+  // Already YYYY-MM-DD
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+  // ISO with time e.g. 2025-04-20T00:00:00.000Z
+  if(/^\d{4}-\d{2}-\d{2}T/.test(s))return s.slice(0,10);
+  // ── Slash/dot formats: handle BEFORE new Date() to avoid JS MM/DD assumption ──
+  const parts=s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+  if(parts){
+    const year=parts[3].length===2?'20'+parts[3]:parts[3];
+    const a=+parts[1],b=+parts[2];
+    // Always DD/MM/YYYY (Philippine standard). Only swap if second part >12 (impossible as month)
+    const month=(b>12?parts[1]:parts[2]).padStart(2,'0');
+    const day  =(b>12?parts[2]:parts[1]).padStart(2,'0');
+    const d2=new Date(`${year}-${month}-${day}`);
+    if(!isNaN(d2.getTime()))return d2.toISOString().slice(0,10);
+  }
+  // Fallback: standard JS parse (for "April 20, 2025", "20 April 2025" etc.)
+  const d=new Date(s);
+  if(!isNaN(d.getTime()))return d.toISOString().slice(0,10);
+  return'';
+}
+function normalizeDate(v){return parseAnyDate(v);}
+function cleanMoney(v){return parseFloat(String(v||'').replace(/[^0-9.-]/g,''))||0;}
+
+document.getElementById('convertBulkBtn').addEventListener('click',()=>{
+  const ta=document.getElementById('bulkPasteBox');
+  const tbody=document.getElementById('sheetImportBody');
+  const raw=ta.value.trim();
+  if(!raw){toast('Paste data first.','warning');return;}
+  tbody.innerHTML='';
+  const rows=raw.replace(/\r/g,'').split('\n').filter(r=>r.trim());
+  rows.forEach(line=>{
+    const cols=line.split('\t');if(cols.length<4)return;
+    const mapped=[cols[0]||'',cols[1]||'',cols[2]||'',cols[3]||'','',cols[4]||'',cols[5]||'',cols[7]||'',cols[8]||'',cols[9]||'',cols[10]||'',cols[11]||'',cols[12]||'',cols[13]||'',cols[14]||'',cols[16]||'',cols[17]||'',cols[22]||'',cols[23]||''];
+    const tr=document.createElement('tr');
+    mapped.forEach(v=>{const td=document.createElement('td');td.contentEditable=true;td.style.cssText='border:1px solid var(--border);padding:6px 8px;font-size:12px';td.innerText=v;tr.appendChild(td);});
+    tbody.appendChild(tr);
+  });
+  document.getElementById('bulkPreviewCount').textContent=rows.length;
+  toast(rows.length+' rows converted.','success');
+});
+
+document.getElementById('importDataBtn').addEventListener('click',()=>{
+  const tbody=document.getElementById('sheetImportBody');
+  const rows=tbody.querySelectorAll('tr');
+  if(!rows.length){toast('No preview rows.','warning');return;}
+  const propId=document.getElementById('bulkImportProperty').value;
+  if(!propId){toast('Select property first.','warning');return;}
+  let imported=0;let skipped=0;
+  rows.forEach(row=>{
+    const cells=row.querySelectorAll('td');
+    const g=i=>(cells[i]?.innerText||'').trim();
+    const ci=normalizeDate(g(0));const co=normalizeDate(g(1));
+    if(!ci||!co)return;
+    const guestName=properCase(g(3));
+    const isDup=bookings.some(b=>b.property===propId&&b.checkin===ci&&(b.guest||'').toLowerCase()===guestName.toLowerCase());
+    if(isDup){skipped++;return;}
+    const bk={
+      id:genId(),checkin:ci,checkout:co,
+      platform:g(2),guest:guestName,property:propId,
+      rate:cleanMoney(g(5)),promo:cleanMoney(g(6)),
+      bookingFee:cleanMoney(g(10)),
+      guestCount:Math.max(1,parseInt(g(13))||1),
+      storeSales:cleanMoney(g(18)),
+      payment:g(15),notes:g(16),
+      status:'Confirmed',tasks:{},
+      createdAt:new Date().toISOString(),
+    };
+    const t=calcTotals(bk);bk.netRevenue=t.netRevenue;
+    bookings.unshift(bk);imported++;
+  });
+  saveAll();renderView(currentWs);populateSelects();
+  toast(`${imported} imported${skipped?', '+skipped+' duplicates skipped':''}.`,'success');
+  driveAutoBackup();
+});
+
+// ============================================================
+// GOOGLE DRIVE INTEGRATION
+// ============================================================
+let gisClient=null,driveAccessToken=null;
+
+function renderDriveStatus(){
+  const dot=document.getElementById('driveDot');
+  const txt=document.getElementById('driveStatusText');
+  const last=document.getElementById('driveLastSync');
+  if(driveConfig.connected){
+    dot.classList.add('connected');
+    txt.textContent='Connected \u00b7 '+esc(driveConfig.folderName||'Linked folder');
+    last.textContent=driveConfig.lastSync?'Last sync: '+new Date(driveConfig.lastSync).toLocaleString():'Never synced';
+  }else{
+    dot.classList.remove('connected');
+    txt.textContent='Not connected';if(last)last.textContent='';
+  }
+  const fn=document.getElementById('driveFolderName');if(fn)fn.value=driveConfig.folderName||'';
+  const ci=document.getElementById('driveClientId');if(ci)ci.value=driveConfig.clientId||'';
+}
+
+document.getElementById('driveConnectBtn').addEventListener('click',()=>{
+  const cid=document.getElementById('driveClientId')?.value.trim();
+  if(!cid){toast('Enter your Google OAuth Client ID first.','error');return;}
+  driveConfig.clientId=cid;saveDriveConfig();
+  loadGISScript(cid);
+});
+
+function loadGISScript(clientId){
+  if(window.google?.accounts){initGoogleAuth(clientId);return;}
+  const existing=document.getElementById('gsi-script');
+  if(existing){existing.remove();}
+  const s=document.createElement('script');
+  s.id='gsi-script';s.src='https://accounts.google.com/gsi/client';
+  s.onload=()=>initGoogleAuth(clientId);
+  s.onerror=()=>toast('Failed to load Google auth. Check your internet connection.','error');
+  document.head.appendChild(s);
+}
+
+function initGoogleAuth(clientId){
+  try{
+    gisClient=google.accounts.oauth2.initTokenClient({
+      client_id:clientId,
+      scope:'https://www.googleapis.com/auth/drive.file',
+      callback:(resp)=>{
+        if(resp.error){toast('Google auth failed: '+resp.error,'error');return;}
+        driveAccessToken=resp.access_token;
+        driveConfig.connected=true;saveDriveConfig();renderDriveStatus();
+        toast('Google Drive connected!','success');
+      }
+    });
+    gisClient.requestAccessToken();
+  }catch(e){toast('Auth setup failed. Verify Client ID and allowed origins in Google Cloud Console.','error');}
+}
+
+document.getElementById('driveLinkBtn').addEventListener('click',()=>{
+  if(!driveAccessToken){toast('Connect to Google Drive first.','error');return;}
+  loadPickerAPI();
+});
+
+document.getElementById('driveFolderUrlBtn')?.addEventListener('click',()=>{
+  const urlInput=document.getElementById('driveFolderUrl');
+  const raw=(urlInput?.value||'').trim();
+  if(!raw){toast('Paste a Google Drive folder URL first.','error');return;}
+  // Extract folder ID from URL formats:
+  // https://drive.google.com/drive/folders/FOLDER_ID
+  // https://drive.google.com/drive/u/0/folders/FOLDER_ID
+  const match=raw.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if(!match){toast('Could not extract folder ID from URL. Make sure it is a Google Drive folder link.','error');return;}
+  const folderId=match[1];
+  const folderName='Drive Folder ('+folderId.slice(0,8)+'…)';
+  driveConfig.folderId=folderId;driveConfig.folderName=folderName;driveConfig.connected=true;
+  saveDriveConfig();
+  const fn=document.getElementById('driveFolderName');if(fn)fn.value=folderName;
+  if(urlInput)urlInput.value='';
+  renderDriveStatus();
+  toast('Google Drive folder linked via URL! You can now export backups.','success');
+});
+
+function loadPickerAPI(){
+  if(window.google?.picker){openFolderPicker();return;}
+  const s=document.createElement('script');
+  s.src='https://apis.google.com/js/api.js';
+  s.onload=()=>gapi.load('picker',openFolderPicker);
+  s.onerror=()=>toast('Failed to load Google Picker.','error');
+  document.head.appendChild(s);
+}
+
+function openFolderPicker(){
+  try{
+    const picker=new google.picker.PickerBuilder()
+      .addView(new google.picker.DocsView(google.picker.ViewId.FOLDERS).setSelectFolderEnabled(true))
+      .setOAuthToken(driveAccessToken)
+      .setCallback(data=>{
+        if(data.action===google.picker.Action.PICKED){
+          const folder=data.docs[0];
+          driveConfig.folderId=folder.id;driveConfig.folderName=folder.name;saveDriveConfig();
+          const fn=document.getElementById('driveFolderName');if(fn)fn.value=folder.name;
+          toast('Folder linked: '+folder.name,'success');renderDriveStatus();
+        }
+      }).build();
+    picker.setVisible(true);
+  }catch(e){toast('Picker failed. Allow pop-ups for this page.','error');}
+}
+
+document.getElementById('driveExportNowBtn').addEventListener('click',()=>driveExport(true));
+document.getElementById('driveDisconnectBtn').addEventListener('click',()=>{
+  driveConfig={connected:false,folderId:'',folderName:'',clientId:'',lastSync:null};
+  driveAccessToken=null;saveDriveConfig();renderDriveStatus();
+  toast('Disconnected from Google Drive.','warning');
+});
+
+async function driveExport(manual=false){
+  if(!driveConfig.connected||!driveAccessToken||!driveConfig.folderId){
+    if(manual)toast('Connect Google Drive and link a folder first.','error');return;
+  }
+  const dot=document.getElementById('driveDot');
+  if(dot){dot.classList.remove('connected');dot.classList.add('syncing');}
+  try{
+    const xlsxData=buildXLSX();
+    const fileName=`Bloomstone-Backup-${todayISO()}.xlsx`;
+    await uploadToDrive(fileName,xlsxData,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    driveConfig.lastSync=new Date().toISOString();saveDriveConfig();
+    if(dot){dot.classList.remove('syncing');dot.classList.add('connected');}
+    renderDriveStatus();
+    toast(manual?`Exported to Drive: ${fileName}`:'Auto-backup saved to Drive.','success');
+  }catch(e){
+    if(dot){dot.classList.remove('syncing');dot.classList.add('connected');}
+    console.error('Drive export failed:',e);
+    if(manual)toast('Export failed: '+e.message,'error');
+    else toast('Auto-backup failed. Will retry next session.','warning');
+  }
+}
+
+async function uploadToDrive(fileName,data,mimeType){
+  const boundary='bloomstone_bnd_'+Date.now();
+  const meta=JSON.stringify({name:fileName,parents:[driveConfig.folderId]});
+  const byteStr=Array.from(data).map(b=>String.fromCharCode(b)).join('');
+  const b64=btoa(byteStr);
+  const body=`--${boundary}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${b64}\r\n--${boundary}--`;
+  const resp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+driveAccessToken,'Content-Type':`multipart/related; boundary="${boundary}"`},
+    body
+  });
+  if(!resp.ok){const err=await resp.text();throw new Error(err||resp.status);}
+  return resp.json();
+}
+
+function driveAutoBackup(){
+  if(!driveConfig.connected||!driveAccessToken)return;
+  const last=driveConfig.lastSync?new Date(driveConfig.lastSync):null;
+  const hoursSince=last?(Date.now()-last.getTime())/3600000:Infinity;
+  if(hoursSince>=24)driveExport(false);
+}
+
+document.getElementById('driveImportBtn').addEventListener('click',()=>{
+  if(!driveConfig.connected||!driveAccessToken){toast('Connect to Google Drive first.','error');return;}
+  toast('Drive file browser: Coming in next version. Use local import for now.','warning');
+});
+
+document.getElementById('driveImportLocalBtn').addEventListener('click',()=>{
+  const input=document.createElement('input');input.type='file';input.accept='.json';
+  input.onchange=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{const data=JSON.parse(ev.target.result);previewDriveImport(data);}
+      catch(err){toast('Failed to read file: '+err.message,'error');}
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+});
+
+function previewDriveImport(data){
+  const incoming=Array.isArray(data)?data:(data.bookings||[]);
+  if(!incoming.length){toast('No bookings found in file.','warning');return;}
+  const duplicates=incoming.filter(b=>bookings.some(ex=>
+    (ex.guest||'').toLowerCase().trim()===(b.guest||'').toLowerCase().trim()&&
+    ex.checkin===b.checkin&&ex.property===b.property
+  ));
+  const overlaps=incoming.filter(b=>!duplicates.includes(b)&&bookings.some(ex=>
+    ex.property===b.property&&ex.status!=='Cancelled'&&b.status!=='Cancelled'&&bookingsOverlap(b,ex)
+  ));
+  const newOnes=incoming.filter(b=>!duplicates.includes(b)&&!overlaps.includes(b));
+  document.getElementById('driveImportBody').innerHTML=`
+    <div style="margin-bottom:14px;font-size:13px"><div style="margin-bottom:8px">File contains <strong>${incoming.length}</strong> bookings:</div>
+      <span class="badge badge-green" style="margin-right:6px">${newOnes.length} new</span>
+      <span class="badge badge-orange" style="margin-right:6px">${duplicates.length} duplicate${duplicates.length!==1?'s':''}</span>
+      <span class="badge badge-red">${overlaps.length} overlap${overlaps.length!==1?'s':''}</span>
+    </div>
+    ${duplicates.length?`<div style="font-size:12px;color:var(--text-2);margin-bottom:8px;padding:10px;background:var(--orange-bg);border-radius:var(--radius)"><strong>Duplicates (same guest + check-in + property):</strong><br>${duplicates.map(b=>`${esc(b.guest)} \u00b7 ${fmtDate(b.checkin)}`).join('<br>')}</div>`:''}
+    ${overlaps.length?`<div style="font-size:12px;color:var(--text-2);margin-bottom:8px;padding:10px;background:var(--red-bg);border-radius:var(--radius)"><strong>Date overlaps:</strong><br>${overlaps.map(b=>`${esc(b.guest)} \u00b7 ${fmtDate(b.checkin)}`).join('<br>')}</div>`:''}
+    <div style="font-size:12px;color:var(--text-3);margin-top:10px"><strong>Merge:</strong> adds new only, skips duplicates and overlaps.<br/><strong>Overwrite:</strong> replaces ALL existing booking data.</div>`;
+  document.getElementById('importMergeBtn').onclick=()=>{
+    const toAdd=newOnes.map(b=>({tasks:{},...b}));
+    bookings.unshift(...toAdd);saveAll();renderView(currentWs);populateSelects();
+    closeModal('driveImportModal');toast(`${toAdd.length} new booking${toAdd.length!==1?'s':''} merged. ${duplicates.length+overlaps.length} skipped.`,'success');
+  };
+  document.getElementById('importOverwriteBtn').onclick=()=>{
+    confirmDialog('Overwrite All Data?','This replaces ALL current bookings. Cannot be undone.','!',()=>{
+      bookings=incoming.map(b=>({tasks:{},...b}));saveAll();renderView(currentWs);populateSelects();
+      closeModal('driveImportModal');toast(`All data overwritten with ${incoming.length} bookings.`,'success');
+    });
+  };
+  openModal('driveImportModal');
+}
+
+// ============================================================
+// XLSX BUILDER
+// ============================================================
+function buildXLSX(){
+  const rows=[
+    ['ID','Guest','Check-in','Check-out','Nights','Platform','Property','City','Rate','Promo','Stay Fee','Extra Fee','Booking Fee','Platform Fee','Net Revenue','Store Sales','Deposit','Dep Collected','Dep Refunded','Payment','Status','Notes','Created At'],
+    ...bookings.map(b=>{
+      const t=calcTotals(b);
+      return[b.id||'',b.guest||'',b.checkin||'',b.checkout||'',t.nights,b.platform||'',propName(b.property),propCity(b.property),b.rate||0,b.promo||0,t.stayFee.toFixed(2),t.extraFee.toFixed(2),t.bkFee.toFixed(2),t.platFee.toFixed(2),t.netRevenue.toFixed(2),b.storeSales||0,b.deposit||0,b.depositCollected?'Yes':'No',b.depositRefunded?'Yes':'No',b.payment||'',b.status||'',b.notes||'',b.createdAt||''];
+    })
+  ];
+  const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  return new TextEncoder().encode('\ufeff'+csv);
+}
+
+// ============================================================
+// CSV EXPORT
+// ============================================================
+function downloadCSV(filename,rows){
+  const content=rows.map(r=>r.map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob(['\ufeff'+content],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+
+document.getElementById('repExportCSV').addEventListener('click',()=>{
+  const{groups,list,group}=getReportData();
+  const keys=Object.keys(groups).sort();
+  const rows=[['Period','Bookings','Nights','Net Revenue','Store Sales','Total']];
+  keys.forEach(k=>{const g=groups[k];rows.push([group==='yearly'?k:fmtMonthYear(k+'-01'),g.bookings.length,g.nights,g.revenue.toFixed(2),g.store.toFixed(2),(g.revenue+g.store).toFixed(2)]);});
+  downloadCSV('bloomstone-report.csv',rows);
+});
+document.getElementById('repExportDrive').addEventListener('click',()=>driveExport(true));
+
+// ============================================================
+// SETTINGS SAVE
+// ============================================================
+function saveSettings(){
+  const n=document.getElementById('setting-appname')?.value||'Bloomstone';
+  const c=document.getElementById('setting-currency')?.value||'\u20b1';
+  settings={appName:n,currency:c};
+  localStorage.setItem(LS_SETTINGS,JSON.stringify(settings));
+  const logo=document.querySelector('.sidebar-logo');
+  if(logo)logo.innerHTML=`${n.toLowerCase()}<span style="color:var(--text-3);font-weight:400">pms</span>`;
+  toast('Settings saved.');
+}
+
+// ============================================================
+// DARK MODE
+// ============================================================
+function setTheme(theme){
+  const html=document.documentElement;
+  if(theme==='system'){
+    html.setAttribute('data-theme',window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+  }else{
+    html.setAttribute('data-theme',theme);
+  }
+  localStorage.setItem('bloomstone_theme',theme);
+  const icon=document.getElementById('themeIcon');
+  const label=document.getElementById('themeLabel');
+  if(icon)icon.textContent=theme==='dark'?'\u263e':theme==='system'?'\u25d0':'\u2600';
+  if(label)label.textContent=theme==='dark'?'Dark mode':theme==='system'?'System':'Light mode';
+}
+document.getElementById('themeToggleBtn').addEventListener('click',()=>{
+  const current=localStorage.getItem('bloomstone_theme')||'light';
+  setTheme(current==='light'?'dark':current==='dark'?'system':'light');
+});
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{
+  if(localStorage.getItem('bloomstone_theme')==='system')setTheme('system');
+});
+
+// ============================================================
+// SIDEBAR & RESPONSIVE
+// ============================================================
+document.getElementById('sidebarCollapseBtn').addEventListener('click',()=>{
+  const sb=document.getElementById('sidebar');sb.classList.toggle('collapsed');
+  document.getElementById('sidebarCollapseBtn').textContent=sb.classList.contains('collapsed')?'\u203a':'\u2039';
+});
+document.getElementById('mobileMenuBtn').addEventListener('click',()=>{
+  document.getElementById('sidebar').classList.toggle('mobile-open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+});
+document.getElementById('sidebarOverlay').addEventListener('click',()=>{
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+});
+document.getElementById('addBookingBtn').addEventListener('click',()=>openBookingDrawer());
+document.getElementById('addBookingBtnOps').addEventListener('click',()=>openBookingDrawer());
+document.getElementById('fabAddBooking').addEventListener('click',()=>openBookingDrawer());
+['bk-month','bk-prop','bk-plat','bk-status'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',renderBookings);});
+
+let resizeTimer;
+window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>renderView(currentWs),200);});
+
+// ============================================================
+// GOOGLE SHEETS SYNC
+// ============================================================
+const LS_SHEETS = 'bloomstone_sheets';
+let sheetsConfig = {url:'', connected:false, lastSync:null};
+
+function loadSheetsConfig(){
+  try{const s=localStorage.getItem(LS_SHEETS);if(s)sheetsConfig={...sheetsConfig,...JSON.parse(s)};}catch(e){}
+}
+function saveSheetsConfig(){localStorage.setItem(LS_SHEETS,JSON.stringify(sheetsConfig));}
+
+function renderSheetsStatus(){
+  const dot=document.getElementById('sheetsDot');
+  const txt=document.getElementById('sheetsStatusText');
+  const last=document.getElementById('sheetsLastSync');
+  const urlEl=document.getElementById('sheetsWebAppUrl');
+  const pushBtn=document.getElementById('sheetsPushBtn');
+  const pullBtn=document.getElementById('sheetsPullBtn');
+  if(!dot)return;
+  if(sheetsConfig.connected&&sheetsConfig.url){
+    dot.classList.add('connected');
+    txt.textContent='Connected';
+    if(last)last.textContent=sheetsConfig.lastSync?'Last sync: '+new Date(sheetsConfig.lastSync).toLocaleString():'Never synced';
+    if(urlEl)urlEl.value=sheetsConfig.url;
+    if(pushBtn)pushBtn.disabled=false;
+    if(pullBtn)pullBtn.disabled=false;
+  }else{
+    dot.classList.remove('connected');
+    txt.textContent='Not connected';
+    if(last)last.textContent='';
+    if(pushBtn)pushBtn.disabled=true;
+    if(pullBtn)pullBtn.disabled=true;
+  }
+}
+
+function sheetsConnect(){
+  const url=(document.getElementById('sheetsWebAppUrl')?.value||'').trim();
+  if(!url){toast('Paste your Apps Script Web App URL first.','error');return;}
+  if(!url.includes('script.google.com')&&!url.includes('macros')){
+    toast('That does not look like an Apps Script URL. Copy the URL from Deploy → Manage Deployments.','error');return;
+  }
+  setSheetsProgress(true,'Verifying connection…',10);
+  // Test GET request to verify the URL works
+  fetch(url+'?user='+encodeURIComponent(currentUser?.username||'app'),{method:'GET'})
+    .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+    .then(data=>{
+      if(data.error)throw new Error(data.error);
+      sheetsConfig={url,connected:true,lastSync:null};
+      saveSheetsConfig();renderSheetsStatus();
+      setSheetsProgress(false);
+      startSheetsPolling(); // start 30-second live poll
+      toast('Connected to Google Sheets! Sheet: "'+(data.sheetTitle||'Bloomstone')+'". Live sync enabled ✅','success');
+    })
+    .catch(err=>{
+      setSheetsProgress(false);
+      toast('Connection failed: '+err.message+'. Check the URL and make sure "Who has access" is set to Anyone.','error');
+    });
+}
+
+function sheetsDisconnect(){
+  stopSheetsPolling();
+  sheetsConfig={url:'',connected:false,lastSync:null};
+  saveSheetsConfig();renderSheetsStatus();
+  const urlEl=document.getElementById('sheetsWebAppUrl');if(urlEl)urlEl.value='';
+  toast('Disconnected from Google Sheets.','warning');
+}
+
+function setSheetsProgress(show,msg='',pct=0){
+  const wrap=document.getElementById('sheetsSyncProgress');
+  const msgEl=document.getElementById('sheetsSyncMsg');
+  const bar=document.getElementById('sheetsSyncBar');
+  if(!wrap)return;
+  if(show){
+    wrap.style.display='block';
+    if(msgEl)msgEl.textContent=msg;
+    if(bar)bar.style.width=pct+'%';
+  }else{
+    setTimeout(()=>{wrap.style.display='none';if(bar)bar.style.width='0%';},600);
+    if(bar)bar.style.width='100%';
+  }
+}
+
+// ── PUSH: send all data to Sheets ─────────────────────────────
+// silent=true → no progress bar, no toast (used by auto-push)
+async function sheetsPush(silent=false){
+  if(!sheetsConfig.connected||!sheetsConfig.url){if(!silent)toast('Connect to Google Sheets first.','error');return;}
+  if(!silent)setSheetsProgress(true,'Building data…',15);
+  // Show a small live-sync dot pulse when auto-pushing
+  if(silent){const d=document.getElementById('sheetsDot');if(d)d.classList.add('syncing');}
+  try{
+    const payload={
+      user: currentUser?.username||'app',
+      bookings: bookings.map(b=>{
+        const t=calcTotals(b);
+        return{
+          ID:b.id,Guest:b.guest,'Check-in':fmtDate(b.checkin),'Check-out':fmtDate(b.checkout),
+          Nights:t.nights,Platform:b.platform,Property:propName(b.property),
+          Rate:b.rate||0,Promo:b.promo||0,'Booking Fee':t.bkFee,'Service Fee':b.serviceFee||0,
+          'Platform Commission':b.platformCommission??t.platFee,
+          'Extra Guests':b.extraGuests??t.extraG,
+          'Extra Guest Fee':b.extraGuestFee??t.extraFee,
+          'Total (excl. Extra Guests)':b.totalWithout??t.totalWithout,
+          'Net Revenue':t.netRevenue,'Store Sales':b.storeSales||0,'Cleaning Fee':b.cleaningFee||0,
+          'Adjustments Total':(b.adjustments||[]).reduce((s,a)=>s+(+a.amount||0),0),
+          Deposit:b.deposit||0,'Dep Collected':b.depositCollected?'Yes':'No',
+          'Dep Refunded':b.depositRefunded?'Yes':'No',
+          Payment:b.payment||'',Status:b.status||'Confirmed',
+          'Guest Count':b.guestCount||1,Notes:b.notes||'',
+          'Created At':b.createdAt||'','Updated At':b.updatedAt||''
+        };
+      }),
+      properties: properties.map(p=>({
+        ID:p.id,Name:p.name,City:p.city,Address:p.address||'',Beds:p.beds||0,
+        'Base Guests':p.baseGuests||2,'Max Guests':p.maxGuests||4,
+        'Base Rate':p.baseRate||0,'Extra Guest Fee':p.extraGuestFee||0,
+        'Blocked Dates':(p.blockedDates||[]).join(','),
+        'Map URL':p.map||'',Notes:p.notes||''
+      })),
+      platforms: platforms.map(p=>({
+        ID:p.id,Name:p.name,'Commission %':p.commission,'VAT %':p.vat,Color:p.color||'#888'
+      })),
+      expenses: expenses.map(e=>{
+        const bksCI=bookings.filter(b=>b.status!=='Cancelled'&&b.checkin&&b.checkin.startsWith(e.month)&&(e.prop==='all'||b.property===e.prop));
+        const bksCO=expBookings(e.month,e.prop);
+        const promoCost=bksCI.reduce((s,b)=>s+(+b.promo||0),0);
+        const cleaningFromBks=bksCO.reduce((s,b)=>s+(+b.cleaningFee||0),0);
+        const cleaningCost=cleaningFromBks||e.cleaning||0;
+        const rowTotal=promoCost+cleaningCost+(e.water||0)+(e.electricity||0)+(e.supplies||0)+(e.maintenance||0)+(e.other||0);
+        return{
+          ID:e.id,Month:e.month,Property:e.prop==='all'?'All':propName(e.prop),
+          'Promo Cost':promoCost,'Cleaning Cost':cleaningCost,
+          Water:e.water||0,Electricity:e.electricity||0,Supplies:e.supplies||0,
+          Maintenance:e.maintenance||0,'Other Expenses':e.other||0,
+          Total:rowTotal,Notes:e.notes||''
+        };
+      }),
+    };
+    if(!silent)setSheetsProgress(true,'Uploading to Google Sheets…',45);
+    const resp=await fetch(sheetsConfig.url,{
+      method:'POST',
+      body:JSON.stringify(payload),
+      headers:{'Content-Type':'text/plain'} // text/plain avoids CORS preflight for Apps Script
+    });
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
+    const result=await resp.json();
+    if(result.error)throw new Error(result.error);
+    sheetsConfig.lastSync=new Date().toISOString();saveSheetsConfig();renderSheetsStatus();
+    if(!silent){setSheetsProgress(true,'Done!',100);setSheetsProgress(false);toast(`✅ Pushed ${result.records||''} records to Google Sheets!`,'success');}
+    else{const d=document.getElementById('sheetsDot');if(d)d.classList.remove('syncing');}
+  }catch(err){
+    const d=document.getElementById('sheetsDot');if(d)d.classList.remove('syncing');
+    if(!silent){setSheetsProgress(false);toast('Push failed: '+err.message,'error');}
+    console.error('Sheets push error:',err);
+  }
+}
+
+// ── PULL: fetch data from Sheets ──────────────────────────────
+async function sheetsPull(){
+  if(!sheetsConfig.connected||!sheetsConfig.url){toast('Connect to Google Sheets first.','error');return;}
+  confirmDialog(
+    '⬇ Pull from Google Sheets',
+    'This will REPLACE your current local data with data from Google Sheets. Any unsaved local changes will be lost. Make sure Google Sheets has the latest data before pulling.',
+    '📊',
+    async ()=>{
+      _isPulling=true;
+      clearTimeout(_autoPushTimer); // cancel any pending auto-push
+      _pullCooldownUntil=Date.now()+60000; // block auto-push for 60s after pull
+      setSheetsProgress(true,'Fetching from Google Sheets…',20);
+      try{
+        const url=sheetsConfig.url+'?user='+encodeURIComponent(currentUser?.username||'app')+'&t='+Date.now();
+        const resp=await fetch(url);
+        if(!resp.ok)throw new Error('HTTP '+resp.status);
+        const data=await resp.json();
+        if(data.error)throw new Error(data.error);
+        setSheetsProgress(true,'Processing data…',60);
+        const beforeCount=bookings.length;
+        applySheetsPullData(data);
+        if(bookings.length===0&&(data.bookings?.length||0)>0){
+          throw new Error(`Data mapping failed — ${data.bookings.length} rows received but 0 bookings mapped. Check that your Sheet column names match exactly.`);
+        }
+        localStorage.setItem(LS_KEY,JSON.stringify({bookings,properties,platforms,expenses,trash}));
+        populateSelects();
+        // Navigate to bookings list so user can see pulled data
+        subClick('operations','bookings');
+        sheetsConfig.lastSync=new Date().toISOString();saveSheetsConfig();renderSheetsStatus();
+        setSheetsProgress(true,'Done!',100);setSheetsProgress(false);
+        toast(`✅ Pulled ${bookings.length} bookings, ${properties.length} properties from Sheets!`,'success');
+      }catch(err){
+        _pullCooldownUntil=0; // release cooldown on error
+        setSheetsProgress(false);
+        toast('Pull failed: '+err.message,'error');
+        console.error('Sheets pull error:',err);
+      }finally{
+        _isPulling=false;
+        // extend cooldown to cover the auto-push window too
+        if(_pullCooldownUntil>Date.now())clearTimeout(_autoPushTimer);
+      }
+    },
+    'Yes, Replace Local Data'
+  );
+}
+
+// ── Shared: map Sheets JSON → app data arrays ─────────────────
+function applySheetsPullData(data){
+  if(Array.isArray(data.properties)&&data.properties.length){
+    properties=data.properties.map(r=>({
+      id:r.ID||genId(),name:r.Name||'',city:r.City||'',
+      address:r.Address||'',beds:+r.Beds||0,
+      baseGuests:+r['Base Guests']||2,maxGuests:+r['Max Guests']||4,
+      baseRate:+r['Base Rate']||0,extraGuestFee:+r['Extra Guest Fee']||300,
+      blockedDates:r['Blocked Dates']?String(r['Blocked Dates']).split(',').filter(Boolean):[],
+      map:r['Map URL']||'',notes:r.Notes||'',
+    }));
+  }
+  if(Array.isArray(data.platforms)&&data.platforms.length){
+    platforms=data.platforms.map(r=>({
+      id:r.ID||genId(),name:r.Name||'',
+      commission:+r['Commission %']||0,vat:+r['VAT %']||0,
+      // Prefer color from sheet; fall back to existing local color for same name; then default
+      color:r.Color||platforms.find(p=>p.name===r.Name)?.color||'#888'
+    }));
+  }
+  if(Array.isArray(data.bookings)&&data.bookings.length){
+    bookings=data.bookings.map(r=>({
+      id:r.ID||genId(),guest:r.Guest||'',
+      checkin:isoDate(r['Check-in']),checkout:isoDate(r['Check-out']),
+      platform:r.Platform||'',
+      property:properties.find(p=>p.name===r.Property)?.id||r.Property||'',
+      rate:+r.Rate||0,promo:+r.Promo||0,bookingFee:+r['Booking Fee']||0,serviceFee:+r['Service Fee']||0,
+      platformCommission:+r['Platform Commission']||0,
+      extraGuests:+r['Extra Guests']||0,
+      extraGuestFee:+r['Extra Guest Fee']||0,
+      totalWithout:+r['Total (excl. Extra Guests)']||0,
+      netRevenue:+r['Net Revenue']||0,storeSales:+r['Store Sales']||0,cleaningFee:+r['Cleaning Fee']||0,
+      deposit:+r.Deposit||0,
+      depositCollected:r['Dep Collected']==='Yes',
+      depositRefunded:r['Dep Refunded']==='Yes',
+      payment:r.Payment||'',status:r.Status||'Confirmed',
+      guestCount:+r['Guest Count']||1,notes:r.Notes||'',
+      guestPrefs:r['Guest Prefs']||'',
+      createdAt:r['Created At']||'',updatedAt:r['Updated At']||'',
+      tasks:{},
+    })).filter(b=>b.checkin&&b.checkout&&b.guest)
+    .map(b=>{
+      // Auto-calculate missing totals from raw rate data
+      const t=calcTotals(b);
+      b.bookingFee=t.bkFee;                                      // always recalc (Nights × Rate)
+      if(!b.netRevenue)         b.netRevenue=t.netRevenue;
+      if(!b.totalWithout)       b.totalWithout=t.totalWithout;
+      if(!b.platformCommission) b.platformCommission=t.platFee;
+      if(!b.extraGuestFee)      b.extraGuestFee=t.extraFee;
+      if(!b.extraGuests)        b.extraGuests=t.extraG;
+      return b;
+    });
+  }
+  if(Array.isArray(data.expenses)&&data.expenses.length){
+    expenses=data.expenses.map(r=>({
+      id:r.ID||genId(),month:r.Month||'',
+      prop:properties.find(p=>p.name===r.Property)?.id||'all',
+      water:+r.Water||0,electricity:+r.Electricity||0,supplies:+r.Supplies||0,
+      maintenance:+r.Maintenance||0,
+      // Cleaning: prefer manual "Cleaning" col; "Cleaning Cost" is auto-computed so skip on pull
+      cleaning:+r.Cleaning||0,
+      other:+r.Other||+r['Other Expenses']||0,
+      amount:+r.Total||0,notes:r.Notes||''
+    }));
+  }
+}
+
+// Helper: ensure ISO date string from various formats
+function isoDate(v){return parseAnyDate(v);}
+
+// Wire up Sheets buttons (done here so they're always wired regardless of render order)
+function wireSheetsButtons(){
+  document.getElementById('sheetsConnectBtn')?.addEventListener('click',sheetsConnect);
+  document.getElementById('sheetsPushBtn')?.addEventListener('click',sheetsPush);
+  document.getElementById('sheetsPullBtn')?.addEventListener('click',sheetsPull);
+  document.getElementById('sheetsDisconnectBtn')?.addEventListener('click',()=>{
+    confirmDialog('Disconnect Sheets?','Your local data will be kept. You can reconnect at any time.','📊',sheetsDisconnect,'Disconnect');
+  });
+}
+
+// ── Store Sales pending notification ─────────────────────────
+function checkPendingStoreSales(){
+  const today=todayISO();
+  const needsStore=bookings.filter(b=>
+    b.status!=='Cancelled'&&b.checkout&&b.checkout<today&&
+    (!b.storeSales||+b.storeSales===0)
+  );
+  const needsCleaning=bookings.filter(b=>
+    b.status!=='Cancelled'&&b.checkout&&b.checkout<today&&
+    (b.cleaningFee===undefined||b.cleaningFee===null||+b.cleaningFee===0)
+  );
+  if(needsStore.length){
+    const names=needsStore.slice(0,3).map(b=>b.guest).join(', ');
+    const more=needsStore.length>3?` +${needsStore.length-3} more`:'';
+    toast(`🛍️ ${needsStore.length} checked-out booking${needsStore.length>1?'s':''} need Store Sales recorded: ${names}${more}. Enter 0 if no sales.`,'warning',8000);
+  }
+  if(needsCleaning.length){
+    const names=needsCleaning.slice(0,3).map(b=>b.guest).join(', ');
+    const more=needsCleaning.length>3?` +${needsCleaning.length-3} more`:'';
+    setTimeout(()=>{
+      toast(`🧹 ${needsCleaning.length} checked-out booking${needsCleaning.length>1?'s':''} need Cleaning Fee recorded: ${names}${more}. Enter 0 if no cleaning cost.`,'warning',8000);
+    },1000); // slight delay so toasts don't stack at the same instant
+  }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function init(){
+  loadAll();loadSettings();loadDriveConfig();loadSheetsConfig();
+  buildSidebarNav();
+  wireSheetsButtons();
+  if(sheetsConfig.connected&&sheetsConfig.url)startSheetsPolling();
+  document.querySelector('.ws-btn[data-ws="today"]')?.classList.add('active');
+  const savedTheme=localStorage.getItem('bloomstone_theme')||'light';
+  setTheme(savedTheme);
+  populateSelects();
+  renderToday();
+  renderCalPropPills();
+  // Auto daily brief
+  setTimeout(()=>{
+    const today=todayISO();
+    if(bookings.some(b=>b.status!=='Cancelled'&&(b.checkin===today||b.checkout===today)))openDailyBrief();
+  },800);
+  // Notify about checked-out bookings with missing store sales
+  setTimeout(()=>checkPendingStoreSales(),1500);
+  // Auto Drive backup
+  setTimeout(()=>driveAutoBackup(),2000);
+}
+
+// Bootstrap: check session first, show login or app
+(function bootstrap(){
+  const savedTheme=localStorage.getItem('bloomstone_theme')||'light';
+  document.documentElement.setAttribute('data-theme',savedTheme);
+  if(resumeSession()){
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    init();
+  }else{
+    document.getElementById('loginScreen').style.display='flex';
+    document.getElementById('app').style.display='none';
+  }
+})();
