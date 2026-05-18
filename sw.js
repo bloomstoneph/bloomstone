@@ -1,15 +1,14 @@
 // ============================================================
 // Bloomstone PMS — Service Worker
 // ============================================================
-const CACHE_NAME = 'bloomstone-v29';
-const BASE = '/bloomstone';
+const CACHE_NAME = 'bloomstone-v30';
 
 const PRECACHE = [
-  BASE + '/',
-  BASE + '/index.html',
-  BASE + '/bloomstone-logic.js',
-  BASE + '/icon.svg',
-  BASE + '/manifest.json'
+  './',
+  './index.html',
+  './bloomstone-logic.js',
+  './icon.svg',
+  './manifest.json'
 ];
 
 self.addEventListener('install', event => {
@@ -43,7 +42,7 @@ self.addEventListener('fetch', event => {
           return res;
         })
         .catch(() =>
-          caches.match(BASE + '/index.html').then(r => r || caches.match(BASE + '/'))
+          caches.match('./index.html').then(r => r || caches.match('./'))
         )
     );
     return;

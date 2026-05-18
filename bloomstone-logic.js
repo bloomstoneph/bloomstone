@@ -2040,11 +2040,14 @@ function renderTimelineCal(body,y,m,shown){
   </div></div>`;
   body.querySelectorAll('.timeline-cell').forEach(cell=>{
     cell.addEventListener('click',()=>{
+      const ds=cell.dataset.date;
+      const propId=cell.dataset.prop;
+      openBookingDrawer();
       document.getElementById('f-checkin').value=cell.dataset.date;
-      const nd=new Date(cell.dataset.date+'T12:00:00');nd.setDate(nd.getDate()+1);
+      const nd=new Date(ds+'T12:00:00');nd.setDate(nd.getDate()+1);
       document.getElementById('f-checkout').value=dateToISO(nd);
-      document.getElementById('f-property').value=cell.dataset.prop;
-      openBookingDrawer();dpSyncFromHidden();onDatesChange();onPropertyChange();
+      document.getElementById('f-property').value=propId;
+      dpSyncFromHidden();onDatesChange();onPropertyChange();
     });
   });
 }
@@ -3158,7 +3161,9 @@ function parseAnyDate(v){
   // Already YYYY-MM-DD
   if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
   // ISO with time e.g. 2025-04-20T00:00:00.000Z
-  if(/^\d{4}-\d{2}-\d{2}T/.test(s))return s.slice(0,10);
+  // Google Sheets returns date cells as UTC ISO strings (e.g. "2026-05-21T16:00:00.000Z")
+  // which is May 22 midnight Philippines time — MUST use local date parts, not slice(0,10)
+  if(/^\d{4}-\d{2}-\d{2}T/.test(s)){const d=new Date(s);if(!isNaN(d.getTime()))return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;return s.slice(0,10);}
   // ── Slash/dot formats: handle BEFORE new Date() to avoid JS MM/DD assumption ──
   const parts=s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
   if(parts){
@@ -3745,6 +3750,13 @@ async function sheetsPull(){
 function applySheetsPullData(data){
   if(Array.isArray(data.properties)&&data.properties.length){
     properties=data.properties.map(r=>({
+      ...(() => {
+        const prev = properties.find(p => p.id === r.ID || p.name === r.Name) || {};
+        return {
+          photos: prev.photos || [],
+          customIcon: prev.customIcon || '',
+        };
+      })(),
       id:r.ID||genId(),name:r.Name||'',city:r.City||'',
       address:r.Address||'',beds:+r.Beds||0,
       baseGuests:+r['Base Guests']||2,maxGuests:+r['Max Guests']||4,
@@ -3768,7 +3780,8 @@ function applySheetsPullData(data){
       checkin:isoDate(r['Check-in']),checkout:isoDate(r['Check-out']),
       platform:r.Platform||'',
       property:properties.find(p=>p.name===r.Property)?.id||r.Property||'',
-      rate:+r.Rate||0,promo:+r.Promo||0,specialOffer:+r['Special Offer']||0,bookingFee:+r['Booking Fee']||0,serviceFee:+r['Service Fee']||0,
+      rate:+r.Rate||0,promo:+r.Promo||0,specialOffer:+r['Special Offer']||0,guestServiceFee:+r['Guest Service Fee']||0,
+      bookingFee:+r['Booking Fee']||0,serviceFee:+r['Service Fee']||0,
       platformCommission:+r['Platform Commission']||0,
       extraGuests:+r['Extra Guests']||0,
       extraGuestFee:+r['Extra Guest Fee']||0,
@@ -3777,6 +3790,7 @@ function applySheetsPullData(data){
       deposit:+r.Deposit||0,
       depositCollected:r['Dep Collected']==='Yes',
       depositRefunded:r['Dep Refunded']==='Yes',
+      depositRefundedAmt:+r['Dep Refunded Amt']||0,
       payment:r.Payment||'',status:r.Status||'Confirmed',
       guestCount:+r['Guest Count']||1,notes:r.Notes||'',
       guestPrefs:r['Guest Prefs']||'',
