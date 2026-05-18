@@ -292,8 +292,8 @@ function scheduleSheetsAutoPush(){
   if(!sheetsConfig.connected||!sheetsConfig.url)return;
   if(Date.now()<_pullCooldownUntil)return; // inside post-pull cooldown, skip
   if(!bookings.length&&!properties.length)return; // never push empty data
-  clearTimeout(_autoPushTimer);
-  _autoPushTimer=setTimeout(()=>sheetsPush(true),4000);
+  clearTimeout(_autoPushTimer);_autoPushTimer=null;
+  _autoPushTimer=setTimeout(()=>{_autoPushTimer=null;sheetsPush(true);},1500);
 }
 
 // ── Live sync: poll Sheets every 30 s for external changes ──
@@ -308,6 +308,8 @@ function stopSheetsPolling(){
 async function sheetsQuietPull(){
   if(!sheetsConfig.connected||!sheetsConfig.url)return;
   if(_isPulling||Date.now()<_pullCooldownUntil)return; // skip during/after manual pull
+  // Never overwrite local data while a push is pending — local changes are more recent
+  if(_autoPushTimer!==null)return;
   try{
     const url=sheetsConfig.url+'?user=auto&t='+Date.now();
     const r=await fetch(url,{method:'GET'});
@@ -320,8 +322,9 @@ async function sheetsQuietPull(){
     const lastPush=sheetsConfig.lastSync?new Date(sheetsConfig.lastSync).getTime():0;
     // If sheet was updated more than 10s after our last push, someone edited it externally
     if(sheetTime>lastPush+10000){
+      // Double-check no push snuck in while we were fetching
+      if(_autoPushTimer!==null)return;
       _isPulling=true;
-      clearTimeout(_autoPushTimer);
       applySheetsPullData(data);
       if(bookings.length||properties.length){
         saveAll();populateSelects();renderView(currentWs);
@@ -431,7 +434,7 @@ function updateDrawerProfile(){
     el.style.display='block';
   }else{el.style.display='none';}
 }
-function todayISO(){return new Date().toISOString().slice(0,10);}
+function todayISO(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function dateToISO(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function nightsBetween(a,b){if(!a||!b)return 0;return Math.max(0,Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000));}
 function properCase(s){return(s||'').toLowerCase().replace(/\s+/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
