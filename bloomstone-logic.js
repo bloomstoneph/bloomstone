@@ -3159,12 +3159,15 @@ function parseAnyDate(v){
     // Always DD/MM/YYYY (Philippine standard). Only swap if second part >12 (impossible as month)
     const month=(b>12?parts[1]:parts[2]).padStart(2,'0');
     const day  =(b>12?parts[2]:parts[1]).padStart(2,'0');
-    const d2=new Date(`${year}-${month}-${day}`);
-    if(!isNaN(d2.getTime()))return d2.toISOString().slice(0,10);
+    // Return directly — no Date object needed, avoids any UTC timezone shift
+    if(+month>=1&&+month<=12&&+day>=1&&+day<=31)return`${year}-${month}-${day}`;
   }
   // Fallback: standard JS parse (for "April 20, 2025", "20 April 2025" etc.)
   const d=new Date(s);
-  if(!isNaN(d.getTime()))return d.toISOString().slice(0,10);
+  if(!isNaN(d.getTime())){
+    // Use LOCAL date parts (not toISOString which is UTC) to avoid timezone day-shift in UTC+8
+    return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
   return'';
 }
 function normalizeDate(v){return parseAnyDate(v);}
@@ -3620,7 +3623,7 @@ async function sheetsPush(silent=false){
       bookings: bookings.map(b=>{
         const t=calcTotals(b);
         return{
-          ID:b.id,Guest:b.guest,'Check-in':fmtDate(b.checkin),'Check-out':fmtDate(b.checkout),
+          ID:b.id,Guest:b.guest,'Check-in':b.checkin||'','Check-out':b.checkout||'',
           Nights:t.nights,Platform:b.platform,Property:propName(b.property),
           Rate:b.rate||0,Promo:b.promo||0,'Special Offer':b.specialOffer||0,'Guest Service Fee':b.guestServiceFee||0,'Booking Fee':t.bkFee,'Service Fee':b.serviceFee||0,
           'Platform Commission':b.platformCommission??t.platFee,
