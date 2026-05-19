@@ -3638,13 +3638,21 @@ async function sheetsPush(silent=false){
         return{
           ID:b.id,Guest:b.guest,'Check-in':b.checkin||'','Check-out':b.checkout||'',
           Nights:t.nights,Platform:b.platform,Property:propName(b.property),
-          Rate:b.rate||0,Promo:b.promo||0,'Special Offer':b.specialOffer||0,'Guest Service Fee':b.guestServiceFee||0,'Booking Fee':t.bkFee,'Service Fee':b.serviceFee||0,
+          Rate:b.rate||0,
+          'Promo Per Night':b.promo||0,
+          'Total Promo':t.promoTotal,
+          'Special Offer':b.specialOffer||0,
+          'Booking Fee':t.bkFee,
           'Platform Commission':b.platformCommission??t.platFee,
+          'Guest Service Fee':b.guestServiceFee||0,
+          'Service Fee':b.serviceFee||0,
           'Extra Guests':b.extraGuests??t.extraG,
           'Extra Guest Fee':b.extraGuestFee??t.extraFee,
+          'Adjustments Total':(b.adjustments||[]).reduce((s,a)=>s+(+a.amount||0),0),
+          'Total Charged to Guest':t.guestTotal,
+          'Total Guest Paid to Platform':t.totalGuestPaid,
           'Total (excl. Extra Guests)':b.totalWithout??t.totalWithout,
           'Net Revenue':t.netRevenue,'Store Sales':b.storeSales||0,'Cleaning Fee':b.cleaningFee||0,
-          'Adjustments Total':(b.adjustments||[]).reduce((s,a)=>s+(+a.amount||0),0),
           Deposit:b.deposit||0,'Dep Collected':b.depositCollected?'Yes':'No',
           'Dep Refunded':b.depositRefunded?'Yes':'No',
           Payment:b.payment||'',Status:b.status||'Confirmed',
@@ -3926,7 +3934,7 @@ function dpFsOpen(mode){
   dpFsUpdateTitle();
   // Scroll to relevant month after render
   requestAnimationFrame(()=>{
-    const target=DPF.ci||new Date().toISOString().slice(0,10);
+    const target=DPF.ci||todayISO();
     const cell=document.querySelector(`#dp-fs-body [data-date="${target}"]`);
     if(cell){
       const hdr=cell.closest('.dp-fs-month-block');
@@ -4023,9 +4031,11 @@ function dpFsSelectDay(dateStr){
 function dpFsRender(){
   const today=todayISO();
   const now=new Date();
-  let y=now.getFullYear(),m=now.getMonth();
+  // Start 6 months back so past bookings can be edited
+  let y=now.getFullYear(),m=now.getMonth()-6;
+  if(m<0){m+=12;y--;}
   let html='';
-  for(let i=0;i<14;i++){
+  for(let i=0;i<20;i++){
     html+=dpFsRenderMonth(y,m,today);
     m++;if(m>11){m=0;y++;}
   }
