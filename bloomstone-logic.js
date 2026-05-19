@@ -933,7 +933,7 @@ function selectPlatform(name){
 }
 function updatePromoSpecialOfferState(){
   const platName=(document.getElementById('f-platform')?.value||'').trim().toLowerCase();
-  const isDirect=!platName||platName==='direct';
+  const isDirect=!platName||platName==='direct'||platName.startsWith('direct');
   const promoEl=document.getElementById('f-promo');
   const soEl=document.getElementById('f-specialoffer');
   if(promoEl){
