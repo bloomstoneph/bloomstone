@@ -1914,6 +1914,7 @@ function renderMonthCal(body,y,m,shown){
       </div>`;
     }).join('')}
   </div>`;
+  const isMobile=window.innerWidth<=767;
   shown.slice().sort((a,b)=>a.checkin.localeCompare(b.checkin)).forEach(b=>{
     const isAllProps=calPropFilter==='all';
     const conflict=hasConflict(b);
@@ -1924,6 +1925,26 @@ function renderMonthCal(body,y,m,shown){
       const ds=dateToISO(d);
       const container=body.querySelector(`.month-cell-events[data-date="${ds}"]`);
       if(!container)continue;
+
+      // ── MOBILE: compact color strip — tap cell for details ──────────
+      if(isMobile){
+        const isStart=ds===b.checkin;
+        const nextD=new Date(d);nextD.setDate(nextD.getDate()+1);
+        const isEnd=dateToISO(nextD)===b.checkout;
+        const isDayPast=ds<today;
+        const strip=document.createElement('div');
+        strip.className='mob-strip';
+        strip.style.background=platC;
+        strip.style.opacity=isDayPast?'0.35':'1';
+        // Green left border = check-in, Red right border = check-out
+        if(isStart&&isEnd) strip.style.boxShadow=`inset 3px 0 0 #16a34a, inset -3px 0 0 #dc2626`;
+        else if(isStart)   strip.style.boxShadow=`inset 3px 0 0 #16a34a`;
+        else if(isEnd)     strip.style.boxShadow=`inset -3px 0 0 #dc2626`;
+        strip.title=`${b.guest} · ${propName(b.property)} · ${fmtDate(b.checkin)}→${fmtDate(b.checkout)}`;
+        strip.addEventListener('click',e=>{e.stopPropagation();openBookingDrawer(b.id);});
+        container.appendChild(strip);
+        continue;
+      }
       if(isAllProps){
         // All Properties mode: rich card pill with property, guest, day counter
         const isStart=ds===b.checkin;
@@ -2025,7 +2046,29 @@ function openDayModal(dateStr){
   document.getElementById('dayModalTitle').textContent='\ud83d\udcc5 '+fmtDate(dateStr)+(isBlocked?' \u2014 \ud83d\udd34 Blocked':'');
   document.getElementById('dayModalBody').innerHTML=
     (isBlocked?`<div class="alert-bar show warning" style="display:block;margin-bottom:12px">\ud83d\udd34 This date is blocked for ${esc(prop.name)}. No new bookings accepted.</div>`:'')
-    +(matches.length?matches.map(b=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;cursor:pointer;background:var(--surface-2)" onclick="closeModal('dayModal');openBookingDrawer('${b.id}')"><div style="width:4px;height:36px;border-radius:2px;background:${platformColor(b.platform)};flex-shrink:0"></div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${esc(b.guest)}</div><div style="font-size:11px;color:var(--text-3)">${esc(propName(b.property))} \u00b7 ${platformPillHtml(b.platform)}</div></div>${statusBadgeHtml(b.status)}</div>`).join('')
+    +(matches.length?matches.map(b=>{
+      const t=calcTotals(b);
+      const isCI=b.checkin===dateStr,isCO=b.checkout===dateStr;
+      // checkout is day after last night, so the day BEFORE checkout is last night
+      const lastNight=new Date(b.checkout+'T12:00:00');lastNight.setDate(lastNight.getDate()-1);
+      const isLastNight=dateToISO(lastNight)===dateStr;
+      const cioBadge=isCI?`<span style="font-size:10px;font-weight:800;background:#16a34a;color:#fff;border-radius:4px;padding:2px 7px;flex-shrink:0">CHECK IN</span>`
+        :isLastNight?`<span style="font-size:10px;font-weight:800;background:#dc2626;color:#fff;border-radius:4px;padding:2px 7px;flex-shrink:0">CHECK OUT</span>`:'';
+      const dayNum=nightsBetween(b.checkin,dateStr)+1;
+      return`<div style="display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;cursor:pointer;background:var(--surface-2)" onclick="closeModal('dayModal');openBookingDrawer('${b.id}')">
+        <div style="width:5px;min-height:50px;border-radius:3px;background:${platformColor(b.platform)};flex-shrink:0;margin-top:2px"></div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+            <span style="font-weight:800;font-size:14px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.guest)}</span>
+            ${cioBadge}
+          </div>
+          <div style="font-size:11px;color:var(--text-3);margin-bottom:2px">${esc(propName(b.property))} \u00b7 ${platformPillHtml(b.platform)}</div>
+          <div style="font-size:11px;color:var(--text-2)">${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)} \u00b7 <strong>${t.nights} nights</strong> \u00b7 Day ${dayNum}/${t.nights}</div>
+          <div style="font-size:11px;color:var(--green);margin-top:2px;font-weight:700">${fmtMoney(b.rate)}/night \u00b7 Net ${fmtMoney(t.netRevenue)}</div>
+        </div>
+        <div style="flex-shrink:0">${statusBadgeHtml(b.status)}</div>
+      </div>`;
+    }).join('')
     :`<div class="empty" style="padding:24px 0"><div class="empty-text">No bookings on this day.</div></div>`);
   document.getElementById('dayModalAddBtn').onclick=()=>{
     closeModal('dayModal');

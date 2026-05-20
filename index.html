@@ -1002,18 +1002,18 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
   /* Tabs scroll horizontally on mobile */
   .cal-view-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;gap:1px;max-width:100%}
   .cal-view-tab{padding:4px 8px;font-size:11px;flex-shrink:0;white-space:nowrap}
-  /* Month grid: horizontal scroll, min 90px per cell */
-  .month-grid{gap:0;border-radius:var(--radius);border:1px solid var(--border);background:var(--border);min-width:700px}
-  .month-day-name{padding:6px 3px;font-size:9px;letter-spacing:0;text-align:center}
-  /* Cells auto-height to fit all events */
-  .month-cell{min-height:100px;height:auto;padding:4px 3px;overflow:visible}
+  /* Month grid: fill screen width, no horizontal scroll */
+  .month-grid{gap:0;border-radius:var(--radius);border:1px solid var(--border);background:var(--border);min-width:0;width:100%}
+  .month-day-name{padding:5px 1px;font-size:9px;letter-spacing:0;text-align:center}
+  /* Compact cells — strips only, tap for details */
+  .month-cell{min-height:64px;height:auto;padding:3px 2px;overflow:hidden}
   .month-cell-header{margin-bottom:2px}
   .month-cell-num{font-size:11px;margin-bottom:0;font-weight:700}
   .month-cell.today .month-cell-num{width:20px;height:20px;font-size:10px}
-  .cal-event-bar{height:16px;line-height:16px;font-size:9px;padding:0 4px;margin-bottom:2px;gap:2px}
-  .cal-ci-badge,.cal-co-badge{font-size:8px;padding:1px 3px}
   .month-cell-dots span{width:5px!important;height:5px!important}
-  .cal-more{font-size:8px}
+  /* Mobile strips — compact colored bars, no text */
+  .mob-strip{height:7px;border-radius:3px;margin-bottom:2px;cursor:pointer;width:100%}
+  .cal-more{font-size:8px;color:var(--text-3);padding:1px 2px}
   .filter-bar{position:relative;top:auto}
   /* cal-body scrolls both axes so the wider month grid is reachable */
   .cal-body{overflow-y:auto;overflow-x:auto;-webkit-overflow-scrolling:touch}
