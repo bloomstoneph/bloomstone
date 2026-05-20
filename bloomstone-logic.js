@@ -1306,6 +1306,11 @@ function openBookingDrawer(id=null){
       }finally{_loadingDrawer=false;}
       updatePromoSpecialOfferState();
       onDatesChange();onPropertyChange();
+      // Restore extraGuests after onPropertyChange() — it caps value to property max,
+      // but we must honour whatever value came from the sheet / saved booking
+      const _egEl=document.getElementById('f-extraguests');
+      if(_egEl) _egEl.value=b.extraGuests??0;
+      updateDrawerSummary();
       renderDrawerHistory(b);renderGuestProfile(b.guest);
       renderAdjustments();
     }
