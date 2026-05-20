@@ -1,12 +1,17 @@
 // ============================================================
 // Bloomstone PMS — Service Worker
 // ============================================================
-const CACHE_NAME = 'bloomstone-v47';
+const CACHE_NAME = 'bloomstone-v48';
+
+// Core app files — always fetched fresh from network
+const NETWORK_FIRST = [
+  'bloomstone-logic.js',
+  'index.html',
+  './',
+  ''
+];
 
 const PRECACHE = [
-  './',
-  './index.html',
-  './bloomstone-logic.js',
   './icon.svg',
   './manifest.json'
 ];
@@ -32,23 +37,34 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
-  // Network-first for navigation (HTML pages) — always get latest
-  if (event.request.mode === 'navigate') {
+  const url = new URL(event.request.url);
+  const filename = url.pathname.split('/').pop();
+
+  // Network-first for HTML and JS — always get the latest code
+  const isAppFile = event.request.mode === 'navigate'
+    || filename === 'bloomstone-logic.js'
+    || filename === 'index.html'
+    || filename === '';
+
+  if (isAppFile) {
     event.respondWith(
       fetch(event.request)
         .then(res => {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
+          if (res && res.status === 200) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
+          }
           return res;
         })
         .catch(() =>
-          caches.match('./index.html').then(r => r || caches.match('./'))
+          caches.match(event.request)
+            .then(r => r || caches.match('./index.html'))
         )
     );
     return;
   }
 
-  // Cache-first for JS, icons, manifest
+  // Cache-first for icons, manifest, fonts (rarely change)
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
