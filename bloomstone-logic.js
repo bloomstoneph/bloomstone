@@ -642,7 +642,14 @@ function openDraftInDrawer(draftId){
     if(draft.payment){const p=document.getElementById('f-payment');if(p)p.value=draft.payment;}
     if(draft.notes)document.getElementById('f-notes').value=draft.notes;
   }finally{_loadingDrawer=false;}
-  onPropertyChange();calcFinancials();
+  updatePromoSpecialOfferState(true); // fromLoad=true — don't clear promo/specialOffer
+  onPropertyChange();
+  // Restore draft values that onPropertyChange() may have overwritten
+  if(draft.rate!=null){const el=document.getElementById('f-rate');if(el)el.value=draft.rate;}
+  if(draft.promo!=null){const el=document.getElementById('f-promo');if(el)el.value=draft.promo;}
+  if(draft.specialOffer!=null){const el=document.getElementById('f-specialoffer');if(el)el.value=draft.specialOffer;}
+  if(draft.extraGuests!=null){const el=document.getElementById('f-extraguests');if(el)el.value=draft.extraGuests;}
+  calcFinancials();
   renderGuestProfile(draft.guest||'');
   updateDrawerSummary();
 }
@@ -1001,7 +1008,10 @@ function selectPlatform(name){
   calcFinancials();
   updateDrawerSummary();
 }
-function updatePromoSpecialOfferState(){
+// fromLoad=true: only update disabled/opacity states, never clear any values.
+// Called with fromLoad=true during booking load so existing promo/specialOffer
+// values are never zeroed by platform logic (they are restored explicitly after).
+function updatePromoSpecialOfferState(fromLoad=false){
   const platName=(document.getElementById('f-platform')?.value||'').trim().toLowerCase();
   const isDirect=!platName||platName==='direct'||platName.startsWith('direct');
   const promoEl=document.getElementById('f-promo');
@@ -1010,17 +1020,17 @@ function updatePromoSpecialOfferState(){
     promoEl.disabled=!isDirect;
     promoEl.style.opacity=isDirect?'':'0.4';
     promoEl.style.cursor=isDirect?'':'not-allowed';
-    // Only clear values when user actively changes platform, never during load
-    if(!_loadingDrawer&&!isDirect&&!promoEl.dataset.keepValue){promoEl.value=0;}
+    // Clear ONLY on explicit user-driven platform change (never during load or _loadingDrawer)
+    if(!fromLoad&&!_loadingDrawer&&!isDirect&&!promoEl.dataset.keepValue){promoEl.value=0;}
   }
   if(soEl){
     soEl.disabled=isDirect;
     soEl.style.opacity=isDirect?'0.4':'';
     soEl.style.cursor=isDirect?'not-allowed':'';
-    if(!_loadingDrawer&&isDirect&&!soEl.dataset.keepValue){soEl.value=0;}
+    if(!fromLoad&&!_loadingDrawer&&isDirect&&!soEl.dataset.keepValue){soEl.value=0;}
   }
-  // Only zero and unmark service fees when user actively switches to direct, never during load
-  if(!_loadingDrawer&&isDirect){
+  // Zero service fees only on active user-driven platform switch, never during load
+  if(!fromLoad&&!_loadingDrawer&&isDirect){
     const _sf=document.getElementById('f-servicefee');
     if(_sf){delete _sf.dataset.manual;_sf.style.borderColor='';_sf.value=0;}
     const _sfr=document.getElementById('f-servicefee-reset');
@@ -1367,12 +1377,21 @@ function openBookingDrawer(id=null){
         document.getElementById('f-dep-refunded').value=b.depositRefunded?'1':'';
         _currentAdjustments=(b.adjustments||[]).map(a=>({...a}));
       }finally{_loadingDrawer=false;}
-      updatePromoSpecialOfferState();
+      updatePromoSpecialOfferState(true); // fromLoad=true — only update UI states, never clear values
       onDatesChange();onPropertyChange();
-      // Restore extraGuests after onPropertyChange() — it caps value to property max,
-      // but we must honour whatever value came from the sheet / saved booking
+      // ── Restore all fields that side-effect functions may have overwritten ──
+      // updatePromoSpecialOfferState() clears f-promo for non-Direct platforms and
+      // f-specialoffer for Direct platform. onPropertyChange() overwrites f-rate with
+      // prop.baseRate and may cap f-extraguests. All must be restored from the booking.
+      const _rateEl=document.getElementById('f-rate');
+      if(_rateEl)_rateEl.value=b.rate??'';
+      const _promoEl=document.getElementById('f-promo');
+      if(_promoEl){_promoEl.value=b.promo??0;_promoEl.classList.remove('error');}
+      const _soEl=document.getElementById('f-specialoffer');
+      if(_soEl){_soEl.value=b.specialOffer??0;_soEl.classList.remove('error');}
       const _egEl=document.getElementById('f-extraguests');
-      if(_egEl) _egEl.value=b.extraGuests??0;
+      if(_egEl)_egEl.value=b.extraGuests??0;
+      calcFinancials();
       updateDrawerSummary();
       renderDrawerHistory(b);renderGuestProfile(b.guest);
       renderAdjustments();
