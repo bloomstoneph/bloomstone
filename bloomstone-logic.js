@@ -1488,7 +1488,7 @@ function onPropertyChange(){
     }
     const maxExtra=prop.maxGuests-prop.baseGuests;
     const eg=document.getElementById('f-extraguests');
-    if(eg){eg.max=maxExtra;if(+eg.value>maxExtra)eg.value=maxExtra;}
+    if(eg){eg.max=maxExtra;if(!_loadingDrawer&&+eg.value>maxExtra)eg.value=maxExtra;}
     // Auto-fill base rate when user actively changes property, but never during load
     // (during load the saved rate is already in the field and must not be overwritten)
     const rateEl=document.getElementById('f-rate');
