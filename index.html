@@ -7,7 +7,7 @@
 
 <!-- ── PWA: installable on iPhone & desktop ────────────── -->
 <link rel="manifest" href="manifest.json"/>
-<meta name="theme-color" content="#ffffff"/>
+<meta name="theme-color" content="#1E293B"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 
 <!-- iPhone / iPad specific -->
@@ -1010,8 +1010,8 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
   .month-cell-num{font-size:10px;margin-bottom:0;font-weight:700}
   .month-cell.today .month-cell-num{width:18px;height:18px;font-size:9px}
   .month-cell-dots span{width:4px!important;height:4px!important}
-  /* Compact CI/CO badges */
-  .cal-ci-badge,.cal-co-badge{font-size:7px;padding:1px 3px}
+  /* Compact CI/CO badges — minimum readable size */
+  .cal-ci-badge,.cal-co-badge{font-size:9px;padding:1px 3px}
   .cal-more{font-size:8px;color:var(--text-3);padding:1px 2px}
   /* Vertical scroll only — no left/right scroll */
   .cal-body{overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -1021,6 +1021,10 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
   .fab{display:none!important}
   /* Mobile nav safe area */
   .mobile-nav{padding-bottom:env(safe-area-inset-bottom)}
+  /* E2: Timeline property column — narrower on mobile */
+  .timeline-prop-col,.timeline-prop-label{width:80px!important;font-size:10px}
+  /* E5: iOS keyboard — pad drawer bottom so inputs aren't hidden */
+  .drawer-body{padding-bottom:calc(env(keyboard-inset-height,0px) + 80px)}
   /* Option B: dark mobile topbar + nav */
   .topbar{background:var(--sidebar-bg)!important;border-bottom-color:var(--sidebar-border)!important}
   .topbar-title{color:#F1F5F9!important}
@@ -1211,6 +1215,8 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
         <div class="filter-bar">
           <select class="input" id="fin-period"><option value="thismonth">This Month</option><option value="lastmonth">Last Month</option><option value="thisyear">This Year</option><option value="all">All Time</option></select>
           <select class="input" id="fin-prop"><option value="all">All Properties</option></select>
+          <div class="filter-spacer"></div>
+          <button class="btn btn-secondary btn-sm" onclick="exportFinanceOverview()">⬇ Export CSV</button>
         </div>
         <div class="stats-grid" id="finStats"></div>
         <div class="finance-grid" id="finBlocks"></div>
@@ -1270,6 +1276,16 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
           <div class="filter-spacer"></div>
         </div>
         <div class="prop-grid" id="propGrid"></div>
+      </div>
+
+      <!-- GUESTS CRM -->
+      <div class="view" id="view-guests">
+        <div class="filter-bar">
+          <input class="input" id="guestCrmSearch" placeholder="🔍 Search guests…" style="max-width:260px"/>
+          <div class="filter-spacer"></div>
+        </div>
+        <div class="stats-grid" id="guestCrmStats" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px"></div>
+        <div class="prop-grid" id="guestCrmList"></div>
       </div>
 
       <!-- REPORTS -->
@@ -1650,6 +1666,8 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
         <div class="field" style="margin-bottom:0">
           <label class="label">Guest Count</label>
           <input class="input" id="f-guestcount" type="number" min="1" step="1" value="1" placeholder="1" oninput="this.value=this.value.replace(/[^0-9]/g,'')"/>
+          <!-- F6: Guest count capacity warning -->
+          <div id="f-guestcount-warn" style="display:none;font-size:11px;color:var(--orange);margin-top:3px"></div>
         </div>
       </div>
 
@@ -2024,8 +2042,19 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
         <span><span class="block-legend-dot" style="background:var(--red-bg);border:1px solid var(--red)"></span>Blocked</span>
         <span><span class="block-legend-dot" style="background:var(--green-bg)"></span>Booked</span>
       </div>
+      <!-- D2: Block date range -->
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:700;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Block a Date Range</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="date" class="input" id="blockRangeFrom" style="flex:1;min-width:120px" placeholder="From"/>
+          <span style="color:var(--text-3);font-size:12px">→</span>
+          <input type="date" class="input" id="blockRangeTo" style="flex:1;min-width:120px" placeholder="To"/>
+          <button class="btn btn-primary btn-sm" onclick="blockDateRange()">Block</button>
+        </div>
+      </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn btn-ghost btn-sm" onclick="clearAllBlockedDates()" style="color:var(--red)">🔴 Clear All</button>
       <button class="btn btn-secondary" onclick="closeModal('blockDatesModal')">Done</button>
     </div>
   </div>

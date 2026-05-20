@@ -295,6 +295,15 @@ function scheduleSheetsAutoPush(){
   clearTimeout(_autoPushTimer);_autoPushTimer=null;
   _autoPushTimer=setTimeout(()=>{_autoPushTimer=null;sheetsPush(true);},1500);
 }
+// B1 — flush pending push when user switches tabs or closes app (prevents 1.5s race condition)
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'&&_autoPushTimer!==null){
+    clearTimeout(_autoPushTimer);_autoPushTimer=null;
+    if(sheetsConfig.connected&&sheetsConfig.url&&(bookings.length||properties.length)){
+      sheetsPush(true).catch(()=>{});
+    }
+  }
+});
 
 // ── Live sync: poll Sheets every 20 s for external changes ──
 let _pollTimer=null;
@@ -483,16 +492,27 @@ function updateDrawerProfile(){
   const guest=(document.getElementById('f-guest')?.value||'').trim();
   if(!guest){el.style.display='none';return;}
   const gBks=bookings.filter(b=>(b.guest||'').toLowerCase().trim()===guest.toLowerCase().trim());
+  // B6: Show guest prefs from most recent booking for this guest
+  const latestBk=gBks.slice().sort((a,b)=>(b.checkin||'').localeCompare(a.checkin||''))[0];
+  const prefs=latestBk?.guestPrefs||'';
+  let html='';
   if(gBks.length>1){
     const lifetime=gBks.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
     const firstStay=fmtDate(gBks.map(b=>b.checkin).filter(Boolean).sort()[0]);
-    el.innerHTML=`<div style="background:var(--purple-bg);border-radius:var(--radius);padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    html+=`<div style="background:var(--purple-bg);border-radius:var(--radius);padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:${prefs?'6px':'0'}">
       <span style="background:var(--purple);color:#fff;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:800;white-space:nowrap">↩ REPEAT GUEST</span>
       <span style="color:var(--purple);font-weight:700;font-size:12px">${gBks.length} stays</span>
       <span style="color:var(--text-3);font-size:12px">·  ${fmtMoney(lifetime)} lifetime  ·  since ${firstStay}</span>
     </div>`;
-    el.style.display='block';
-  }else{el.style.display='none';}
+  }
+  if(prefs){
+    html+=`<div style="background:var(--blue-bg);border-radius:var(--radius);padding:7px 12px;font-size:12px;color:var(--blue);display:flex;align-items:flex-start;gap:8px">
+      <span style="font-size:14px;flex-shrink:0">📋</span>
+      <span><strong>Guest Prefs:</strong> ${esc(prefs)}</span>
+    </div>`;
+  }
+  if(html){el.innerHTML=html;el.style.display='block';}
+  else{el.style.display='none';}
 }
 function todayISO(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function dateToISO(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -788,7 +808,7 @@ function calcTotals(b){
   const plat=getPlatform(b.platform);
   const comm=plat?(+plat.commission||0):0;
   const vat=plat?(+plat.vat||0):0;
-  const platFee=Math.max(0,stayFee)*(comm/100)*(1+vat/100); // commission on accommodation only
+  const platFee=Math.max(0,bkFee)*(comm/100)*(1+vat/100); // commission on GROSS rate×nights (pre-discount — what platform actually charges)
   const guestFeeRate=plat?(+plat.guestFee||0):0;
   const guestServiceFee=stayFee*(guestFeeRate/100); // platform charges to guest (informational)
   const totalGuestPaid=guestTotal+guestServiceFee;
@@ -877,6 +897,7 @@ const NAV_STRUCTURE=[
     {id:'finance-platforms',label:'Platforms'},
   ]},
   {id:'properties',icon:'\u2302',label:'Properties',sub:[]},
+  {id:'guests',   icon:'\u{1F9D1}',label:'Guests',   sub:[]},
   {id:'reports',  icon:'\u2197',label:'Reports',    sub:[]},
   {id:'system',   icon:'\u2699',label:'System',     sub:[
     {id:'system-imports',label:'Imports'},
@@ -965,6 +986,7 @@ function renderView(viewId){
     'finance-deposits':renderDeposits,
     'finance-platforms':renderPlatforms,
     'properties':renderProperties,
+    'guests':renderGuests,
     'reports':renderReports,
     'system-imports':populateBulkSelect,
     'system-trash':renderTrash,
@@ -1544,6 +1566,8 @@ document.getElementById('f-guest').addEventListener('blur',()=>{
   setTimeout(()=>{const box=document.getElementById('guestSuggestBox');if(box)box.style.display='none';},180);
 });
 document.getElementById('f-status').addEventListener('change',e=>{applyStatusColor(e.target);updateDrawerSummary();});
+// F6: Trigger guest count warning check when user changes the guest count field
+document.getElementById('f-guestcount')?.addEventListener('input',()=>{onPropertyChange();});
 
 function onDatesChange(){
   const ci=document.getElementById('f-checkin').value;
@@ -1580,6 +1604,14 @@ function onPropertyChange(){
     const maxExtra=prop.maxGuests-prop.baseGuests;
     const eg=document.getElementById('f-extraguests');
     if(eg){eg.max=maxExtra;if(!_loadingDrawer&&+eg.value>maxExtra)eg.value=maxExtra;}
+    // F6: Warn if guest count exceeds property max
+    const gcEl=document.getElementById('f-guestcount');
+    const gcWarn=document.getElementById('f-guestcount-warn');
+    if(gcEl&&gcWarn&&!_loadingDrawer){
+      const gc=+gcEl.value||1;
+      gcWarn.style.display=gc>prop.maxGuests?'block':'none';
+      gcWarn.textContent=gc>prop.maxGuests?`⚠ Exceeds max capacity (${prop.maxGuests} guests)`:'';
+    }
     // Auto-fill base rate when user actively changes property, but never during load
     // (during load the saved rate is already in the field and must not be overwritten)
     const rateEl=document.getElementById('f-rate');
@@ -1963,6 +1995,17 @@ function renderCalendar(){
     if(platF!=='all'&&b.platform!==platF)return false;
     return true;
   });
+  // E1: Week view is unusable on mobile — silently redirect to Day view
+  document.getElementById('_weekMobileNote')?.remove();
+  if(calView==='week'&&window.innerWidth<640){
+    calView='day';
+    document.querySelectorAll('.cal-view-tab').forEach(t=>t.classList.toggle('active',t.dataset.view==='day'));
+    const note=document.createElement('div');
+    note.id='_weekMobileNote';
+    note.style.cssText='font-size:11px;color:var(--text-3);padding:4px 12px 0;margin-bottom:-4px';
+    note.textContent='Week view not available on mobile — showing Day view';
+    body.parentNode.insertBefore(note,body);
+  }
   if(calView==='month')renderMonthCal(body,y,m,shown);
   else if(calView==='week')renderWeekCal(body,shown);
   else if(calView==='day')renderDayCal(body,shown);
@@ -2498,6 +2541,40 @@ function renderFinanceOverview(){
 
 ['fin-period','fin-prop'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',renderFinanceOverview);});
 
+// F3: Export Finance Overview as Excel
+function exportFinanceOverview(){
+  const list=getFinanceList();
+  const period=document.getElementById('fin-period')?.value||'all';
+  const propId=document.getElementById('fin-prop')?.value||'all';
+  const propLabel=propId==='all'?'All Properties':(properties.find(p=>p.id===propId)?.name||propId);
+  const periodLabels={thismonth:'This Month',lastmonth:'Last Month',thisyear:'This Year',all:'All Time'};
+  const title=`Finance Overview — ${periodLabels[period]||period} — ${propLabel}`;
+  // Build rows
+  const headerRow=['Guest','Property','Platform','Check-in','Check-out','Nights','Rate/Night','Accommodation','Promo','Special Offer','Service Fee','Extra Guests','Extra Fee','Adjustments','Guest Total','Net Revenue','Store Sales','Cleaning Fee','Status'];
+  const dataRows=list.map(b=>{const t=calcTotals(b);return[b.guest,propName(b.property),b.platform,b.checkin,b.checkout,t.nights,b.rate,t.bkFee,b.promo||0,b.specialOffer||0,b.serviceFee||0,t.extraG,t.extraFee,t.adjTotal,t.guestTotal,t.netRevenue,b.storeSales||0,b.cleaningFee||0,b.status];});
+  // Totals row
+  const totals=['TOTALS','','','','',
+    list.reduce((s,b)=>s+nightsBetween(b.checkin,b.checkout),0),'',
+    list.reduce((s,b)=>s+calcTotals(b).bkFee,0),
+    list.reduce((s,b)=>s+(+b.promo||0),0),
+    list.reduce((s,b)=>s+(+b.specialOffer||0),0),
+    list.reduce((s,b)=>s+(+b.serviceFee||0),0),'',
+    list.reduce((s,b)=>s+calcTotals(b).extraFee,0),
+    list.reduce((s,b)=>s+calcTotals(b).adjTotal,0),
+    list.reduce((s,b)=>s+calcTotals(b).guestTotal,0),
+    list.reduce((s,b)=>s+calcTotals(b).netRevenue,0),
+    list.reduce((s,b)=>s+(+b.storeSales||0),0),
+    list.reduce((s,b)=>s+(+b.cleaningFee||0),0),''];
+  // CSV export (simple, no external lib needed)
+  const fmt=v=>typeof v==='number'?v:(v||'');
+  const csvLine=row=>row.map(v=>`"${String(fmt(v)).replace(/"/g,'""')}"`).join(',');
+  const csv=[`"${title}"`,'',csvLine(headerRow),...dataRows.map(csvLine),csvLine(totals)].join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`bloomstone-finance-${period}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();toast('Finance report exported.','success');
+}
+
 function populateExpenseMonthYear(){
   const now=new Date();
   const mSel=document.getElementById('fe-month');const ySel=document.getElementById('fe-year');
@@ -2962,7 +3039,12 @@ function renderProperties(){
     const bks=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled');
     const rev=bks.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
     const nights=bks.reduce((s,b)=>s+nightsBetween(b.checkin,b.checkout),0);
-    const occ=Math.min(100,Math.round(nights/Math.max(1,90)*100));
+    // F2: Occupancy = booked nights in current year / days elapsed so far this year
+    const now=new Date();
+    const yearStart=new Date(now.getFullYear(),0,1);
+    const daysElapsed=Math.ceil((now-yearStart)/86400000)+1;
+    const thisYearNights=bks.filter(b=>b.checkin&&b.checkin.startsWith(String(now.getFullYear()))).reduce((s,b)=>s+nightsBetween(b.checkin,b.checkout),0);
+    const occ=Math.min(100,Math.round(thisYearNights/Math.max(1,daysElapsed)*100));
     const upcoming=bks.filter(b=>b.checkin>=todayISO()).length;
     const photos=p.photos||[];
     const hero=photos.length?`<img class="prop-photo-hero" src="${photos[0]}" alt="Property photo" onclick="viewPropPhotos('${p.id}')" title="View photos"/>`:
@@ -2993,6 +3075,69 @@ function renderProperties(){
     </div>`;
   }).join('');
 }
+
+// ============================================================
+// GUESTS CRM VIEW (F5)
+// ============================================================
+let _guestSearchQ='';
+function renderGuests(){
+  const container=document.getElementById('guestCrmList');if(!container)return;
+  const q=(_guestSearchQ||'').toLowerCase().trim();
+  // Aggregate unique guests from bookings
+  const guestMap={};
+  bookings.forEach(b=>{
+    if(!b.guest)return;
+    const key=b.guest.toLowerCase().trim();
+    if(!guestMap[key])guestMap[key]={name:b.guest,bookings:[],prefs:'',contact:''};
+    guestMap[key].bookings.push(b);
+    if(b.guestPrefs)guestMap[key].prefs=b.guestPrefs;
+  });
+  let guests=Object.values(guestMap).map(g=>{
+    const active=g.bookings.filter(b=>b.status!=='Cancelled');
+    const totalNights=active.reduce((s,b)=>s+nightsBetween(b.checkin,b.checkout),0);
+    const totalRev=active.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
+    const lastBk=active.slice().sort((a,b)=>b.checkin.localeCompare(a.checkin))[0];
+    const nextBk=active.filter(b=>b.checkin>=todayISO()).sort((a,b)=>a.checkin.localeCompare(b.checkin))[0];
+    return{...g,active,totalNights,totalRev,lastBk,nextBk};
+  }).sort((a,b)=>b.totalRev-a.totalRev);
+  if(q)guests=guests.filter(g=>g.name.toLowerCase().includes(q)||(g.prefs||'').toLowerCase().includes(q));
+  const statsEl=document.getElementById('guestCrmStats');
+  if(statsEl){
+    const total=Object.keys(guestMap).length;
+    const repeats=Object.values(guestMap).filter(g=>g.bookings.filter(b=>b.status!=='Cancelled').length>1).length;
+    statsEl.innerHTML=`<div class="stat-card"><div class="stat-label">Total Guests</div><div class="stat-value">${total}</div></div>
+      <div class="stat-card"><div class="stat-label">Repeat Guests</div><div class="stat-value">${repeats}</div></div>
+      <div class="stat-card"><div class="stat-label">Repeat Rate</div><div class="stat-value">${total?Math.round(repeats/total*100):0}%</div></div>`;
+  }
+  if(!guests.length){container.innerHTML=`<div class="empty"><div class="empty-icon">🧑</div><div class="empty-text">${q?'No guests match your search':'No guests yet'}</div></div>`;return;}
+  container.innerHTML=guests.map(g=>{
+    const repeatBadge=g.active.length>1?`<span class="badge badge-purple" style="font-size:9px">REPEAT×${g.active.length}</span>`:'';
+    const nextStr=g.nextBk?`<span style="color:var(--blue);font-size:11px">↓ Next: ${fmtDate(g.nextBk.checkin)}</span>`:'';
+    const prefsStr=g.prefs?`<div style="font-size:11px;color:var(--text-2);margin-top:4px">📋 ${esc(g.prefs)}</div>`:'';
+    return`<div class="prop-card" style="cursor:pointer" onclick="showGuestHistory('${esc(g.name)}')">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="width:38px;height:38px;border-radius:50%;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🧑</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">${esc(g.name)}${repeatBadge}</div>
+          <div style="font-size:11px;color:var(--text-3)">${g.lastBk?`Last stay: ${fmtDate(g.lastBk.checkin)}`:''} ${nextStr}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-weight:700;color:var(--green)">${fmtMoney(g.totalRev)}</div>
+          <div style="font-size:11px;color:var(--text-3)">${g.totalNights} night${g.totalNights!==1?'s':''}</div>
+        </div>
+      </div>
+      ${prefsStr}
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openBookingDrawer();document.getElementById('f-guest').value='${esc(g.name)}';renderGuestProfile('${esc(g.name)}')">＋ New Booking</button>
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();showGuestHistory('${esc(g.name)}')">📋 History</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  const si=document.getElementById('guestCrmSearch');
+  if(si)si.addEventListener('input',e=>{_guestSearchQ=e.target.value;renderGuests();});
+});
 
 // ============================================================
 // BLOCK DATES
@@ -3050,6 +3195,36 @@ function toggleBlockDate(dateStr){
   else p.blockedDates.push(dateStr);
   saveAll();renderBlockCal();renderProperties();
   if(currentWs==='calendar')renderCalendar();
+}
+
+// D2: Block a date range at once
+function blockDateRange(){
+  const p=properties.find(x=>x.id===blockingPropId);if(!p)return;
+  const from=document.getElementById('blockRangeFrom')?.value;
+  const to=document.getElementById('blockRangeTo')?.value;
+  if(!from||!to){toast('Select both From and To dates.','warning');return;}
+  if(to<from){toast('End date must be after start date.','warning');return;}
+  if(!p.blockedDates)p.blockedDates=[];
+  let added=0,skipped=0;
+  for(let d=new Date(from+'T12:00:00');dateToISO(d)<=to;d.setDate(d.getDate()+1)){
+    const ds=dateToISO(d);
+    const hasBooking=bookings.some(b=>b.property===blockingPropId&&b.status!=='Cancelled'&&b.checkin<=ds&&ds<b.checkout);
+    if(hasBooking){skipped++;continue;}
+    if(!p.blockedDates.includes(ds)){p.blockedDates.push(ds);added++;}
+  }
+  saveAll();renderBlockCal();renderProperties();
+  if(currentWs==='calendar')renderCalendar();
+  if(skipped>0)toast(`Blocked ${added} date(s). Skipped ${skipped} (have bookings).`,'success');
+  else toast(`Blocked ${added} date(s).`,'success');
+}
+// D2: Clear all blocked dates for this property
+function clearAllBlockedDates(){
+  const p=properties.find(x=>x.id===blockingPropId);if(!p)return;
+  confirmDialog('🔴 Clear All Blocked Dates',`Remove all ${(p.blockedDates||[]).length} blocked date(s) for "${p.name}"?`,'🔴',()=>{
+    p.blockedDates=[];saveAll();renderBlockCal();renderProperties();
+    if(currentWs==='calendar')renderCalendar();
+    toast('All blocked dates cleared.','warning');
+  });
 }
 
 function isDateBlocked(dateStr,propId){
@@ -3328,6 +3503,33 @@ function openDailyBrief(){
     conflicts.forEach(b=>{ html+=row(b,'<span class="badge badge-red">CONFLICT</span>'); });
   }
 
+  // F10: Deposit not collected for upcoming check-ins (within 3 days)
+  const depositAlert=upcoming.filter(b=>b.deposit>0&&!b.depositCollected);
+  if(depositAlert.length){
+    html+=secHdr('\ud83d\udcb0','Deposit Pending',depositAlert.length,'var(--orange)');
+    depositAlert.forEach(b=>{
+      const days=Math.round((new Date(b.checkin+'T12:00:00')-new Date(today+'T12:00:00'))/86400000);
+      const label=days===1?'Tomorrow':`In ${days} days`;
+      html+=row(b,`<span style="font-size:10px;font-weight:700;color:var(--orange);white-space:nowrap">\u20b1${fmtMoney(b.deposit)} due ${label}</span>`);
+    });
+  }
+
+  // F9: Bookings that should be Checked-In or Checked-Out but status not updated
+  const needsStatusUpdate=bookings.filter(b=>{
+    if(b.status==='Cancelled'||b.status==='Checked-In'||b.status==='Checked-Out')return false;
+    const inProgress=b.checkin<=today&&b.checkout>today;
+    const pastCheckout=b.checkout<=today&&b.checkin<today;
+    return inProgress||pastCheckout;
+  });
+  if(needsStatusUpdate.length){
+    html+=secHdr('\ud83d\udd14','Status Needs Update',needsStatusUpdate.length,'var(--purple)');
+    needsStatusUpdate.forEach(b=>{
+      const inProgress=b.checkin<=today&&b.checkout>today;
+      const label=inProgress?'Should be Checked-In':'Should be Checked-Out';
+      html+=row(b,`<span style="font-size:10px;font-weight:700;color:var(--purple);white-space:nowrap">${label}</span>`);
+    });
+  }
+
   if(!html)html=`<div class="empty"><div class="empty-icon">\u2600\ufe0f</div><div class="empty-text">All clear for today!</div></div>`;
   document.getElementById('dailyBriefBody').innerHTML=html;
   openModal('dailyBriefModal');
@@ -3352,6 +3554,7 @@ function renderCmdResults(q){
     {icon:'\ud83d\udccb',label:'Bookings',hint:'Operations',action:()=>subClick('operations','bookings')},
     {icon:'\u20b1',label:'Finance Overview',hint:'Finance',action:()=>subClick('finance','finance-overview')},
     {icon:'\u2302',label:'Properties',hint:'Properties',action:()=>navigateTo('properties')},
+    {icon:'\ud83e\uddd1',label:'Guests',hint:'Guest CRM',action:()=>navigateTo('guests')},
     {icon:'\u2197',label:'Reports',hint:'Reports',action:()=>navigateTo('reports')},
     {icon:'\u2699',label:'Settings',hint:'System',action:()=>subClick('system','system-settings')},
     {icon:'\u2601',label:'Google Drive',hint:'Integrations',action:()=>subClick('system','system-integrations')},
@@ -4140,6 +4343,8 @@ function init(){
     setTimeout(()=>sheetsQuietPull(true),1500);
   }
   document.querySelector('.ws-btn[data-ws="today"]')?.classList.add('active');
+  // E7: Set correct active state on mobile bottom nav based on initial view
+  document.querySelector('.mobile-nav-btn[data-ws="today"]')?.classList.add('active');
   const savedTheme=localStorage.getItem('bloomstone_theme')||'light';
   setTheme(savedTheme);
   dpInit(); // initialize date picker view state
