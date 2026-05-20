@@ -1919,6 +1919,7 @@ function renderMonthCal(body,y,m,shown){
     const conflict=hasConflict(b);
     const totalN=nightsBetween(b.checkin,b.checkout);
     const today=todayISO();
+    const platC=platformColor(b.platform);
     for(let d=new Date(b.checkin+'T12:00:00');dateToISO(d)<b.checkout;d.setDate(d.getDate()+1)){
       const ds=dateToISO(d);
       const container=body.querySelector(`.month-cell-events[data-date="${ds}"]`);
@@ -1932,7 +1933,6 @@ function renderMonthCal(body,y,m,shown){
         // so long stays only grey their past days, keeping ongoing/future days vivid
         const isDayPast=ds<today;
         const isToday=ds===today;
-        const platC=platformColor(b.platform);
         // Day number within the stay (1 = checkin day)
         const dayNum=nightsBetween(b.checkin,ds)+1;
         const pill=document.createElement('div');
