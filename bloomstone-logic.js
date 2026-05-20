@@ -1965,28 +1965,41 @@ function renderMonthCal(body,y,m,shown){
         pill.addEventListener('click',e=>{e.stopPropagation();openBookingDrawer(b.id);});
         container.appendChild(pill);
       }else{
-        // Single property mode: spanning bar with guest name
+        // Single property mode: same rich pill as All Properties, minus the property name row
         const isStart=ds===b.checkin;
         const nextD=new Date(d);nextD.setDate(nextD.getDate()+1);
         const isEnd=dateToISO(nextD)===b.checkout;
-        const isPast=b.checkout<today;
-        let cls='cal-event-bar';
-        if(totalN>1){if(isStart)cls+=' bar-start';else if(isEnd)cls+=' bar-end';else cls+=' bar-mid';}
-        if(conflict)cls+=' bar-conflict';
-        const bar=document.createElement('div');
-        bar.className=cls;
-        bar.style.background=platformColor(b.platform);
-        if(isPast)bar.style.opacity='0.55';
-        bar.title=`${b.guest} \u00b7 ${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)}`;
-        if(isStart||totalN===1){
-          bar.innerHTML=`<span class="bar-name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff">${esc(b.guest)}</span><span class="cal-ci-badge" style="flex-shrink:0">IN</span>`;
-        }else if(isEnd){
-          bar.innerHTML=`<span class="cal-co-badge" style="flex-shrink:0">OUT</span>`;
+        const isDayPast=ds<today;
+        const isToday=ds===today;
+        const dayNum=nightsBetween(b.checkin,ds)+1;
+        const pill=document.createElement('div');
+        if(conflict)pill.style.outline='2px solid var(--orange)';
+        if(isDayPast){
+          pill.style.cssText=`display:flex;align-items:center;gap:5px;padding:3px 6px;border-radius:6px;margin-bottom:3px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;opacity:0.3;min-height:18px`;
+          pill.innerHTML=`<span style="font-size:10px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(b.guest.split(' ')[0])}</span>`;
         }else{
-          bar.innerHTML='';
+          const badge=isStart
+            ?`<span class="cal-ci-badge">CHECK IN</span>`
+            :isEnd
+            ?`<span class="cal-co-badge">CHECK OUT</span>`
+            :'';
+          const dayLabel=totalN>1?`<span style="font-size:9px;opacity:.7;white-space:nowrap;flex-shrink:0">Day ${dayNum}/${totalN}</span>`:'';
+          const rateLabel=`<span style="font-size:9px;opacity:.75;white-space:nowrap;flex-shrink:0">${fmtMoney(b.rate)}/n</span>`;
+          pill.style.cssText=`display:flex;flex-direction:column;gap:2px;padding:5px 7px;border-radius:7px;margin-bottom:3px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;${isToday?'box-shadow:0 0 0 2px #fff,0 0 0 3.5px '+platC+';':''}`;
+          pill.innerHTML=`
+            <div style="display:flex;align-items:center;gap:4px;min-width:0">
+              <span style="font-size:11px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;line-height:1.3">${esc(b.guest)}</span>
+              ${badge}
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;min-width:0">
+              ${dayLabel}
+              ${isStart||isEnd?rateLabel:''}
+              <span style="font-size:9px;opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(b.platform)}</span>
+            </div>`;
         }
-        bar.addEventListener('click',e=>{e.stopPropagation();openBookingDrawer(b.id);});
-        container.appendChild(bar);
+        pill.title=`${esc(b.guest)} \u00b7 ${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)} \u00b7 ${totalN} nights`;
+        pill.addEventListener('click',e=>{e.stopPropagation();openBookingDrawer(b.id);});
+        container.appendChild(pill);
       }
     }
   });
