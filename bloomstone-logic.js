@@ -1120,9 +1120,20 @@ function renderBookings(){
       cards.style.display='block';
       if(!list.length){cards.innerHTML=`<div class="empty"><div class="empty-icon">\ud83d\udccb</div><div class="empty-text">No bookings match filters</div></div>`;return;}
       cards.innerHTML=list.map(b=>{const t=calcTotals(b);const pc=propertyColor(b.property);
-        return`<div style="background:var(--surface);border:1px solid var(--border);border-left:8px solid ${pc};border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:10px;cursor:pointer;overflow:hidden" onclick="openBookingDrawer('${b.id}')">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700">${esc(b.guest)}${isRepeat(b.guest)?'<span class="badge badge-purple" style="margin-left:6px;font-size:9px">REPEAT</span>':''}</div><div style="font-size:12px;color:${pc};font-weight:600">${esc(propName(b.property))}</div></div>${statusBadgeHtml(b.status)}</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">${platformPillHtml(b.platform)}<span style="font-size:12px;color:var(--text-3)">${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)}</span><span style="font-size:12px;font-weight:700;margin-left:auto">${fmtMoney(t.netRevenue)}</span></div>
+        return`<div class="bk-card-b" onclick="openBookingDrawer('${b.id}')">
+          <div class="bk-card-band" style="background:${pc}"></div>
+          <div class="bk-card-body">
+            <div class="bk-card-prop" style="color:${pc}">${esc(propName(b.property))}</div>
+            <div class="bk-card-guest">${esc(b.guest)}${isRepeat(b.guest)?'<span class="badge badge-purple" style="margin-left:6px;font-size:9px">REPEAT</span>':''}</div>
+            <div class="bk-card-dates">${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)}</div>
+            <div class="bk-card-footer">
+              <div class="bk-revenue-box" style="background:${pc}18">
+                <span class="bk-revenue-amt" style="color:${pc}">${fmtMoney(t.netRevenue)}</span>
+                <span class="bk-revenue-nights"> \u00b7 ${t.nights}N</span>
+              </div>
+              ${platformPillHtml(b.platform)}${statusBadgeHtml(b.status)}
+            </div>
+          </div>
         </div>`;}).join('');
     }
     return;
@@ -1268,6 +1279,7 @@ function openBookingDrawer(id=null){
         document.getElementById('f-dep-refunded').value=b.depositRefunded?'1':'';
         _currentAdjustments=(b.adjustments||[]).map(a=>({...a}));
       }finally{_loadingDrawer=false;}
+      updatePromoSpecialOfferState();
       onDatesChange();onPropertyChange();
       renderDrawerHistory(b);renderGuestProfile(b.guest);
       renderAdjustments();
@@ -3696,21 +3708,18 @@ async function sheetsPush(silent=false){
           ID:b.id,Guest:b.guest,'Check-in':b.checkin||'','Check-out':b.checkout||'',
           Nights:t.nights,Platform:b.platform,Property:propName(b.property),
           Rate:b.rate||0,
-          'Promo Per Night':b.promo||0,
-          'Total Promo':t.promoTotal,
-          'Special Offer':b.specialOffer||0,
+          'Total Promo (Manual Set by User)':b.promo||0,
           'Booking Fee':t.bkFee,
+          'Total Promo':t.promoTotal,
+          'Special Promo (Auto From Airbnb)':b.specialOffer||0,
           'Platform Commission':b.platformCommission??t.platFee,
-          'Guest Service Fee':b.guestServiceFee||0,
-          'Service Fee':b.serviceFee||0,
+          'Service Fee (Auto From Airbnb)':b.serviceFee||0,
           'Extra Guests':b.extraGuests??t.extraG,
           'Extra Guest Fee':b.extraGuestFee??t.extraFee,
-          'Adjustments Total':(b.adjustments||[]).reduce((s,a)=>s+(+a.amount||0),0),
-          'Total Charged to Guest':t.guestTotal,
-          'Total Guest Paid to Platform':t.totalGuestPaid,
-          'Total (excl. Extra Guests)':b.totalWithout??t.totalWithout,
+          'Total (excl. Extra Guests)':t.totalWithout,
           'Net Revenue':t.netRevenue,'Store Sales':b.storeSales||0,'Cleaning Fee':b.cleaningFee||0,
-          Deposit:b.deposit||0,'Dep Collected':b.depositCollected?'Yes':'No',
+          Deposit:b.deposit||0,'Deposit Refunded':b.depositRefundedAmt||0,
+          'Dep Collected':b.depositCollected?'Yes':'No',
           'Dep Refunded':b.depositRefunded?'Yes':'No',
           Payment:b.payment||'',Status:b.status||'Confirmed',
           'Guest Count':b.guestCount||1,Notes:b.notes||'',

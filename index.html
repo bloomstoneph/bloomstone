@@ -958,7 +958,6 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 @media (max-width:1439px){
   :root{--sidebar-w:200px;--drawer-w:calc(100vw - 16px)}
   .stats-grid{grid-template-columns:repeat(2,1fr)}
-  .today-sections{grid-template-columns:1fr}
 }
 @media (max-width:1100px){
   .finance-grid{grid-template-columns:1fr}
@@ -977,7 +976,6 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
   .mobile-hamburger{display:flex}
   .workspace{padding:10px 8px calc(60px + env(safe-area-inset-bottom) + 8px)}
   .stats-grid{grid-template-columns:1fr 1fr}
-  .today-sections{grid-template-columns:1fr}
   .finance-grid{grid-template-columns:1fr}
   .field-row{grid-template-columns:1fr}
   .field-row.cols3{grid-template-columns:1fr}
@@ -1029,6 +1027,36 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
   .exp-amounts{grid-template-columns:1fr}
   .cal-view-tabs{flex-wrap:wrap}
 }
+
+/* ============================================================
+   TODAY VIEW — LAYOUT FIXES
+============================================================ */
+#todayStats{margin-bottom:16px}
+#todaySections{display:block}
+
+/* Desktop 2-col: sections on left, active-now on right */
+.today-main-grid{display:block}
+@media(min-width:1024px){
+  .today-main-grid{display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start}
+  #todayTimeline{margin-top:0}
+}
+
+/* Remove double-border on todayTimeline — today-active-wrap already has its own */
+#todayTimeline>.today-active-wrap{margin-bottom:0}
+
+/* Stats scroll on desktop — don't overflow the container, just flex-wrap */
+@media(min-width:768px){
+  .stats-scroll{flex-wrap:wrap;overflow-x:visible}
+  .today-stat-pill{min-width:90px}
+}
+
+/* Property grid responsive */
+@media(min-width:1200px){
+  .today-prop-grid{grid-template-columns:repeat(3,1fr)}
+}
+
+/* Booking card footer layout fix */
+.bk-card-footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
 </style>
 </head>
 <body>
@@ -1099,9 +1127,11 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 
       <!-- TODAY -->
       <div class="view active" id="view-today">
-        <div class="stats-grid" id="todayStats"></div>
-        <div class="today-sections" id="todaySections"></div>
-        <div class="today-timeline" id="todayTimeline"></div>
+        <div id="todayStats"></div>
+        <div class="today-main-grid">
+          <div id="todaySections"></div>
+          <div id="todayTimeline"></div>
+        </div>
       </div>
 
       <!-- OPERATIONS: BOOKINGS -->
@@ -1620,6 +1650,11 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
           <div id="f-servicefee-hint" style="font-size:10px;color:var(--text-3);margin-top:3px"></div>
         </div>
       </div>
+      <div class="field" style="margin-top:10px;margin-bottom:0">
+        <label class="label">Extra Guests <span style="color:var(--text-3);font-size:10px">(above base, fee applied per night)</span></label>
+        <input class="input" id="f-extraguests" type="number" min="0" step="1" value="0" placeholder="0"
+               oninput="this.value=this.value.replace(/[^0-9]/g,'');calcFinancials()"/>
+      </div>
     </div>
 
     <!-- ── FINANCIAL BREAKDOWN ───────────────────────────────── -->
@@ -1809,7 +1844,6 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
     </div>
 
     <!-- hidden fields for back-compat -->
-    <input type="hidden" id="f-extraguests" value="0"/>
     <input type="hidden" id="f-dep-collected"/>
     <input type="hidden" id="f-dep-refunded"/>
     <input type="hidden" id="f-guestservicefee" value="0"/>
