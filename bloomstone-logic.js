@@ -191,7 +191,7 @@ function loadFromExcel(){
           const rows=XLSX.utils.sheet_to_json(wb.Sheets['Bookings'],{defval:''});
           const newBks=rows.map(r=>({
             id:r.ID||genId(),guest:r.Guest||'',checkin:r['Check-in']||'',checkout:r['Check-out']||'',
-            platform:normPlatform(r.Platform||''),property:properties.find(p=>p.name===r.Property)?.id||r.Property||'',
+            platform:normPlatform(r.Platform||''),property:properties.find(p=>p.id===r.Property||p.name===r.Property)?.id||r.Property||'',
             rate:+r.Rate||0,promo:+r.Promo||0,specialOffer:+r['Special Offer']||0,bookingFee:+r['Booking Fee']||0,
             storeSales:+r['Store Sales']||0,deposit:+r.Deposit||0,
             depositCollected:r['Dep Collected']==='Yes',depositRefunded:r['Dep Refunded']==='Yes',
@@ -222,7 +222,7 @@ function loadFromExcel(){
         // Expenses
         if(wb.SheetNames.includes('Expenses')){
           const rows=XLSX.utils.sheet_to_json(wb.Sheets['Expenses'],{defval:''});
-          if(rows.length){expenses=rows.map(r=>({id:r.ID||genId(),month:r.Month||'',prop:properties.find(p=>p.name===r.Property)?.id||'all',water:+r.Water||0,electricity:+r.Electricity||0,supplies:+r.Supplies||0,maintenance:+r.Maintenance||0,cleaning:+r.Cleaning||0,other:+r.Other||0,amount:+r.Total||0,notes:r.Notes||''}));imported.expenses=expenses.length;}
+          if(rows.length){expenses=rows.map(r=>({id:r.ID||genId(),month:r.Month||'',prop:properties.find(p=>p.id===r.Property||p.name===r.Property)?.id||'all',water:+r.Water||0,electricity:+r.Electricity||0,supplies:+r.Supplies||0,maintenance:+r.Maintenance||0,cleaning:+r.Cleaning||0,other:+r.Other||0,amount:+r.Total||0,notes:r.Notes||''}));imported.expenses=expenses.length;}
         }
         saveAll();renderView(currentWs);populateSelects();
         toast(`Loaded from Excel: ${imported.bookings} bookings, ${imported.properties} properties.`,'success');
@@ -552,7 +552,7 @@ function autoSaveDraft(){
     checkin:document.getElementById('f-checkin')?.value||'',
     checkout:document.getElementById('f-checkout')?.value||'',
     property:document.getElementById('f-property')?.value||'',
-    platform:document.getElementById('f-platform')?.value||'',
+    platform:normPlatform(document.getElementById('f-platform')?.value||''),
     rate:document.getElementById('f-rate')?.value||'',
     promo:document.getElementById('f-promo')?.value||'0',
     specialOffer:document.getElementById('f-specialoffer')?.value||'0',
@@ -1680,7 +1680,7 @@ function _buildBookingFromForm(existing){
     id:editingBookingId||genId(),
     guest:properCase(document.getElementById('f-guest').value),
     checkin:ci,checkout:co,
-    platform:document.getElementById('f-platform').value,
+    platform:normPlatform(document.getElementById('f-platform').value||''),
     property:document.getElementById('f-property').value,
     rate:+document.getElementById('f-rate').value||0,
     promo:+document.getElementById('f-promo').value||0,
@@ -1737,7 +1737,7 @@ function _buildChangeDiff(orig,bk){
     {label:'Check-in',    o:fmtD(orig.checkin),  n:fmtD(bk.checkin)},
     {label:'Check-out',   o:fmtD(orig.checkout), n:fmtD(bk.checkout)},
     {label:'Property',    o:propName(orig.property), n:propName(bk.property)},
-    {label:'Platform',    o:orig.platform,       n:bk.platform},
+    {label:'Platform',    o:normPlatform(orig.platform||''), n:normPlatform(bk.platform||'')},
     {label:'Status',      o:orig.status,         n:bk.status},
     {label:'Payment',     o:orig.payment,        n:bk.payment},
     {label:'Rate',        o:fmtM(orig.rate),     n:fmtM(bk.rate)},
@@ -2651,7 +2651,7 @@ function savePlatform(){
 }
 function deletePlatform(id){
   const p=platforms.find(x=>x.id===id);
-  const cnt=bookings.filter(b=>b.platform===p?.name).length;
+  const cnt=bookings.filter(b=>normPlatform(b.platform||'')===normPlatform(p?.name||'')).length;
   confirmDialog('\u26a0 Delete Platform',`You are about to delete "${p?.name}". ${cnt>0?`${cnt} existing booking(s) will retain the platform name but commission calculations may be affected. `:''}This cannot be undone.`,'\ud83d\uddd1',()=>{
     platforms=platforms.filter(x=>x.id!==id);saveAll();renderPlatforms();populateSelects();toast('Platform deleted.','warning');
   });
@@ -2660,8 +2660,8 @@ function renderPlatforms(){
   const tbody=document.getElementById('platformTbody');
   if(!platforms.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="empty-text">No platforms.</div></div></td></tr>`;return;}
   tbody.innerHTML=platforms.map(p=>{
-    const cnt=bookings.filter(b=>b.platform===p.name&&b.status!=='Cancelled').length;
-    const rev=bookings.filter(b=>b.platform===p.name&&b.status!=='Cancelled').reduce((s,b)=>s+calcTotals(b).netRevenue,0);
+    const cnt=bookings.filter(b=>normPlatform(b.platform||'')===p.name&&b.status!=='Cancelled').length;
+    const rev=bookings.filter(b=>normPlatform(b.platform||'')===p.name&&b.status!=='Cancelled').reduce((s,b)=>s+calcTotals(b).netRevenue,0);
     return`<tr><td>${platformPillHtml(p.name)}</td><td>${p.commission}%</td><td>${p.vat}%</td><td>${cnt}</td><td>${fmtMoney(rev)}</td><td><div style="width:24px;height:24px;border-radius:5px;background:${p.color}"></div></td><td><button class="btn btn-ghost btn-sm" onclick="openPlatformModal('${p.id}')">&#x270e;</button> <button class="btn btn-ghost btn-sm" onclick="deletePlatform('${p.id}')">&#x2326;</button></td></tr>`;
   }).join('');
 }
@@ -3021,7 +3021,7 @@ function getReportData(){
   const to=document.getElementById('rep-to')?.value||'';
   let list=bookings.filter(b=>b.status!=='Cancelled');
   if(pr!=='all')list=list.filter(b=>b.property===pr);
-  if(pl!=='all')list=list.filter(b=>b.platform===pl);
+  if(pl!=='all')list=list.filter(b=>normPlatform(b.platform||'')===normPlatform(pl));
   if(from)list=list.filter(b=>b.checkin>=from);
   if(to)list=list.filter(b=>b.checkin<=to);
   const groups={};
@@ -3044,7 +3044,7 @@ function renderReports(){
     <div class="stat-card"><div class="stat-label">Bookings</div><div class="stat-value">${list.length}</div></div>
     <div class="stat-card"><div class="stat-label">Total Nights</div><div class="stat-value">${totalNights}</div></div>
     <div class="stat-card"><div class="stat-label">Avg / Booking</div><div class="stat-value">${fmtMoney(avgRev)}</div></div>`;
-  const topPlat=platforms.map(p=>({name:p.name,rev:list.filter(b=>b.platform===p.name).reduce((s,b)=>s+calcTotals(b).netRevenue,0)})).sort((a,b)=>b.rev-a.rev)[0];
+  const topPlat=platforms.map(p=>({name:p.name,rev:list.filter(b=>normPlatform(b.platform||'')===p.name).reduce((s,b)=>s+calcTotals(b).netRevenue,0)})).sort((a,b)=>b.rev-a.rev)[0];
   const topProp=properties.map(p=>({name:p.name,rev:list.filter(b=>b.property===p.id).reduce((s,b)=>s+calcTotals(b).netRevenue,0)})).sort((a,b)=>b.rev-a.rev)[0];
   document.getElementById('repSmartInsight').textContent=topPlat&&topProp?`Best platform: ${topPlat.name} \u00b7 Best property: ${topProp.name}`:'';
   setTimeout(()=>{
@@ -4011,7 +4011,7 @@ function applySheetsPullData(data){
         id:r.ID||genId(),guest:r.Guest||'',
         checkin:isoDate(r['Check-in']),checkout:isoDate(r['Check-out']),
         platform:normPlatform(r.Platform||''),
-        property:properties.find(p=>p.name===r.Property)?.id||r.Property||'',
+        property:properties.find(p=>p.id===r.Property||p.name===r.Property)?.id||r.Property||'',
         rate:pNum(r.Rate),
         promo:pNum(r['Total Promo (Manual Set by User)']),
         specialOffer:pNum(r['Special Promo (Auto From Airbnb)']),
@@ -4043,7 +4043,7 @@ function applySheetsPullData(data){
   if(Array.isArray(data.expenses)&&data.expenses.length){
     expenses=data.expenses.map(r=>({
       id:r.ID||genId(),month:r.Month||'',
-      prop:properties.find(p=>p.name===r.Property)?.id||'all',
+      prop:properties.find(p=>p.id===r.Property||p.name===r.Property)?.id||'all',
       water:pNum(r.Water),electricity:pNum(r.Electricity),supplies:pNum(r.Supplies),
       maintenance:pNum(r.Maintenance),
       cleaning:pNum(r['Cleaning Cost'])||pNum(r.Cleaning),
