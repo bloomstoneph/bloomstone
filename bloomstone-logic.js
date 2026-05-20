@@ -3848,6 +3848,13 @@ async function sheetsPull(){
   );
 }
 
+// Strip ₱ symbol, commas, spaces then parse — handles "₱2,500.00" or "2500" or 2500
+function pNum(v){
+  if(v===null||v===undefined||v==='')return 0;
+  const n=parseFloat(String(v).replace(/[₱,\s]/g,''));
+  return isNaN(n)?0:n;
+}
+
 // ── Shared: map Sheets JSON → app data arrays ─────────────────
 function applySheetsPullData(data){
   if(Array.isArray(data.properties)&&data.properties.length){
@@ -3871,7 +3878,7 @@ function applySheetsPullData(data){
   if(Array.isArray(data.platforms)&&data.platforms.length){
     platforms=data.platforms.map(r=>({
       id:r.ID||genId(),name:r.Name||'',
-      commission:+r['Commission %']||0,vat:+r['VAT %']||0,guestFee:+r['Guest Fee %']||0,
+      commission:pNum(r['Commission %']),vat:pNum(r['VAT %']),guestFee:pNum(r['Guest Fee %']),
       // Prefer color from sheet; fall back to existing local color for same name; then default
       color:r.Color||platforms.find(p=>p.name===r.Name)?.color||'#888'
     }));
@@ -3883,22 +3890,22 @@ function applySheetsPullData(data){
         checkin:isoDate(r['Check-in']),checkout:isoDate(r['Check-out']),
         platform:r.Platform||'',
         property:properties.find(p=>p.name===r.Property)?.id||r.Property||'',
-        rate:+r.Rate||0,
-        promo:+r['Total Promo (Manual Set by User)']||0,
-        specialOffer:+r['Special Promo (Auto From Airbnb)']||0,
-        bookingFee:+r['Booking Fee']||0,
-        serviceFee:+r['Service Fee (Auto From Airbnb)']||+r['Service Fee (Auto From Aibnb)']||+r['Service Fee']||0,
-        platformCommission:+r['Platform Commission']||+r['Platform Comm']||0,
-        extraGuests:+r['Extra Guests']||+r['Extra Guest']||0,
-        extraGuestFee:+r['Extra Guest Fee']||0,
-        storeSales:+r['Store Sales']||+r['Store Sale']||+r.StoreSales||0,
-        cleaningFee:+r['Cleaning Fee']||+r['Cleaning']||+r.CleaningFee||0,
-        deposit:+r.Deposit||0,
-        depositRefundedAmt:+r['Deposit Refunded']||+r['Deposit Refunded Amt']||0,
+        rate:pNum(r.Rate),
+        promo:pNum(r['Total Promo (Manual Set by User)']),
+        specialOffer:pNum(r['Special Promo (Auto From Airbnb)']),
+        bookingFee:pNum(r['Booking Fee']),
+        serviceFee:pNum(r['Service Fee (Auto From Airbnb)'])||pNum(r['Service Fee (Auto From Aibnb)'])||pNum(r['Service Fee']),
+        platformCommission:pNum(r['Platform Commission'])||pNum(r['Platform Comm']),
+        extraGuests:pNum(r['Extra Guests'])||pNum(r['Extra Guest']),
+        extraGuestFee:pNum(r['Extra Guest Fee']),
+        storeSales:pNum(r['Store Sales'])||pNum(r['Store Sale']),
+        cleaningFee:pNum(r['Cleaning Fee'])||pNum(r['Cleaning']),
+        deposit:pNum(r.Deposit),
+        depositRefundedAmt:pNum(r['Deposit Refunded'])||pNum(r['Deposit Refunded Amt']),
         depositCollected:r['Dep Collected']==='Yes',
         depositRefunded:r['Dep Refunded']==='Yes',
         payment:r.Payment||'',status:r.Status||'Confirmed',
-        guestCount:+r['Guest Count']||1,notes:r.Notes||'',
+        guestCount:pNum(r['Guest Count'])||1,notes:r.Notes||'',
         guestPrefs:r['Guest Prefs']||'',
         createdAt:r['Created At']||'',updatedAt:r['Updated At']||'',
         tasks:{},
@@ -3915,11 +3922,11 @@ function applySheetsPullData(data){
     expenses=data.expenses.map(r=>({
       id:r.ID||genId(),month:r.Month||'',
       prop:properties.find(p=>p.name===r.Property)?.id||'all',
-      water:+r.Water||0,electricity:+r.Electricity||0,supplies:+r.Supplies||0,
-      maintenance:+r.Maintenance||0,
-      cleaning:+r['Cleaning Cost']||+r.Cleaning||0,
-      other:+r.Other||+r['Other Expenses']||0,
-      amount:+r.Total||0,notes:r.Notes||''
+      water:pNum(r.Water),electricity:pNum(r.Electricity),supplies:pNum(r.Supplies),
+      maintenance:pNum(r.Maintenance),
+      cleaning:pNum(r['Cleaning Cost'])||pNum(r.Cleaning),
+      other:pNum(r.Other)||pNum(r['Other Expenses']),
+      amount:pNum(r.Total),notes:r.Notes||''
     }));
   }
 }
