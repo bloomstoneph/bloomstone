@@ -296,46 +296,60 @@ function scheduleSheetsAutoPush(){
   _autoPushTimer=setTimeout(()=>{_autoPushTimer=null;sheetsPush(true);},1500);
 }
 
-// ── Live sync: poll Sheets every 30 s for external changes ──
+// ── Live sync: poll Sheets every 20 s for external changes ──
 let _pollTimer=null;
 function startSheetsPolling(){
   stopSheetsPolling();
-  _pollTimer=setInterval(()=>sheetsQuietPull(),30000);
+  _pollTimer=setInterval(()=>sheetsQuietPull(),20000);
 }
 function stopSheetsPolling(){
   if(_pollTimer){clearInterval(_pollTimer);_pollTimer=null;}
 }
-async function sheetsQuietPull(){
+
+/**
+ * Pull latest data from Google Sheets.
+ * @param {boolean} force — startup mode: bypass cooldown, autoPush-pending check,
+ *   and timestamp comparison; always apply whatever the sheet has.
+ */
+async function sheetsQuietPull(force=false){
   if(!sheetsConfig.connected||!sheetsConfig.url)return;
-  if(_isPulling||Date.now()<_pullCooldownUntil)return; // skip during/after manual pull
-  // Never overwrite local data while a push is pending — local changes are more recent
-  if(_autoPushTimer!==null)return;
+  if(_isPulling)return;
+  // In normal poll mode: respect cooldown and pending push guard.
+  // In force (startup) mode: bypass both so the device always gets fresh data.
+  if(!force&&Date.now()<_pullCooldownUntil)return;
+  if(!force&&_autoPushTimer!==null)return;
   try{
     const url=sheetsConfig.url+'?user=auto&t='+Date.now();
     const r=await fetch(url,{method:'GET'});
     if(!r.ok)return;
     const data=await r.json();
     if(data.error)return;
-    const neverSynced=!sheetsConfig.lastSync; // first time this device ever pulls
-    // If sheet has no timestamp and we've already synced before, skip (can't compare)
-    if(!data.exportedAt&&!neverSynced)return;
-    const sheetTime=data.exportedAt?new Date(data.exportedAt).getTime():Date.now();
-    const lastPush=sheetsConfig.lastSync?new Date(sheetsConfig.lastSync).getTime():0;
-    // Apply if: never synced on this device (ensures mobile always gets fresh data on first open)
-    // OR sheet data is newer than our last push (external edit detected)
-    if(neverSynced||sheetTime>lastPush+10000){
-      if(_autoPushTimer!==null)return; // double-check no push snuck in
-      _isPulling=true;
-      applySheetsPullData(data);
-      if(bookings.length||properties.length){
-        saveAll();populateSelects();renderView(currentWs);
-        sheetsConfig.lastSync=new Date().toISOString();
-        saveSheetsConfig();renderSheetsStatus();
-        if(!neverSynced)toast('📊 Sheets updated externally — data refreshed.','info');
-      }
-      _isPulling=false;
+    const neverSynced=!sheetsConfig.lastSync;
+    // Use sheet's own exportedAt as the comparison baseline, NOT device wall-clock.
+    // This prevents the "device pulled at T+3s, sheet updated at T+5s, poll sees only 2s diff
+    // and misses it because of the 10s buffer" race condition.
+    const sheetTime=data.exportedAt?new Date(data.exportedAt).getTime():0;
+    const lastSyncMs=sheetsConfig.lastSync?new Date(sheetsConfig.lastSync).getTime():0;
+    const sheetIsNewer=sheetTime&&sheetTime>lastSyncMs+2000; // 2s buffer for clock skew
+    const shouldApply=force||neverSynced||sheetIsNewer;
+    if(!shouldApply)return;
+    // Final guard: if a push snuck in during the fetch, let it win (it has newer local data)
+    if(!force&&_autoPushTimer!==null)return;
+    _isPulling=true;
+    applySheetsPullData(data);
+    if(bookings.length||properties.length){
+      saveAll();populateSelects();renderView(currentWs);
+      // KEY: store the SHEET's exportedAt as lastSync (not Date.now()).
+      // Ensures subsequent polls correctly detect further sheet changes.
+      sheetsConfig.lastSync=data.exportedAt||new Date().toISOString();
+      saveSheetsConfig();renderSheetsStatus();
+      // Only toast for genuine external edits detected during normal polling
+      if(!force&&!neverSynced)toast('📊 Sheets updated — data refreshed.','info');
     }
-  }catch(e){}
+    _isPulling=false;
+  }catch(e){
+    _isPulling=false; // always release lock, even on network error
+  }
 }
 function loadAll(){
   try{
@@ -3951,7 +3965,9 @@ async function sheetsPull(){
         populateSelects();
         // Navigate to bookings list so user can see pulled data
         subClick('operations','bookings');
-        sheetsConfig.lastSync=new Date().toISOString();saveSheetsConfig();renderSheetsStatus();
+        // Use sheet's exportedAt as lastSync so subsequent polls correctly compare timestamps
+        sheetsConfig.lastSync=data.exportedAt||new Date().toISOString();
+        saveSheetsConfig();renderSheetsStatus();
         setSheetsProgress(true,'Done!',100);setSheetsProgress(false);
         toast(`✅ Pulled ${bookings.length} bookings, ${properties.length} properties from Sheets!`,'success');
       }catch(err){
@@ -4091,9 +4107,10 @@ function init(){
   wireSheetsButtons();
   if(sheetsConfig.connected&&sheetsConfig.url){
     startSheetsPolling();
-    // Pull immediately on startup so every device (mobile/desktop) gets fresh data
-    // without waiting 30s for the first poll interval to fire
-    setTimeout(()=>sheetsQuietPull(),3000);
+    // Force-pull on startup: every device always gets the latest Sheet data within 1.5s
+    // of opening the app, regardless of cooldowns, pending pushes, or timestamp comparisons.
+    // This guarantees mobile and desktop show identical data immediately on open.
+    setTimeout(()=>sheetsQuietPull(true),1500);
   }
   document.querySelector('.ws-btn[data-ws="today"]')?.classList.add('active');
   const savedTheme=localStorage.getItem('bloomstone_theme')||'light';
