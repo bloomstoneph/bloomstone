@@ -633,12 +633,18 @@ a{color:inherit;text-decoration:none}
 .month-cell.other-month{background:var(--surface-2);opacity:.6}
 .month-cell-num{font-size:12px;font-weight:700;color:var(--text-2);margin-bottom:4px}
 .month-cell.today .month-cell-num{color:var(--text);background:var(--text);color:var(--bg);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px}
-.cal-event-bar{height:20px;line-height:20px;border-radius:4px;padding:0 6px;font-size:11px;font-weight:600;color:#fff;margin-bottom:2px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:filter var(--transition)}
-.cal-event-bar:hover{filter:brightness(1.1)}
+.cal-event-bar{height:22px;line-height:22px;border-radius:5px;padding:0 7px;font-size:11px;font-weight:600;color:#fff;margin-bottom:2px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:filter var(--transition);display:flex;align-items:center;gap:4px}
+.cal-event-bar:hover{filter:brightness(1.12)}
 .cal-event-bar.bar-start{border-top-right-radius:0;border-bottom-right-radius:0}
-.cal-event-bar.bar-mid{border-radius:0;color:transparent}
-.cal-event-bar.bar-end{border-top-left-radius:0;border-bottom-left-radius:0;color:transparent}
+.cal-event-bar.bar-mid{border-radius:0}
+.cal-event-bar.bar-mid .bar-name{display:none}
+.cal-event-bar.bar-end{border-top-left-radius:0;border-bottom-left-radius:0;justify-content:flex-end}
+.cal-event-bar.bar-end .bar-name{display:none}
 .cal-event-bar.bar-conflict{outline:2px solid var(--orange);outline-offset:-2px}
+.cal-ci-badge{font-size:9px;font-weight:800;background:#16a34a;border-radius:3px;padding:1px 5px;white-space:nowrap;color:#fff;flex-shrink:0}
+.cal-co-badge{font-size:9px;font-weight:800;background:#dc2626;border-radius:3px;padding:1px 5px;white-space:nowrap;color:#fff;flex-shrink:0}
+.month-cell-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.month-cell-dots{display:flex;gap:2px;align-items:center}
 .cal-more{font-size:10px;color:var(--text-3);font-weight:600;padding:1px 4px}
 
 /* Week/Day grid */
@@ -996,14 +1002,17 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
   /* Tabs scroll horizontally on mobile */
   .cal-view-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;gap:1px;max-width:100%}
   .cal-view-tab{padding:4px 8px;font-size:11px;flex-shrink:0;white-space:nowrap}
-  /* Month grid: force min-width so each cell is at least 90px — grid scrolls inside cal-body */
-  .month-grid{gap:0;border-radius:var(--radius);border:1px solid var(--border);background:var(--border);min-width:630px}
-  .month-day-name{padding:5px 2px;font-size:9px;letter-spacing:0}
-  /* Cells: fixed min-height now that cells are 90px wide */
-  .month-cell{min-height:88px;height:auto;padding:3px 2px;overflow:visible}
-  .month-cell-num{font-size:10px;margin-bottom:1px;font-weight:700}
-  .month-cell.today .month-cell-num{width:18px;height:18px;font-size:10px}
-  .cal-event-bar{height:13px;line-height:13px;font-size:8px;padding:0 3px;margin-bottom:1px}
+  /* Month grid: horizontal scroll, min 90px per cell */
+  .month-grid{gap:0;border-radius:var(--radius);border:1px solid var(--border);background:var(--border);min-width:700px}
+  .month-day-name{padding:6px 3px;font-size:9px;letter-spacing:0;text-align:center}
+  /* Cells auto-height to fit all events */
+  .month-cell{min-height:100px;height:auto;padding:4px 3px;overflow:visible}
+  .month-cell-header{margin-bottom:2px}
+  .month-cell-num{font-size:11px;margin-bottom:0;font-weight:700}
+  .month-cell.today .month-cell-num{width:20px;height:20px;font-size:10px}
+  .cal-event-bar{height:16px;line-height:16px;font-size:9px;padding:0 4px;margin-bottom:2px;gap:2px}
+  .cal-ci-badge,.cal-co-badge{font-size:8px;padding:1px 3px}
+  .month-cell-dots span{width:5px!important;height:5px!important}
   .cal-more{font-size:8px}
   .filter-bar{position:relative;top:auto}
   /* cal-body scrolls both axes so the wider month grid is reachable */

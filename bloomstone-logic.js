@@ -1893,12 +1893,26 @@ function renderMonthCal(body,y,m,shown){
   for(let i=0;i<firstDow;i++){const d=new Date(y,m,i-firstDow+1);cells.push({date:dateToISO(d),in:false});}
   for(let d=1;d<=daysInMonth;d++)cells.push({date:dateToISO(new Date(y,m,d)),in:true});
   while(cells.length%7!==0){const last=new Date(cells[cells.length-1].date+'T12:00:00');last.setDate(last.getDate()+1);cells.push({date:dateToISO(last),in:false});}
+  // Pre-compute check-in / check-out sets for dot indicators
+  const ciDates={}, coDates={};
+  shown.forEach(b=>{
+    if(b.checkin){ciDates[b.checkin]=(ciDates[b.checkin]||0)+1;}
+    if(b.checkout){coDates[b.checkout]=(coDates[b.checkout]||0)+1;}
+  });
   body.innerHTML=`<div class="month-grid">
     ${dayNames.map(d=>`<div class="month-day-name">${d}</div>`).join('')}
-    ${cells.map(cell=>`<div class="month-cell${cell.in?'':' other-month'}${cell.date===today?' today':''}" data-date="${cell.date}">
-      <div class="month-cell-num">${+cell.date.slice(8,10)}</div>
-      <div class="month-cell-events" data-date="${cell.date}"></div>
-    </div>`).join('')}
+    ${cells.map(cell=>{
+      const ci=ciDates[cell.date]||0, co=coDates[cell.date]||0;
+      const dots=(ci?`<span style="width:7px;height:7px;border-radius:50%;background:#16a34a;display:inline-block" title="${ci} check-in(s)"></span>`.repeat(Math.min(ci,3)):'')
+               +(co?`<span style="width:7px;height:7px;border-radius:50%;background:#dc2626;display:inline-block" title="${co} check-out(s)"></span>`.repeat(Math.min(co,3)):'');
+      return`<div class="month-cell${cell.in?'':' other-month'}${cell.date===today?' today':''}" data-date="${cell.date}">
+        <div class="month-cell-header">
+          <div class="month-cell-num">${+cell.date.slice(8,10)}</div>
+          ${dots?`<div class="month-cell-dots">${dots}</div>`:''}
+        </div>
+        <div class="month-cell-events" data-date="${cell.date}"></div>
+      </div>`;
+    }).join('')}
   </div>`;
   shown.slice().sort((a,b)=>a.checkin.localeCompare(b.checkin)).forEach(b=>{
     const isAllProps=calPropFilter==='all';
@@ -1924,27 +1938,28 @@ function renderMonthCal(body,y,m,shown){
         const pill=document.createElement('div');
         if(conflict)pill.style.outline='2px solid var(--orange)';
         if(isDayPast){
-          // Past day: single compact line, heavily muted — no clutter
-          pill.style.cssText=`display:flex;align-items:center;gap:5px;padding:3px 7px;border-radius:6px;margin-bottom:3px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;opacity:0.28;min-height:20px`;
-          pill.innerHTML=`<span style="font-size:10px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(propName(b.property))}</span><span style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60px">${esc(b.guest.split(' ')[0])}</span>`;
+          pill.style.cssText=`display:flex;align-items:center;gap:5px;padding:3px 6px;border-radius:6px;margin-bottom:3px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;opacity:0.3;min-height:18px`;
+          pill.innerHTML=`<span style="font-size:10px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(propName(b.property))}</span><span style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55px">${esc(b.guest.split(' ')[0])}</span>`;
         }else{
-          // Active/upcoming day: full card with property, guest, day counter + IN/OUT badge
           const badge=isStart
-            ?`<span style="font-size:9px;font-weight:800;background:rgba(0,0,0,.25);border-radius:3px;padding:1px 5px;white-space:nowrap;letter-spacing:.3px">CHECK IN</span>`
+            ?`<span class="cal-ci-badge">CHECK IN</span>`
             :isEnd
-            ?`<span style="font-size:9px;font-weight:800;background:rgba(0,0,0,.25);border-radius:3px;padding:1px 5px;white-space:nowrap;letter-spacing:.3px">CHECK OUT</span>`
+            ?`<span class="cal-co-badge">CHECK OUT</span>`
             :'';
-          const dayLabel=totalN>1?`<span style="font-size:9px;opacity:.75;white-space:nowrap">Day ${dayNum}/${totalN}</span>`:'';
-          pill.style.cssText=`display:flex;flex-direction:column;gap:2px;padding:5px 7px;border-radius:6px;margin-bottom:3px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;opacity:1;${isToday?'box-shadow:0 0 0 2px #fff,0 0 0 3.5px '+platC+';':''}`;
+          const t=calcTotals(b);
+          const dayLabel=totalN>1?`<span style="font-size:9px;opacity:.7;white-space:nowrap;flex-shrink:0">Day ${dayNum}/${totalN}</span>`:'';
+          const rateLabel=`<span style="font-size:9px;opacity:.75;white-space:nowrap;flex-shrink:0">${fmtMoney(b.rate)}/n</span>`;
+          pill.style.cssText=`display:flex;flex-direction:column;gap:2px;padding:5px 7px;border-radius:7px;margin-bottom:3px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;${isToday?'box-shadow:0 0 0 2px #fff,0 0 0 3.5px '+platC+';':''}`;
           pill.innerHTML=`
             <div style="display:flex;align-items:center;gap:4px;min-width:0">
               <span style="font-size:11px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;line-height:1.3">${esc(propName(b.property))}</span>
               ${badge}
             </div>
             <div style="display:flex;align-items:center;gap:4px;min-width:0">
-              <span style="font-size:10px;opacity:.82;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(b.guest)}</span>
+              <span style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;opacity:.9">${esc(b.guest)}</span>
               ${dayLabel}
-            </div>`;
+            </div>
+            ${isStart||isEnd?`<div style="display:flex;align-items:center;gap:4px;min-width:0;opacity:.8">${rateLabel}<span style="font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${platformPillHtml(b.platform).replace('platform-pill','').replace('<span ','<span style="font-size:9px;color:#fff;opacity:.9" ')}</span></div>`:''}`;
         }
         pill.title=`${esc(b.guest)} \u00b7 ${propName(b.property)} \u00b7 ${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)}`;
         pill.addEventListener('click',e=>{e.stopPropagation();openBookingDrawer(b.id);});
@@ -1964,13 +1979,11 @@ function renderMonthCal(body,y,m,shown){
         if(isPast)bar.style.opacity='0.55';
         bar.title=`${b.guest} \u00b7 ${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)}`;
         if(isStart||totalN===1){
-          const tag=`<span style="font-size:10px;font-weight:800;opacity:.9;background:rgba(0,0,0,.22);border-radius:3px;padding:0 5px;margin-left:5px;vertical-align:middle">IN</span>`;
-          bar.innerHTML=`${esc(b.guest)}${tag}`;
+          bar.innerHTML=`<span class="bar-name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff">${esc(b.guest)}</span><span class="cal-ci-badge" style="flex-shrink:0">IN</span>`;
         }else if(isEnd){
-          bar.innerHTML=`<span style="font-size:10px;font-weight:800;opacity:.9;background:rgba(0,0,0,.22);border-radius:3px;padding:0 5px">OUT</span>`;
-          bar.style.display='flex';bar.style.alignItems='center';bar.style.justifyContent='flex-end';
+          bar.innerHTML=`<span class="cal-co-badge" style="flex-shrink:0">OUT</span>`;
         }else{
-          bar.textContent='';
+          bar.innerHTML='';
         }
         bar.addEventListener('click',e=>{e.stopPropagation();openBookingDrawer(b.id);});
         container.appendChild(bar);
