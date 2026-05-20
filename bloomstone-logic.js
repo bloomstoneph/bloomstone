@@ -3859,10 +3859,10 @@ async function sheetsPull(){
   );
 }
 
-// Strip ₱ symbol, commas, spaces then parse — handles "₱2,500.00" or "2500" or 2500
+// Strip currency symbols, commas, spaces then parse — handles "₱2,500.00" / "$2,500" / 2500
 function pNum(v){
   if(v===null||v===undefined||v==='')return 0;
-  const n=parseFloat(String(v).replace(/[₱,\s]/g,''));
+  const n=parseFloat(String(v).replace(/[₱$,\s]/g,''));
   return isNaN(n)?0:n;
 }
 
