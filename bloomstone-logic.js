@@ -357,11 +357,20 @@ function loadAll(){
     expenses  =Array.isArray(d.expenses)  ?d.expenses  :[];
     trash     =Array.isArray(d.trash)     ?d.trash     :[];
     properties=properties.map(p=>({baseGuests:2,maxGuests:Math.max(2,(p.beds||1)*2),extraGuestFee:300,baseRate:0,blockedDates:[],...p}));
-    bookings=bookings.map(b=>({tasks:{},...b,
-      bookingFee:b.bookingFee??b.bookingfee??0,
-      guestCount:b.guestCount??b.guestcount??1,
-      storeSales:b.storeSales??b.storeSale??0,
-    }));
+    // One-time migration: clear corrupted extraGuests data from old bad column mapping
+    const migrated = localStorage.getItem('bls_eg_migrated_v1');
+    bookings=bookings.map(b=>{
+      const eg = migrated ? (+b.extraGuests||0) : 0;
+      const ef = migrated ? (+b.extraGuestFee||0) : 0;
+      return{tasks:{},...b,
+        bookingFee:b.bookingFee??b.bookingfee??0,
+        guestCount:b.guestCount??b.guestcount??1,
+        storeSales:b.storeSales??b.storeSale??0,
+        extraGuests:eg,
+        extraGuestFee:ef,
+      };
+    });
+    if(!migrated) localStorage.setItem('bls_eg_migrated_v1','1');
   }catch(e){
     console.error('load failed',e);
     properties=DEFAULT_PROPERTIES.map(p=>({...p}));
@@ -1230,6 +1239,8 @@ function openBookingDrawer(id=null){
   const _gsfEl=document.getElementById('f-guestservicefee');
   if(_gsfEl){_gsfEl.value=0;delete _gsfEl.dataset.manual;}
   ['f-store','f-cleaning','f-extraguests'].forEach(k=>{const el=document.getElementById(k);if(el)el.value=0;});
+  const _gcEl=document.getElementById('f-guestcount');if(_gcEl)_gcEl.value=1;
+  const _gpEl=document.getElementById('f-guestprefs');if(_gpEl)_gpEl.value='';
   document.getElementById('f-deposit').value=0;
   document.getElementById('f-dep-refunded-amt').value=0;
   _currentAdjustments=[];
@@ -1274,7 +1285,10 @@ function openBookingDrawer(id=null){
         applyStatusColor(document.getElementById('f-status'));
         document.getElementById('f-payment').value=b.payment||'Platform (Auto)';
         document.getElementById('f-notes').value=b.notes||'';
-        // guestPrefs merged into notes
+        const gcEl=document.getElementById('f-guestcount');
+        if(gcEl)gcEl.value=b.guestCount??1;
+        const gpEl=document.getElementById('f-guestprefs');
+        if(gpEl)gpEl.value=b.guestPrefs||'';
         document.getElementById('f-dep-collected').value=(+b.deposit||0)>0?'1':(b.depositCollected?'1':'');
         document.getElementById('f-dep-refunded').value=b.depositRefunded?'1':'';
         _currentAdjustments=(b.adjustments||[]).map(a=>({...a}));
@@ -1632,8 +1646,8 @@ function _buildBookingFromForm(existing){
     status:document.getElementById('f-status').value,
     payment:document.getElementById('f-payment').value,
     notes:document.getElementById('f-notes').value,
-    guestPrefs:existing?.guestPrefs||'',
-    guestCount:existing?.guestCount||1,
+    guestPrefs:document.getElementById('f-guestprefs')?.value||existing?.guestPrefs||'',
+    guestCount:Math.max(1,+document.getElementById('f-guestcount')?.value||existing?.guestCount||1),
     depositCollected:(+document.getElementById('f-deposit').value||0)>0,
     depositRefunded:(+document.getElementById('f-dep-refunded-amt').value||0)>0,
     depositRefundedAmt:+document.getElementById('f-dep-refunded-amt').value||0,
@@ -3714,9 +3728,13 @@ async function sheetsPush(silent=false){
           'Special Promo (Auto From Airbnb)':b.specialOffer||0,
           'Platform Commission':b.platformCommission??t.platFee,
           'Service Fee (Auto From Airbnb)':b.serviceFee||0,
-          'Extra Guests':b.extraGuests??t.extraG,
-          'Extra Guest Fee':b.extraGuestFee??t.extraFee,
+          'Extra Guests':b.extraGuests||0,
+          'Extra Guest Fee':b.extraGuestFee||0,
+          'Adjustments':(b.adjustments||[]).filter(a=>a.desc||a.amount).map(a=>`${a.desc||'Adjustment'}: ₱${(+a.amount||0).toLocaleString()}`).join(' | ')||'',
+          'Adjustments Total':t.adjTotal,
           'Total (excl. Extra Guests)':t.totalWithout,
+          'Total Charged to Guest':t.guestTotal,
+          'Total Guest Paid to Platform':t.totalGuestPaid,
           'Net Revenue':t.netRevenue,'Store Sales':b.storeSales||0,'Cleaning Fee':b.cleaningFee||0,
           Deposit:b.deposit||0,'Deposit Refunded':b.depositRefundedAmt||0,
           'Dep Collected':b.depositCollected?'Yes':'No',
@@ -3792,6 +3810,16 @@ async function sheetsPull(){
         if(!resp.ok)throw new Error('HTTP '+resp.status);
         const data=await resp.json();
         if(data.error)throw new Error(data.error);
+        // DEBUG: log raw column names from first booking row
+        if(data.bookings&&data.bookings.length){
+          const firstRow=data.bookings[0];
+          const keys=Object.keys(firstRow);
+          console.log('SHEET COLUMNS RECEIVED:',keys);
+          console.log('Store Sales value:',firstRow['Store Sales']);
+          console.log('Cleaning Fee value:',firstRow['Cleaning Fee']);
+          console.log('Service Fee (Auto From Airbnb) value:',firstRow['Service Fee (Auto From Airbnb)']);
+          toast('Sheet columns: '+keys.slice(0,8).join(', ')+'…','info',8000);
+        }
         setSheetsProgress(true,'Processing data…',60);
         const beforeCount=bookings.length;
         applySheetsPullData(data);
@@ -3849,37 +3877,37 @@ function applySheetsPullData(data){
     }));
   }
   if(Array.isArray(data.bookings)&&data.bookings.length){
-    bookings=data.bookings.map(r=>({
-      id:r.ID||genId(),guest:r.Guest||'',
-      checkin:isoDate(r['Check-in']),checkout:isoDate(r['Check-out']),
-      platform:r.Platform||'',
-      property:properties.find(p=>p.name===r.Property)?.id||r.Property||'',
-      rate:+r.Rate||0,promo:+r.Promo||0,specialOffer:+r['Special Offer']||0,guestServiceFee:+r['Guest Service Fee']||0,
-      bookingFee:+r['Booking Fee']||0,serviceFee:+r['Service Fee']||0,
-      platformCommission:+r['Platform Commission']||0,
-      extraGuests:+r['Extra Guests']||0,
-      extraGuestFee:+r['Extra Guest Fee']||0,
-      totalWithout:+r['Total (excl. Extra Guests)']||0,
-      netRevenue:+r['Net Revenue']||0,storeSales:+r['Store Sales']||0,cleaningFee:+r['Cleaning Fee']||0,
-      deposit:+r.Deposit||0,
-      depositCollected:r['Dep Collected']==='Yes',
-      depositRefunded:r['Dep Refunded']==='Yes',
-      depositRefundedAmt:+r['Dep Refunded Amt']||0,
-      payment:r.Payment||'',status:r.Status||'Confirmed',
-      guestCount:+r['Guest Count']||1,notes:r.Notes||'',
-      guestPrefs:r['Guest Prefs']||'',
-      createdAt:r['Created At']||'',updatedAt:r['Updated At']||'',
-      tasks:{},
-    })).filter(b=>b.checkin&&b.checkout&&b.guest)
+    bookings=data.bookings.map(r=>{
+      return{
+        id:r.ID||genId(),guest:r.Guest||'',
+        checkin:isoDate(r['Check-in']),checkout:isoDate(r['Check-out']),
+        platform:r.Platform||'',
+        property:properties.find(p=>p.name===r.Property)?.id||r.Property||'',
+        rate:+r.Rate||0,
+        promo:+r['Total Promo (Manual Set by User)']||0,
+        specialOffer:+r['Special Promo (Auto From Airbnb)']||0,
+        bookingFee:+r['Booking Fee']||0,
+        serviceFee:+r['Service Fee (Auto From Airbnb)']||+r['Service Fee (Auto From Aibnb)']||+r['Service Fee']||0,
+        platformCommission:+r['Platform Commission']||+r['Platform Comm']||0,
+        extraGuests:+r['Extra Guests']||+r['Extra Guest']||0,
+        extraGuestFee:+r['Extra Guest Fee']||0,
+        storeSales:+r['Store Sales']||+r['Store Sale']||+r.StoreSales||0,
+        cleaningFee:+r['Cleaning Fee']||+r['Cleaning']||+r.CleaningFee||0,
+        deposit:+r.Deposit||0,
+        depositRefundedAmt:+r['Deposit Refunded']||+r['Deposit Refunded Amt']||0,
+        depositCollected:r['Dep Collected']==='Yes',
+        depositRefunded:r['Dep Refunded']==='Yes',
+        payment:r.Payment||'',status:r.Status||'Confirmed',
+        guestCount:+r['Guest Count']||1,notes:r.Notes||'',
+        guestPrefs:r['Guest Prefs']||'',
+        createdAt:r['Created At']||'',updatedAt:r['Updated At']||'',
+        tasks:{},
+      };
+    }).filter(b=>b.checkin&&b.checkout&&b.guest)
     .map(b=>{
-      // Auto-calculate missing totals from raw rate data
       const t=calcTotals(b);
-      b.bookingFee=t.bkFee;                                      // always recalc (Nights × Rate)
-      if(!b.netRevenue)         b.netRevenue=t.netRevenue;
-      if(!b.totalWithout)       b.totalWithout=t.totalWithout;
+      b.bookingFee=t.bkFee;
       if(!b.platformCommission) b.platformCommission=t.platFee;
-      if(!b.extraGuestFee)      b.extraGuestFee=t.extraFee;
-      if(!b.extraGuests)        b.extraGuests=t.extraG;
       return b;
     });
   }

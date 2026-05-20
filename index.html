@@ -990,22 +990,23 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
   .prop-grid{grid-template-columns:1fr}
   .avail-grid{grid-template-columns:1fr}
   /* ── Calendar mobile fixes ── */
-  .cal-container{height:calc(100vh - var(--topbar-h) - calc(60px + env(safe-area-inset-bottom)) - 16px);overflow-x:hidden}
+  .cal-container{height:calc(100vh - var(--topbar-h) - calc(60px + env(safe-area-inset-bottom)) - 16px);overflow-x:visible}
   .cal-toolbar{padding-bottom:8px;gap:6px;flex-wrap:wrap}
   .cal-period-label{font-size:12px;min-width:80px}
   /* Tabs scroll horizontally on mobile */
   .cal-view-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;gap:1px;max-width:100%}
   .cal-view-tab{padding:4px 8px;font-size:11px;flex-shrink:0;white-space:nowrap}
-  .month-grid{gap:0;border-radius:var(--radius);border:1px solid var(--border);background:var(--border)}
+  /* Month grid: force min-width so each cell is at least 90px — grid scrolls inside cal-body */
+  .month-grid{gap:0;border-radius:var(--radius);border:1px solid var(--border);background:var(--border);min-width:630px}
   .month-day-name{padding:5px 2px;font-size:9px;letter-spacing:0}
-  /* Cells grow with content — no fixed height, no cropping */
-  .month-cell{min-height:calc((100vw - 28px) / 7 * 0.9);height:auto;padding:3px 2px;overflow:visible}
+  /* Cells: fixed min-height now that cells are 90px wide */
+  .month-cell{min-height:88px;height:auto;padding:3px 2px;overflow:visible}
   .month-cell-num{font-size:10px;margin-bottom:1px;font-weight:700}
   .month-cell.today .month-cell-num{width:18px;height:18px;font-size:10px}
   .cal-event-bar{height:13px;line-height:13px;font-size:8px;padding:0 3px;margin-bottom:1px}
   .cal-more{font-size:8px}
   .filter-bar{position:relative;top:auto}
-  /* cal-body scrolls its own content; week/day views use overflow-x:auto on their inner wrapper */
+  /* cal-body scrolls both axes so the wider month grid is reachable */
   .cal-body{overflow-y:auto;overflow-x:auto;-webkit-overflow-scrolling:touch}
   .exp-amounts{grid-template-columns:1fr 1fr}
   /* Hide floating FABs on mobile — bottom nav handles these */
@@ -1630,9 +1631,15 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
         </div>
       </div>
 
-      <div class="field" style="margin-bottom:0">
-        <label class="label">Payment <span class="req">*</span></label>
-        <select class="input input-req" id="f-payment"><option>Platform (Auto)</option><option>Cash</option><option>Bank Transfer</option><option>GCash</option><option>PayMaya</option><option>PayPal</option><option>Cheque</option></select>
+      <div class="field-row" style="margin-bottom:0">
+        <div class="field" style="flex:2;margin-bottom:0">
+          <label class="label">Payment <span class="req">*</span></label>
+          <select class="input input-req" id="f-payment"><option>Platform (Auto)</option><option>Cash</option><option>Bank Transfer</option><option>GCash</option><option>PayMaya</option><option>PayPal</option><option>Cheque</option></select>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label class="label">Guest Count</label>
+          <input class="input" id="f-guestcount" type="number" min="1" step="1" value="1" placeholder="1" oninput="this.value=this.value.replace(/[^0-9]/g,'')"/>
+        </div>
       </div>
 
       <div class="field-row" style="margin-top:12px;margin-bottom:0">
@@ -1834,7 +1841,14 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
     <!-- ── NOTES ─────────────────────────────────────────────── -->
     <div class="drawer-card">
       <div class="drawer-card-hdr">📝 Notes</div>
-      <textarea class="input" id="f-notes" rows="3" placeholder="Internal notes, special arrangements, preferences…" style="resize:vertical;min-height:80px;margin-bottom:0"></textarea>
+      <div class="field" style="margin-bottom:10px">
+        <label class="label">Guest Preferences <span style="color:var(--text-3);font-size:10px">(dietary, room setup, special requests)</span></label>
+        <textarea class="input" id="f-guestprefs" rows="2" placeholder="e.g. vegetarian, extra pillows, early check-in…" style="resize:vertical;min-height:60px"></textarea>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label class="label">Internal Notes</label>
+        <textarea class="input" id="f-notes" rows="3" placeholder="Internal notes, special arrangements…" style="resize:vertical;min-height:80px;margin-bottom:0"></textarea>
+      </div>
     </div>
 
     <!-- ── RECENT BOOKINGS ───────────────────────────────────── -->
