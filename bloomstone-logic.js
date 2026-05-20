@@ -349,11 +349,15 @@ function loadAll(){
     bookings  =Array.isArray(d.bookings)  ?d.bookings  :[];
     properties=Array.isArray(d.properties)&&d.properties.length?d.properties:DEFAULT_PROPERTIES.map(p=>({...p}));
     platforms =Array.isArray(d.platforms) &&d.platforms.length ?d.platforms :DEFAULT_PLATFORMS.map(p=>({...p}));
-    // Migrate: fill in missing colors and guestFee using DEFAULT_PLATFORMS name-match or a fallback
-    platforms=platforms.map(p=>({...p,
-      color:p.color||(DEFAULT_PLATFORMS.find(d=>d.name===p.name)?.color)||'#888',
-      guestFee:p.guestFee!=null?p.guestFee:(DEFAULT_PLATFORMS.find(d=>d.name===p.name)?.guestFee??0),
-    }));
+    // Migrate: fill in missing colors and guestFee — use normPlatform to match DEFAULT_PLATFORMS
+    platforms=platforms.map(p=>{
+      const normKey=normPlatform(p.name||'');
+      const def=DEFAULT_PLATFORMS.find(d=>d.name===normKey);
+      return{...p,
+        color:p.color&&p.color!=='#888'?p.color:(def?.color||'#888'),
+        guestFee:p.guestFee!=null?p.guestFee:(def?.guestFee??0),
+      };
+    });
     expenses  =Array.isArray(d.expenses)  ?d.expenses  :[];
     trash     =Array.isArray(d.trash)     ?d.trash     :[];
     properties=properties.map(p=>({baseGuests:2,maxGuests:Math.max(2,(p.beds||1)*2),extraGuestFee:300,baseRate:0,blockedDates:[],...p}));
@@ -372,15 +376,21 @@ function loadAll(){
       };
     });
     if(!migrated) localStorage.setItem('bls_eg_migrated_v1','1');
-    // Deduplicate platforms — keep canonical name, merge by normalized name
-    const seen={};
-    platforms=platforms.filter(p=>{
-      const key=normPlatform(p.name);
-      if(seen[key])return false;
-      seen[key]=true;
-      p.name=key; // normalize stored name
-      return true;
+    // Deduplicate platforms — merge by normalized name, prefer non-grey color
+    const platMap={};
+    platforms.forEach(p=>{
+      const key=normPlatform(p.name||'');
+      p.name=key;
+      if(!platMap[key]){
+        platMap[key]=p;
+      }else{
+        // Merge: keep non-grey color; keep higher commission/guestFee if non-zero
+        if(platMap[key].color==='#888'&&p.color&&p.color!=='#888')platMap[key].color=p.color;
+        if(!platMap[key].commission&&p.commission)platMap[key].commission=p.commission;
+        if(!platMap[key].guestFee&&p.guestFee)platMap[key].guestFee=p.guestFee;
+      }
     });
+    platforms=Object.values(platMap);
   }catch(e){
     console.error('load failed',e);
     properties=DEFAULT_PROPERTIES.map(p=>({...p}));
@@ -3972,15 +3982,28 @@ function applySheetsPullData(data){
     }));
   }
   if(Array.isArray(data.platforms)&&data.platforms.length){
-    const rawPlats=data.platforms.map(r=>({
-      id:r.ID||genId(),
-      name:normPlatform(r.Name||''),
-      commission:pNum(r['Commission %']),vat:pNum(r['VAT %']),guestFee:pNum(r['Guest Fee %']),
-      color:r.Color||platforms.find(p=>normPlatform(p.name)===normPlatform(r.Name||''))?.color||'#888'
-    }));
-    // Deduplicate by normalized name — keep first occurrence
+    const rawPlats=data.platforms.map(r=>{
+      const normName=normPlatform(r.Name||'');
+      const def=DEFAULT_PLATFORMS.find(d=>d.name===normName);
+      // Color priority: sheet Color column → existing platform → DEFAULT_PLATFORMS hardcoded → grey
+      const existingColor=platforms.find(p=>normPlatform(p.name)===normName)?.color;
+      const fallbackColor=def?.color||'#888';
+      const chosenColor=r.Color||(existingColor&&existingColor!=='#888'?existingColor:null)||fallbackColor;
+      return{
+        id:r.ID||genId(),
+        name:normName,
+        commission:pNum(r['Commission %']),vat:pNum(r['VAT %']),guestFee:pNum(r['Guest Fee %']),
+        color:chosenColor
+      };
+    });
+    // Deduplicate by normalized name — merge colors, prefer non-grey
     const platSeen={};
-    platforms=rawPlats.filter(p=>{if(platSeen[p.name])return false;platSeen[p.name]=true;return true;});
+    platforms=rawPlats.filter(p=>{
+      if(!platSeen[p.name]){platSeen[p.name]=p;return true;}
+      // Merge color if this duplicate has a better (non-grey) color
+      if(platSeen[p.name].color==='#888'&&p.color!=='#888')platSeen[p.name].color=p.color;
+      return false;
+    });
   }
   if(Array.isArray(data.bookings)&&data.bookings.length){
     bookings=data.bookings.map(r=>{
