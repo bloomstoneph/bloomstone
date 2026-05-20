@@ -316,21 +316,22 @@ async function sheetsQuietPull(){
     if(!r.ok)return;
     const data=await r.json();
     if(data.error)return;
-    // Only apply if the sheet has newer data than our last push
-    if(!data.exportedAt)return;
-    const sheetTime=new Date(data.exportedAt).getTime();
+    const neverSynced=!sheetsConfig.lastSync; // first time this device ever pulls
+    // If sheet has no timestamp and we've already synced before, skip (can't compare)
+    if(!data.exportedAt&&!neverSynced)return;
+    const sheetTime=data.exportedAt?new Date(data.exportedAt).getTime():Date.now();
     const lastPush=sheetsConfig.lastSync?new Date(sheetsConfig.lastSync).getTime():0;
-    // If sheet was updated more than 10s after our last push, someone edited it externally
-    if(sheetTime>lastPush+10000){
-      // Double-check no push snuck in while we were fetching
-      if(_autoPushTimer!==null)return;
+    // Apply if: never synced on this device (ensures mobile always gets fresh data on first open)
+    // OR sheet data is newer than our last push (external edit detected)
+    if(neverSynced||sheetTime>lastPush+10000){
+      if(_autoPushTimer!==null)return; // double-check no push snuck in
       _isPulling=true;
       applySheetsPullData(data);
       if(bookings.length||properties.length){
         saveAll();populateSelects();renderView(currentWs);
         sheetsConfig.lastSync=new Date().toISOString();
         saveSheetsConfig();renderSheetsStatus();
-        toast('📊 Sheets updated externally — data refreshed.','info');
+        if(!neverSynced)toast('📊 Sheets updated externally — data refreshed.','info');
       }
       _isPulling=false;
     }
@@ -376,6 +377,20 @@ function loadAll(){
       };
     });
     if(!migrated) localStorage.setItem('bls_eg_migrated_v1','1');
+    // Migration v2: sanitize obviously corrupted numeric fields that cause impossible revenue figures.
+    // Runs independently of v1 — catches devices that had v1 flag already set with bad data.
+    if(!localStorage.getItem('bls_v2_sanitized')){
+      bookings=bookings.map(b=>{
+        const prop=properties.find(p=>p.id===b.property);
+        const maxExtra=prop?(+prop.maxGuests||8)-(+prop.baseGuests||2):20;
+        const eg=+b.extraGuests||0;
+        return{...b,
+          extraGuests:eg>Math.max(maxExtra,20)?0:eg, // if way above property max, almost certainly corrupt
+          extraGuestFee:+b.extraGuestFee>500000?0:+b.extraGuestFee||0, // >₱500k extra fee per booking is corrupt
+        };
+      });
+      localStorage.setItem('bls_v2_sanitized','1');
+    }
     // Deduplicate platforms — merge by normalized name, prefer non-grey color
     const platMap={};
     platforms.forEach(p=>{
@@ -4074,7 +4089,12 @@ function init(){
   loadAll();loadSettings();loadDriveConfig();loadSheetsConfig();
   buildSidebarNav();
   wireSheetsButtons();
-  if(sheetsConfig.connected&&sheetsConfig.url)startSheetsPolling();
+  if(sheetsConfig.connected&&sheetsConfig.url){
+    startSheetsPolling();
+    // Pull immediately on startup so every device (mobile/desktop) gets fresh data
+    // without waiting 30s for the first poll interval to fire
+    setTimeout(()=>sheetsQuietPull(),3000);
+  }
   document.querySelector('.ws-btn[data-ws="today"]')?.classList.add('active');
   const savedTheme=localStorage.getItem('bloomstone_theme')||'light';
   setTheme(savedTheme);
