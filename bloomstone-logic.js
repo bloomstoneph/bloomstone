@@ -1914,7 +1914,6 @@ function renderMonthCal(body,y,m,shown){
       </div>`;
     }).join('')}
   </div>`;
-  const isMobile=window.innerWidth<=767;
   shown.slice().sort((a,b)=>a.checkin.localeCompare(b.checkin)).forEach(b=>{
     const isAllProps=calPropFilter==='all';
     const conflict=hasConflict(b);
@@ -1925,26 +1924,6 @@ function renderMonthCal(body,y,m,shown){
       const ds=dateToISO(d);
       const container=body.querySelector(`.month-cell-events[data-date="${ds}"]`);
       if(!container)continue;
-
-      // ── MOBILE: compact color strip — tap cell for details ──────────
-      if(isMobile){
-        const isStart=ds===b.checkin;
-        const nextD=new Date(d);nextD.setDate(nextD.getDate()+1);
-        const isEnd=dateToISO(nextD)===b.checkout;
-        const isDayPast=ds<today;
-        const strip=document.createElement('div');
-        strip.className='mob-strip';
-        strip.style.background=platC;
-        strip.style.opacity=isDayPast?'0.35':'1';
-        // Green left border = check-in, Red right border = check-out
-        if(isStart&&isEnd) strip.style.boxShadow=`inset 3px 0 0 #16a34a, inset -3px 0 0 #dc2626`;
-        else if(isStart)   strip.style.boxShadow=`inset 3px 0 0 #16a34a`;
-        else if(isEnd)     strip.style.boxShadow=`inset -3px 0 0 #dc2626`;
-        strip.title=`${b.guest} · ${propName(b.property)} · ${fmtDate(b.checkin)}→${fmtDate(b.checkout)}`;
-        strip.addEventListener('click',e=>{e.stopPropagation();openBookingDrawer(b.id);});
-        container.appendChild(strip);
-        continue;
-      }
       if(isAllProps){
         // All Properties mode: rich card pill with property, guest, day counter
         const isStart=ds===b.checkin;
@@ -1980,7 +1959,7 @@ function renderMonthCal(body,y,m,shown){
               <span style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;opacity:.9">${esc(b.guest)}</span>
               ${dayLabel}
             </div>
-            ${isStart||isEnd?`<div style="display:flex;align-items:center;gap:4px;min-width:0;opacity:.8">${rateLabel}<span style="font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${platformPillHtml(b.platform).replace('platform-pill','').replace('<span ','<span style="font-size:9px;color:#fff;opacity:.9" ')}</span></div>`:''}`;
+            ${isStart||isEnd?`<div style="display:flex;align-items:center;gap:4px;min-width:0;opacity:.85">${rateLabel}<span style="font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;color:#fff">${esc(b.platform)}</span></div>`:''}`;
         }
         pill.title=`${esc(b.guest)} \u00b7 ${propName(b.property)} \u00b7 ${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)}`;
         pill.addEventListener('click',e=>{e.stopPropagation();openBookingDrawer(b.id);});
@@ -2015,7 +1994,7 @@ function renderMonthCal(body,y,m,shown){
             <div style="display:flex;align-items:center;gap:4px;min-width:0">
               ${dayLabel}
               ${isStart||isEnd?rateLabel:''}
-              <span style="font-size:9px;opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(b.platform)}</span>
+              <span style="font-size:9px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;color:#fff">${esc(b.platform)}</span>
             </div>`;
         }
         pill.title=`${esc(b.guest)} \u00b7 ${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)} \u00b7 ${totalN} nights`;
