@@ -1391,6 +1391,10 @@ function openBookingDrawer(id=null){
       if(_soEl){_soEl.value=b.specialOffer??0;_soEl.classList.remove('error');}
       const _egEl=document.getElementById('f-extraguests');
       if(_egEl)_egEl.value=b.extraGuests??0;
+      // Restore payment — the 20s background Sheets poll can overwrite the booking
+      // object while the drawer is open; guard against it reverting to empty/default
+      const _payEl=document.getElementById('f-payment');
+      if(_payEl)_payEl.value=b.payment||'Platform (Auto)';
       calcFinancials();
       updateDrawerSummary();
       renderDrawerHistory(b);renderGuestProfile(b.guest);
@@ -4076,9 +4080,13 @@ function applySheetsPullData(data){
         depositRefundedAmt:pNum(r['Deposit Refunded'])||pNum(r['Deposit Refunded Amt']),
         depositCollected:r['Dep Collected']==='Yes',
         depositRefunded:r['Dep Refunded']==='Yes',
-        payment:r.Payment||'',status:r.Status||'Confirmed',
-        guestCount:pNum(r['Guest Count'])||1,notes:r.Notes||'',
-        guestPrefs:r['Guest Prefs']||'',
+        // Preserve existing local value if Sheet column is blank — prevents a missing/
+        // misnamed Sheet column from silently wiping data the user already entered
+        payment:r.Payment||(bookings.find(bk=>bk.id===r.ID)?.payment)||'',
+        status:r.Status||(bookings.find(bk=>bk.id===r.ID)?.status)||'Confirmed',
+        guestCount:pNum(r['Guest Count'])||1,
+        notes:r.Notes||(bookings.find(bk=>bk.id===r.ID)?.notes)||'',
+        guestPrefs:r['Guest Prefs']||(bookings.find(bk=>bk.id===r.ID)?.guestPrefs)||'',
         createdAt:r['Created At']||'',updatedAt:r['Updated At']||'',
         tasks:{},
       };
