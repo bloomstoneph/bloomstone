@@ -1,7 +1,7 @@
 // ============================================================
 // Bloomstone PMS — Service Worker
 // ============================================================
-const CACHE_NAME = 'bloomstone-v43';
+const CACHE_NAME = 'bloomstone-v44';
 
 const PRECACHE = [
   './',

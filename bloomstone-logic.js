@@ -1150,7 +1150,7 @@ function renderBookings(){
   if(tblWrap)tblWrap.style.display='';
   if(cards)cards.style.display='none';
   const tbody=document.getElementById('bookingsTbody');
-  if(!list.length){tbody.innerHTML=`<tr><td colspan="21"><div class="empty"><div class="empty-text">No bookings match filters</div></div></td></tr>`;return;}
+  if(!list.length){tbody.innerHTML=`<tr><td colspan="29"><div class="empty"><div class="empty-text">No bookings match filters</div></div></td></tr>`;return;}
   tbody.innerHTML=list.map(b=>{
     const t=calcTotals(b);const pc=propertyColor(b.property);
     const td=tasksDone(b),tt=tasksTotal();
@@ -1161,6 +1161,9 @@ function renderBookings(){
     const platComm=b.platformCommission??t.platFee;
     const extraG=b.extraGuests??t.extraG;
     const extraFeeAmt=b.extraGuestFee??t.extraFee;
+    const adjTotal=t.adjTotal||0;
+    const adjLabel=adjTotal?(adjTotal>0?`+${fmtMoney(adjTotal)}`:`−${fmtMoney(Math.abs(adjTotal))}`):'—';
+    const adjColor=adjTotal>0?'var(--green)':adjTotal<0?'var(--red)':'';
     return`<tr${conflict?' style="background:var(--orange-bg)"':''} onclick="openBookingDrawer('${b.id}')">
       <td class="col-stripe"><div class="col-stripe-bar" style="background:${pc}"></div></td>
       <td style="white-space:nowrap">${fmtDate(b.checkin)}</td>
@@ -1171,14 +1174,22 @@ function renderBookings(){
       <td style="color:${pc};font-weight:600;white-space:nowrap">${esc(propName(b.property))}</td>
       <td>${fmtMoney(b.rate)}</td>
       <td style="color:var(--purple);font-weight:700">${b.promo?`−${fmtMoney(b.promo)}`:'—'}</td>
+      <td style="color:var(--purple);font-weight:700">${b.specialOffer?`−${fmtMoney(b.specialOffer)}`:'—'}</td>
       <td>${fmtMoney(t.bkFee)}</td>
       <td>${svcFee?fmtMoney(svcFee):'—'}</td>
       <td>${extraG||'—'}</td>
       <td>${extraFeeAmt?fmtMoney(extraFeeAmt):'—'}</td>
+      <td style="color:${adjColor};font-weight:600">${adjLabel}</td>
       <td style="color:var(--red)">${platComm?`−${fmtMoney(platComm)}`:'—'}</td>
+      <td style="font-weight:600">${fmtMoney(t.guestTotal)}</td>
       <td><strong style="color:var(--green)">${fmtMoney(t.netRevenue)}</strong></td>
-      <td>${storeSales?fmtMoney(storeSales):'—'}</td>
-      <td>${cleanFee?fmtMoney(cleanFee):'—'}</td>
+      <td>${storeSales?`<span style="color:var(--green)">+${fmtMoney(storeSales)}</span>`:'—'}</td>
+      <td>${cleanFee?`<span style="color:var(--red)">−${fmtMoney(cleanFee)}</span>`:'—'}</td>
+      <td>${b.deposit?fmtMoney(b.deposit):'—'}</td>
+      <td><span style="color:${b.depositCollected?'var(--green)':'var(--text-3)'}">${b.depositCollected?'Yes':'—'}</span></td>
+      <td><span style="color:${b.depositRefunded?'var(--green)':'var(--text-3)'}">${b.depositRefunded?'Yes':'—'}</span></td>
+      <td>${b.guestCount>1?b.guestCount:'—'}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2);font-size:11px">${esc(b.notes||'—')}</td>
       <td style="white-space:nowrap">${esc(b.payment||'—')}</td>
       <td>${statusBadgeHtml(b.status)}</td>
       <td><span style="font-size:11px;color:${td===tt?'var(--green)':'var(--text-3)'}">${td}/${tt}</span></td>
