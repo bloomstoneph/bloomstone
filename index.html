@@ -1002,22 +1002,20 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
   /* Tabs scroll horizontally on mobile */
   .cal-view-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;gap:1px;max-width:100%}
   .cal-view-tab{padding:4px 8px;font-size:11px;flex-shrink:0;white-space:nowrap}
-  /* Month grid: same rich pills as desktop, horizontal scroll to fit */
-  .month-grid{gap:0;border-radius:var(--radius);border:1px solid var(--border);background:var(--border);min-width:840px}
-  .month-day-name{padding:5px 3px;font-size:10px;letter-spacing:0;text-align:center}
-  .month-cell{min-height:110px;height:auto;padding:4px 3px;overflow:visible}
+  /* Month grid: 7-column responsive, vertical scroll only — no horizontal scroll */
+  .month-grid{gap:0;border-radius:var(--radius);border:1px solid var(--border);background:var(--border);width:100%}
+  .month-day-name{padding:4px 1px;font-size:9px;letter-spacing:0;text-align:center}
+  .month-cell{min-height:72px;height:auto;padding:3px 2px;overflow:hidden}
   .month-cell-header{margin-bottom:2px}
-  .month-cell-num{font-size:11px;margin-bottom:0;font-weight:700}
-  .month-cell.today .month-cell-num{width:20px;height:20px;font-size:10px}
-  .month-cell-dots span{width:5px!important;height:5px!important}
-  /* Pills same as desktop, slightly smaller text */
-  .cal-ci-badge,.cal-co-badge{font-size:8px;padding:1px 4px}
+  .month-cell-num{font-size:10px;margin-bottom:0;font-weight:700}
+  .month-cell.today .month-cell-num{width:18px;height:18px;font-size:9px}
+  .month-cell-dots span{width:4px!important;height:4px!important}
+  /* Compact CI/CO badges */
+  .cal-ci-badge,.cal-co-badge{font-size:7px;padding:1px 3px}
   .cal-more{font-size:8px;color:var(--text-3);padding:1px 2px}
-  /* Scroll both axes */
-  .cal-body{overflow-x:auto;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  /* Vertical scroll only — no left/right scroll */
+  .cal-body{overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .filter-bar{position:relative;top:auto}
-  /* cal-body scrolls both axes so the wider month grid is reachable */
-  .cal-body{overflow-y:auto;overflow-x:auto;-webkit-overflow-scrolling:touch}
   .exp-amounts{grid-template-columns:1fr 1fr}
   /* Hide floating FABs on mobile — bottom nav handles these */
   .fab{display:none!important}
@@ -1677,6 +1675,18 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
       </div>
     </div>
 
+    <!-- ── MID-STAY ADJUSTMENTS ──────────────────────────────── -->
+    <div class="drawer-card">
+      <div class="drawer-card-hdr">➕ Mid-Stay Adjustments</div>
+      <div id="adjList" style="margin-bottom:8px"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+        <button class="btn btn-ghost btn-sm" onclick="addAdjustment('Early check-in fee')">＋ Early Check-in</button>
+        <button class="btn btn-ghost btn-sm" onclick="addAdjustment('Late check-out fee')">＋ Late Check-out</button>
+        <button class="btn btn-ghost btn-sm" onclick="addAdjustment('Extra guest fee')">＋ Extra Guest</button>
+        <button class="btn btn-ghost btn-sm" onclick="addAdjustment('')">＋ Custom</button>
+      </div>
+    </div>
+
     <!-- ── FINANCIAL BREAKDOWN ───────────────────────────────── -->
     <div style="border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:14px">
       <div style="background:var(--surface-2);padding:8px 14px;font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--text-3);text-transform:uppercase;display:flex;justify-content:space-between;align-items:center">
@@ -1836,18 +1846,6 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
       <div class="field" style="margin-bottom:0">
         <label class="label">Deposit Refunded (₱) <span style="color:var(--text-3);font-size:10px">entering amount = refunded</span></label>
         <input class="input" id="f-dep-refunded-amt" type="number" value="0" style="font-weight:700" oninput="calcFinancials()"/>
-      </div>
-    </div>
-
-    <!-- ── MID-STAY ADJUSTMENTS ──────────────────────────────── -->
-    <div class="drawer-card">
-      <div class="drawer-card-hdr">➕ Mid-Stay Adjustments</div>
-      <div id="adjList" style="margin-bottom:8px"></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">
-        <button class="btn btn-ghost btn-sm" onclick="addAdjustment('Early check-in fee')">＋ Early Check-in</button>
-        <button class="btn btn-ghost btn-sm" onclick="addAdjustment('Late check-out fee')">＋ Late Check-out</button>
-        <button class="btn btn-ghost btn-sm" onclick="addAdjustment('Extra guest fee')">＋ Extra Guest</button>
-        <button class="btn btn-ghost btn-sm" onclick="addAdjustment('')">＋ Custom</button>
       </div>
     </div>
 

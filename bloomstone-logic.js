@@ -191,7 +191,7 @@ function loadFromExcel(){
           const rows=XLSX.utils.sheet_to_json(wb.Sheets['Bookings'],{defval:''});
           const newBks=rows.map(r=>({
             id:r.ID||genId(),guest:r.Guest||'',checkin:r['Check-in']||'',checkout:r['Check-out']||'',
-            platform:r.Platform||'',property:properties.find(p=>p.name===r.Property)?.id||r.Property||'',
+            platform:normPlatform(r.Platform||''),property:properties.find(p=>p.name===r.Property)?.id||r.Property||'',
             rate:+r.Rate||0,promo:+r.Promo||0,specialOffer:+r['Special Offer']||0,bookingFee:+r['Booking Fee']||0,
             storeSales:+r['Store Sales']||0,deposit:+r.Deposit||0,
             depositCollected:r['Dep Collected']==='Yes',depositRefunded:r['Dep Refunded']==='Yes',
@@ -363,6 +363,7 @@ function loadAll(){
       const eg = migrated ? (+b.extraGuests||0) : 0;
       const ef = migrated ? (+b.extraGuestFee||0) : 0;
       return{tasks:{},...b,
+        platform:normPlatform(b.platform||''),
         bookingFee:b.bookingFee??b.bookingfee??0,
         guestCount:b.guestCount??b.guestcount??1,
         storeSales:b.storeSales??b.storeSale??0,
@@ -371,6 +372,15 @@ function loadAll(){
       };
     });
     if(!migrated) localStorage.setItem('bls_eg_migrated_v1','1');
+    // Deduplicate platforms — keep canonical name, merge by normalized name
+    const seen={};
+    platforms=platforms.filter(p=>{
+      const key=normPlatform(p.name);
+      if(seen[key])return false;
+      seen[key]=true;
+      p.name=key; // normalize stored name
+      return true;
+    });
   }catch(e){
     console.error('load failed',e);
     properties=DEFAULT_PROPERTIES.map(p=>({...p}));
@@ -450,7 +460,19 @@ function dateToISO(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStar
 function nightsBetween(a,b){if(!a||!b)return 0;return Math.max(0,Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000));}
 function properCase(s){return(s||'').toLowerCase().replace(/\s+/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function getPlatform(name){return platforms.find(p=>p.name===name)||null;}
+// Normalize platform name variations to canonical form
+function normPlatform(name){
+  const n=(name||'').trim();
+  const lo=n.toLowerCase();
+  if(lo==='booking'||lo==='booking.com'||lo==='bookingcom')return'Booking.com';
+  if(lo==='airbnb')return'Airbnb';
+  if(lo==='agoda')return'Agoda';
+  if(lo==='trip.com'||lo==='tripcom'||lo==='trip')return'Trip.com';
+  if(lo==='your.rentals'||lo==='yourrentals'||lo==='your rentals')return'Your.Rentals';
+  if(lo==='direct booking'||lo==='direct'||lo==='directbooking')return'Direct Booking';
+  return n||'Direct Booking';
+}
+function getPlatform(name){const norm=normPlatform(name);return platforms.find(p=>normPlatform(p.name)===norm)||null;}
 function platformColor(name){return(getPlatform(name)||{color:'#888'}).color;}
 function platformPillHtml(name){const c=platformColor(name);return`<span class="platform-pill" style="background:${c}22;color:${c}"><span style="width:5px;height:5px;border-radius:50%;background:${c};display:inline-block"></span> ${esc(name||'\u2014')}</span>`;}
 function propName(id){return(properties.find(p=>p.id===id)||{name:'\u2014'}).name;}
@@ -970,11 +992,13 @@ function updatePromoSpecialOfferState(){
   }
 }
 function setPlatPickerValue(name){
+  // Normalize before setting so "Booking" becomes "Booking.com", etc.
+  const norm=name?normPlatform(name):'';
   const inp=document.getElementById('f-platform');
-  if(inp)inp.value=name||'';
+  if(inp)inp.value=norm;
   const label=document.getElementById('platPickerLabel');
   if(label){
-    if(name){label.innerHTML=platformPillHtml(name);label.style.color='';}
+    if(norm){label.innerHTML=platformPillHtml(norm);label.style.color='';}
     else{label.textContent='Select\u2026';label.style.color='var(--text-3)';}
   }
   buildPlatPickerOptions();
@@ -1715,6 +1739,9 @@ function _buildChangeDiff(orig,bk){
     {label:'Dep.Collected',o:fmt(orig.depositCollected),n:fmt(bk.depositCollected)},
     {label:'Dep.Refunded', o:fmt(orig.depositRefunded), n:fmt(bk.depositRefunded)},
     {label:'Guest Count', o:fmt(orig.guestCount),n:fmt(bk.guestCount)},
+    {label:'Extra Guests',o:fmt(orig.extraGuests||0),n:fmt(bk.extraGuests||0)},
+    {label:'Store Sales', o:fmtM(orig.storeSales||0),n:fmtM(bk.storeSales||0)},
+    {label:'Cleaning Fee',o:fmtM(orig.cleaningFee||0),n:fmtM(bk.cleaningFee||0)},
     {label:'Notes',       o:orig.notes||'—',     n:bk.notes||'—'},
   ];
   checks.forEach(c=>{
@@ -1886,9 +1913,10 @@ function getWeekStart(d){const dt=new Date(d);dt.setDate(dt.getDate()-dt.getDay(
 
 function renderMonthCal(body,y,m,shown){
   const today=todayISO();
+  const compact=window.innerWidth<640; // compact pill mode for mobile
   const firstDow=new Date(y,m,1).getDay();
   const daysInMonth=new Date(y,m+1,0).getDate();
-  const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const dayNames=compact?['S','M','T','W','T','F','S']:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const cells=[];
   for(let i=0;i<firstDow;i++){const d=new Date(y,m,i-firstDow+1);cells.push({date:dateToISO(d),in:false});}
   for(let d=1;d<=daysInMonth;d++)cells.push({date:dateToISO(new Date(y,m,d)),in:true});
@@ -1942,24 +1970,27 @@ function renderMonthCal(body,y,m,shown){
           pill.innerHTML=`<span style="font-size:10px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(propName(b.property))}</span><span style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55px">${esc(b.guest.split(' ')[0])}</span>`;
         }else{
           const badge=isStart
-            ?`<span class="cal-ci-badge">CHECK IN</span>`
+            ?`<span class="cal-ci-badge">${compact?'CI':'CHECK IN'}</span>`
             :isEnd
-            ?`<span class="cal-co-badge">CHECK OUT</span>`
+            ?`<span class="cal-co-badge">${compact?'CO':'CHECK OUT'}</span>`
             :'';
           const t=calcTotals(b);
-          const dayLabel=totalN>1?`<span style="font-size:9px;opacity:.7;white-space:nowrap;flex-shrink:0">Day ${dayNum}/${totalN}</span>`:'';
-          const rateLabel=`<span style="font-size:9px;opacity:.75;white-space:nowrap;flex-shrink:0">${fmtMoney(b.rate)}/n</span>`;
-          pill.style.cssText=`display:flex;flex-direction:column;gap:2px;padding:5px 7px;border-radius:7px;margin-bottom:3px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;${isToday?'box-shadow:0 0 0 2px #fff,0 0 0 3.5px '+platC+';':''}`;
+          const dayLabel=(!compact&&totalN>1)?`<span style="font-size:9px;opacity:.7;white-space:nowrap;flex-shrink:0">Day ${dayNum}/${totalN}</span>`:'';
+          const rateLabel=!compact?`<span style="font-size:9px;opacity:.75;white-space:nowrap;flex-shrink:0">${fmtMoney(b.rate)}/n</span>`:'';
+          const pStr=compact?propName(b.property).slice(0,4):propName(b.property);
+          const gStr=compact?b.guest.split(' ')[0].slice(0,6):b.guest;
+          pill.style.cssText=`display:flex;flex-direction:column;gap:${compact?1:2}px;padding:${compact?'2px 3px':'5px 7px'};border-radius:${compact?5:7}px;margin-bottom:${compact?2:3}px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;${isToday?'box-shadow:0 0 0 2px #fff,0 0 0 3.5px '+platC+';':''}`;
           pill.innerHTML=`
-            <div style="display:flex;align-items:center;gap:4px;min-width:0">
-              <span style="font-size:11px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;line-height:1.3">${esc(propName(b.property))}</span>
+            <div style="display:flex;align-items:center;gap:${compact?2:4}px;min-width:0">
+              <span style="font-size:${compact?9:11}px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;line-height:1.2">${esc(pStr)}</span>
               ${badge}
             </div>
-            <div style="display:flex;align-items:center;gap:4px;min-width:0">
-              <span style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;opacity:.9">${esc(b.guest)}</span>
+            ${compact?`<span style="font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.9;display:block">${esc(gStr)}</span>`
+            :`<div style="display:flex;align-items:center;gap:4px;min-width:0">
+              <span style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;opacity:.9">${esc(gStr)}</span>
               ${dayLabel}
             </div>
-            ${isStart||isEnd?`<div style="display:flex;align-items:center;gap:4px;min-width:0;opacity:.85">${rateLabel}<span style="font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;color:#fff">${esc(b.platform)}</span></div>`:''}`;
+            ${isStart||isEnd?`<div style="display:flex;align-items:center;gap:4px;min-width:0;opacity:.85">${rateLabel}<span style="font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;color:#fff">${esc(b.platform)}</span></div>`:''}`}`;
         }
         pill.title=`${esc(b.guest)} \u00b7 ${propName(b.property)} \u00b7 ${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)}`;
         pill.addEventListener('click',e=>{e.stopPropagation();openBookingDrawer(b.id);});
@@ -1975,27 +2006,28 @@ function renderMonthCal(body,y,m,shown){
         const pill=document.createElement('div');
         if(conflict)pill.style.outline='2px solid var(--orange)';
         if(isDayPast){
-          pill.style.cssText=`display:flex;align-items:center;gap:5px;padding:3px 6px;border-radius:6px;margin-bottom:3px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;opacity:0.3;min-height:18px`;
-          pill.innerHTML=`<span style="font-size:10px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(b.guest.split(' ')[0])}</span>`;
+          pill.style.cssText=`display:flex;align-items:center;gap:${compact?2:5}px;padding:${compact?'2px 3px':'3px 6px'};border-radius:6px;margin-bottom:${compact?2:3}px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;opacity:0.3;min-height:${compact?14:18}px`;
+          pill.innerHTML=`<span style="font-size:${compact?9:10}px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(b.guest.split(' ')[0].slice(0,compact?5:20))}</span>`;
         }else{
           const badge=isStart
-            ?`<span class="cal-ci-badge">CHECK IN</span>`
+            ?`<span class="cal-ci-badge">${compact?'CI':'CHECK IN'}</span>`
             :isEnd
-            ?`<span class="cal-co-badge">CHECK OUT</span>`
+            ?`<span class="cal-co-badge">${compact?'CO':'CHECK OUT'}</span>`
             :'';
-          const dayLabel=totalN>1?`<span style="font-size:9px;opacity:.7;white-space:nowrap;flex-shrink:0">Day ${dayNum}/${totalN}</span>`:'';
-          const rateLabel=`<span style="font-size:9px;opacity:.75;white-space:nowrap;flex-shrink:0">${fmtMoney(b.rate)}/n</span>`;
-          pill.style.cssText=`display:flex;flex-direction:column;gap:2px;padding:5px 7px;border-radius:7px;margin-bottom:3px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;${isToday?'box-shadow:0 0 0 2px #fff,0 0 0 3.5px '+platC+';':''}`;
+          const dayLabel=(!compact&&totalN>1)?`<span style="font-size:9px;opacity:.7;white-space:nowrap;flex-shrink:0">Day ${dayNum}/${totalN}</span>`:'';
+          const rateLabel=!compact?`<span style="font-size:9px;opacity:.75;white-space:nowrap;flex-shrink:0">${fmtMoney(b.rate)}/n</span>`:'';
+          const gStr=compact?b.guest.split(' ')[0].slice(0,6):b.guest;
+          pill.style.cssText=`display:flex;flex-direction:column;gap:${compact?1:2}px;padding:${compact?'2px 3px':'5px 7px'};border-radius:${compact?5:7}px;margin-bottom:${compact?2:3}px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;${isToday?'box-shadow:0 0 0 2px #fff,0 0 0 3.5px '+platC+';':''}`;
           pill.innerHTML=`
-            <div style="display:flex;align-items:center;gap:4px;min-width:0">
-              <span style="font-size:11px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;line-height:1.3">${esc(b.guest)}</span>
+            <div style="display:flex;align-items:center;gap:${compact?2:4}px;min-width:0">
+              <span style="font-size:${compact?9:11}px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;line-height:1.2">${esc(gStr)}</span>
               ${badge}
             </div>
-            <div style="display:flex;align-items:center;gap:4px;min-width:0">
+            ${compact?'':`<div style="display:flex;align-items:center;gap:4px;min-width:0">
               ${dayLabel}
               ${isStart||isEnd?rateLabel:''}
               <span style="font-size:9px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;color:#fff">${esc(b.platform)}</span>
-            </div>`;
+            </div>`}`;
         }
         pill.title=`${esc(b.guest)} \u00b7 ${fmtDate(b.checkin)} \u2192 ${fmtDate(b.checkout)} \u00b7 ${totalN} nights`;
         pill.addEventListener('click',e=>{e.stopPropagation();openBookingDrawer(b.id);});
@@ -3940,19 +3972,22 @@ function applySheetsPullData(data){
     }));
   }
   if(Array.isArray(data.platforms)&&data.platforms.length){
-    platforms=data.platforms.map(r=>({
-      id:r.ID||genId(),name:r.Name||'',
+    const rawPlats=data.platforms.map(r=>({
+      id:r.ID||genId(),
+      name:normPlatform(r.Name||''),
       commission:pNum(r['Commission %']),vat:pNum(r['VAT %']),guestFee:pNum(r['Guest Fee %']),
-      // Prefer color from sheet; fall back to existing local color for same name; then default
-      color:r.Color||platforms.find(p=>p.name===r.Name)?.color||'#888'
+      color:r.Color||platforms.find(p=>normPlatform(p.name)===normPlatform(r.Name||''))?.color||'#888'
     }));
+    // Deduplicate by normalized name — keep first occurrence
+    const platSeen={};
+    platforms=rawPlats.filter(p=>{if(platSeen[p.name])return false;platSeen[p.name]=true;return true;});
   }
   if(Array.isArray(data.bookings)&&data.bookings.length){
     bookings=data.bookings.map(r=>{
       return{
         id:r.ID||genId(),guest:r.Guest||'',
         checkin:isoDate(r['Check-in']),checkout:isoDate(r['Check-out']),
-        platform:r.Platform||'',
+        platform:normPlatform(r.Platform||''),
         property:properties.find(p=>p.name===r.Property)?.id||r.Property||'',
         rate:pNum(r.Rate),
         promo:pNum(r['Total Promo (Manual Set by User)']),
