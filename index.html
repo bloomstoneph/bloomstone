@@ -312,11 +312,16 @@ a{color:inherit;text-decoration:none}
 .os-owner-amt{font-size:28px;font-weight:900;color:var(--blue);line-height:1}
 .os-owner-paid{font-size:11px;color:var(--green);font-weight:700;margin-top:6px}
 .os-blooms-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--text-2);padding:8px 10px;background:var(--green-bg);border-radius:var(--radius-sm)}
+.os-toggles{display:flex;align-items:center;gap:2px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:4px 10px;flex-wrap:wrap}
+.os-toggle{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500;color:var(--text-2);cursor:pointer;white-space:nowrap;padding:3px 8px;border-radius:var(--radius-sm);transition:background .12s;user-select:none}
+.os-toggle:hover{background:var(--surface-3)}
+.os-toggle input[type=checkbox]{accent-color:var(--blue);width:13px;height:13px;cursor:pointer;flex-shrink:0}
 @media(max-width:700px){
   .os-statement{padding:16px}
   .os-meta-grid{grid-template-columns:1fr 1fr}
   .os-kpi-row{grid-template-columns:repeat(3,1fr)}
   .os-bottom-grid{grid-template-columns:1fr}
+  .os-toggles{padding:4px 6px}
 }
 
 /* ============================================================
@@ -1373,14 +1378,21 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 
       <!-- FINANCE: OWNER STATEMENTS -->
       <div class="view" id="view-finance-owner-statements">
-        <div class="filter-bar">
-          <select class="input" id="os-prop" style="max-width:240px" onchange="renderOwnerStatements()"><option value="">Select Property…</option></select>
-          <select class="input" id="os-month" style="max-width:180px" onchange="renderOwnerStatements()"><option value="">Select Month…</option></select>
+        <div class="filter-bar" style="flex-wrap:wrap;gap:8px">
+          <select class="input" id="os-prop" style="max-width:220px" onchange="renderOwnerStatements()"><option value="">Select Property…</option></select>
+          <select class="input" id="os-month" style="max-width:160px" onchange="renderOwnerStatements()"><option value="">Select Month…</option></select>
+          <div class="os-toggles">
+            <span style="font-size:11px;font-weight:700;color:var(--text-3);margin-right:2px">Include:</span>
+            <label class="os-toggle"><input type="checkbox" id="os-inc-cleaning" checked onchange="renderOwnerStatements()"><span>Cleaning</span></label>
+            <label class="os-toggle"><input type="checkbox" id="os-inc-store" checked onchange="renderOwnerStatements()"><span>Store Sales</span></label>
+            <label class="os-toggle"><input type="checkbox" id="os-inc-extras" checked onchange="renderOwnerStatements()"><span>Extra Guests</span></label>
+            <label class="os-toggle"><input type="checkbox" id="os-inc-adj" checked onchange="renderOwnerStatements()"><span>Adjustments</span></label>
+          </div>
           <div class="filter-spacer"></div>
           <button class="btn btn-sm" id="osPrintBtn" style="display:none" onclick="printOwnerStatement()">🖨 Print Statement</button>
         </div>
-        <div id="osLedger"></div>
         <div id="osStatementPreview"></div>
+        <div id="osLedger"></div>
       </div>
 
       <!-- PROPERTIES: PORTFOLIO -->
