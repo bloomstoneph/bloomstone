@@ -279,6 +279,7 @@ let bookings=[], properties=[], platforms=[], expenses=[], trash=[];
 let settings={currency:'\u20b1',appName:'Bloomstone'};
 let driveConfig={connected:false,folderId:'',folderName:'',clientId:'',lastSync:null};
 let editingBookingId=null, editingPropId=null, editingExpId=null, editingPlatId=null;
+let _bulkSelected=new Set();
 let currentWs='today', currentSubView='';
 let calView='month', calDate=new Date(), calPropFilter='all', calPlatFilter='all';
 let drawerUnsaved=false, cmdSelectedIdx=-1;
@@ -551,7 +552,7 @@ function propertyColor(propId){
   return _PROP_PALETTE[Math.max(0,idx)%_PROP_PALETTE.length];
 }
 function propCity(id){return(properties.find(p=>p.id===id)||{city:''}).city;}
-function statusBadgeHtml(s){const m={'Confirmed':'badge-green','Pending':'badge-orange','Checked-In':'badge-blue','Cancelled':'badge-red'};return`<span class="badge ${m[s]||'badge-neutral'}">${esc(s||'Pending')}</span>`;}
+function statusBadgeHtml(s){const m={'Confirmed':'badge-green','Pending':'badge-orange','Checked-In':'badge-blue','Checked-Out':'badge-neutral','Cancelled':'badge-red'};return`<span class="badge ${m[s]||'badge-neutral'}">${esc(s||'Pending')}</span>`;}
 function statusColorStyle(s){
   const m={'Confirmed':{bg:'var(--green-bg)',color:'var(--green)',border:'rgba(45,106,31,.3)'},
            'Pending':{bg:'var(--orange-bg)',color:'var(--orange)',border:'rgba(196,124,10,.3)'},
@@ -697,11 +698,16 @@ function printBooking(){
   const fDeposit=+document.getElementById('f-deposit')?.value||0;
   const fSpecialOffer=+document.getElementById('f-specialoffer')?.value||0;
   const fGuestSvcFee=+document.getElementById('f-guestservicefee')?.value||0;
+  const fGuestCount=+document.getElementById('f-guestcount')?.value||1;
+  const fGuestPrefs=document.getElementById('f-guestprefs')?.value||'';
+  const fDepCollected=document.getElementById('f-dep-collected')?.value==='1';
   const bTemp={checkin:fCI,checkout:fCO,rate:fRate,promo:fPromo,specialOffer:fSpecialOffer,serviceFee:fSvc,platform:fPlatform,property:fProp,extraGuests:0,storeSales:0,adjustments:_currentAdjustments};
   const t=calcTotals(bTemp);
   const propObj=properties.find(p=>p.id===fProp);
   const propDisplay=propObj?propObj.name:fProp;
   const propAddr=propObj?.address||propObj?.city||'';
+  const propNotes=propObj?.notes||'';
+  const balanceDue=Math.max(0,t.guestTotal-fDeposit);
   const dateRange=fCI&&fCO?`${fmtDate(fCI)} → ${fmtDate(fCO)}`:'';
   const adjRows=(_currentAdjustments||[]).filter(a=>a.desc||a.amount).map(a=>`
     <tr><td style="padding:4px 0;color:#555">${esc(a.desc||'Adjustment')}</td><td style="text-align:right">${a.amount>=0?'+':''}${fmtMoney(a.amount)}</td></tr>`).join('');
@@ -733,9 +739,11 @@ function printBooking(){
       <tr><td style="color:#555">Check-in</td><td>${fmtDate(fCI)||'—'}</td></tr>
       <tr><td style="color:#555">Check-out</td><td>${fmtDate(fCO)||'—'}</td></tr>
       <tr><td style="color:#555">Nights</td><td>${t.nights}</td></tr>
+      <tr><td style="color:#555">Guests</td><td>${fGuestCount}</td></tr>
       <tr><td style="color:#555">Platform</td><td>${esc(fPlatform)||'—'}</td></tr>
       <tr><td style="color:#555">Payment</td><td>${esc(fPayment)||'—'}</td></tr>
       <tr><td style="color:#555">Status</td><td><span class="badge ${fStatus==='Confirmed'?'green':fStatus==='Pending'?'orange':fStatus==='Checked-In'?'blue':'red'}">${esc(fStatus)}</span></td></tr>
+      ${fGuestPrefs?`<tr><td style="color:#555">Guest Preferences</td><td style="text-align:left;font-style:italic;color:#444">${esc(fGuestPrefs)}</td></tr>`:''}
     </table>
     <hr class="divider"/>
     <div class="section-title" style="color:#1a56db">Guest Invoice</div>
@@ -759,8 +767,17 @@ function printBooking(){
       ${t.storeSales?`<tr><td style="color:#555">Store / Add-on Sales</td><td style="color:#2d6a1f">+${fmtMoney(t.storeSales)}</td></tr>`:''}
       <tr class="total-row"><td>Net Revenue</td><td style="color:#2d6a1f">${fmtMoney(t.guestTotal-fSvc-t.cleaningFee+t.storeSales)}</td></tr>
     </table>
-    ${fDeposit?`<hr class="divider"/><table><tr><td style="color:#555">Security Deposit</td><td>${fmtMoney(fDeposit)}</td></tr></table>`:''}
-    ${fNotes?`<hr class="divider"/><div class="section-title">Notes</div><div style="font-size:13px;color:#444">${esc(fNotes)}</div>`:''}
+    ${fDeposit?`<hr class="divider"/>
+    <div class="section-title">Payment Summary</div>
+    <table>
+      <tr><td style="color:#555">Total Charged to Guest</td><td>${fmtMoney(t.guestTotal)}</td></tr>
+      <tr><td style="color:#555">Security Deposit</td><td>${fmtMoney(fDeposit)}</td></tr>
+      ${fDepCollected?`<tr><td style="color:#555">Deposit Status</td><td style="color:#2d6a1f;font-weight:700">✓ Collected</td></tr>`:
+        `<tr><td style="color:#555">Deposit Status</td><td style="color:#c47c0a;font-weight:700">⚠ Pending</td></tr>`}
+      ${balanceDue>0?`<tr style="border-top:1px solid #e8e6e1"><td style="font-weight:700;padding-top:8px">Balance Due</td><td style="font-weight:900;font-size:15px;padding-top:8px;color:#1a56db">${fmtMoney(balanceDue)}</td></tr>`:''}
+    </table>`:''}
+    ${fNotes?`<hr class="divider"/><div class="section-title">Notes</div><div style="font-size:13px;color:#444;white-space:pre-line">${esc(fNotes)}</div>`:''}
+    ${propNotes?`<hr class="divider"/><div class="section-title">House Rules / Property Notes</div><div style="font-size:12px;color:#555;white-space:pre-line">${esc(propNotes)}</div>`:''}
     <hr class="divider"/>
     <div style="font-size:10px;color:#aaa;text-align:center">Generated by Bloomstone PMS · ${new Date().toLocaleDateString()}</div>
   </div></body></html>`;
@@ -1271,9 +1288,15 @@ function renderBookings(){
     if(tblWrap)tblWrap.style.display='none';
     if(cards){
       cards.style.display='block';
-      if(!list.length){cards.innerHTML=`<div class="empty"><div class="empty-icon">\ud83d\udccb</div><div class="empty-text">No bookings match filters</div></div>`;return;}
+      if(!list.length){
+        const hasFilters=document.getElementById('bk-month')?.value!=='all'||document.getElementById('bk-prop')?.value!=='all'||document.getElementById('bk-plat')?.value!=='all'||document.getElementById('bk-status')?.value!=='all';
+        cards.innerHTML=bookings.length&&hasFilters
+          ?`<div class="empty"><div class="empty-icon">\ud83d\udd0d</div><div class="empty-text">No bookings match your filters</div><button class="btn btn-secondary btn-sm" style="margin-top:12px" onclick="clearBookingFilters()">Clear filters</button></div>`
+          :`<div class="empty"><div class="empty-icon">\ud83d\udccb</div><div class="empty-text">No bookings yet</div><div class="empty-sub">Start by adding your first booking</div><button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="openBookingDrawer()">\uff0b Add Booking</button></div>`;
+        return;
+      }
       cards.innerHTML=list.map(b=>{const t=calcTotals(b);const pc=propertyColor(b.property);
-        return`<div class="bk-card-b" onclick="openBookingDrawer('${b.id}')">
+        return`<div class="bk-card-b" onclick="openBookingDrawer('${b.id}')" oncontextmenu="onBkRowContextMenu(event,'${b.id}')" ontouchstart="onBkRowTouchStart(event,'${b.id}')" ontouchend="onBkRowTouchEnd()" ontouchmove="onBkRowTouchEnd()">
           <div class="bk-card-band" style="background:${pc}"></div>
           <div class="bk-card-body">
             <div class="bk-card-prop" style="color:${pc}">${esc(propName(b.property))}</div>
@@ -1295,7 +1318,13 @@ function renderBookings(){
   if(tblWrap)tblWrap.style.display='';
   if(cards)cards.style.display='none';
   const tbody=document.getElementById('bookingsTbody');
-  if(!list.length){tbody.innerHTML=`<tr><td colspan="29"><div class="empty"><div class="empty-text">No bookings match filters</div></div></td></tr>`;return;}
+  if(!list.length){
+    const hasFilters=document.getElementById('bk-month')?.value!=='all'||document.getElementById('bk-prop')?.value!=='all'||document.getElementById('bk-plat')?.value!=='all'||document.getElementById('bk-status')?.value!=='all';
+    tbody.innerHTML=`<tr><td colspan="29"><div class="empty">${bookings.length&&hasFilters
+      ?`<div class="empty-icon">🔍</div><div class="empty-text">No bookings match your filters</div><button class="btn btn-secondary btn-sm" style="margin-top:12px" onclick="clearBookingFilters()">Clear filters</button>`
+      :`<div class="empty-icon">📋</div><div class="empty-text">No bookings yet</div><div class="empty-sub">Start by adding your first booking</div><button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="openBookingDrawer()">＋ Add Booking</button>`
+    }</div></td></tr>`;return;
+  }
   tbody.innerHTML=list.map(b=>{
     const t=calcTotals(b);const pc=propertyColor(b.property);
     const td=tasksDone(b),tt=tasksTotal();
@@ -1310,7 +1339,9 @@ function renderBookings(){
     const adjLabel=adjTotal?(adjTotal>0?`+${fmtMoney(adjTotal)}`:`−${fmtMoney(Math.abs(adjTotal))}`):'—';
     const adjColor=adjTotal>0?'var(--green)':adjTotal<0?'var(--red)':'';
     const dc=n=>`data-col="${n}"`; // shorthand for data-col attribute on td
-    return`<tr${conflict?' style="background:var(--orange-bg)"':''} onclick="openBookingDrawer('${b.id}')">
+    const isSel=_bulkSelected.has(b.id);
+    return`<tr${conflict?' style="background:var(--orange-bg)"':''} onclick="openBookingDrawer('${b.id}')" data-bid="${b.id}" oncontextmenu="onBkRowContextMenu(event,'${b.id}')" ontouchstart="onBkRowTouchStart(event,'${b.id}')" ontouchend="onBkRowTouchEnd()" ontouchmove="onBkRowTouchEnd()">
+      <td class="bulk-check-cell" onclick="event.stopPropagation()"><input type="checkbox" class="bulk-cb" data-bid="${b.id}" ${isSel?'checked':''} onchange="toggleBulkSelect('${b.id}',this.checked)"></td>
       <td class="col-stripe"><div class="col-stripe-bar" style="background:${pc}"></div></td>
       <td ${dc('checkin')} style="white-space:nowrap">${fmtDate(b.checkin)}</td>
       <td ${dc('checkout')} style="white-space:nowrap">${fmtDate(b.checkout)}</td>
@@ -1343,6 +1374,66 @@ function renderBookings(){
     </tr>`;
   }).join('');
   applyColVisibility();
+}
+
+// ============================================================
+// BULK ACTIONS
+// ============================================================
+function toggleBulkSelect(id,checked){
+  if(checked)_bulkSelected.add(id);else _bulkSelected.delete(id);
+  updateBulkBar();
+}
+function toggleSelectAll(cb){
+  const all=document.querySelectorAll('.bulk-cb');
+  all.forEach(c=>{c.checked=cb.checked;if(cb.checked)_bulkSelected.add(c.dataset.bid);else _bulkSelected.delete(c.dataset.bid);});
+  updateBulkBar();
+}
+function updateBulkBar(){
+  const bar=document.getElementById('bulkActionBar');if(!bar)return;
+  const n=_bulkSelected.size;
+  if(n===0){bar.classList.remove('show');return;}
+  bar.classList.add('show');
+  const lbl=bar.querySelector('#bulkCountLbl');
+  if(lbl)lbl.textContent=`${n} booking${n!==1?'s':''} selected`;
+}
+function clearBulkSelection(){
+  _bulkSelected.clear();
+  document.querySelectorAll('.bulk-cb').forEach(c=>c.checked=false);
+  const sa=document.getElementById('bulkSelectAll');if(sa)sa.checked=false;
+  updateBulkBar();
+}
+function bulkSetStatus(status){
+  if(!_bulkSelected.size)return;
+  const ids=[..._bulkSelected];
+  confirmDialog(`Set ${ids.length} booking${ids.length!==1?'s':''} to "${status}"?`,
+    `This will update the status for all selected bookings.`,null,()=>{
+      ids.forEach(id=>{const b=bookings.find(x=>x.id===id);if(b)b.status=status;});
+      saveAll();renderBookings();clearBulkSelection();
+      toast(`${ids.length} booking${ids.length!==1?'s':''} updated to ${status}.`,'success');
+    });
+}
+function bulkExportCSV(){
+  if(!_bulkSelected.size)return;
+  const ids=[..._bulkSelected];
+  const rows=ids.map(id=>{const b=bookings.find(x=>x.id===id);if(!b)return null;const t=calcTotals(b);
+    return[b.id,b.guest,propName(b.property),b.checkin,b.checkout,t.nights,b.platform,b.rate,b.promo||0,b.cleaningFee||0,t.guestTotal,t.netRevenue,b.status].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
+  }).filter(Boolean);
+  const header='"ID","Guest","Property","Check-in","Check-out","Nights","Platform","Rate","Promo","Cleaning","Total Charged","Net Revenue","Status"';
+  const csv=[header,...rows].join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=`bloomstone-export-${new Date().toISOString().slice(0,10)}.csv`;a.click();
+  toast(`Exported ${rows.length} booking${rows.length!==1?'s':''} to CSV.`,'success');
+}
+function bulkDelete(){
+  if(!_bulkSelected.size)return;
+  const ids=[..._bulkSelected];
+  confirmDialog(`Delete ${ids.length} booking${ids.length!==1?'s':''}?`,
+    `<b style="color:var(--red)">This cannot be undone.</b> All selected bookings will be permanently removed.`,
+    '🗑️',()=>{
+      bookings=bookings.filter(b=>!ids.includes(b.id));
+      saveAll();renderBookings();clearBulkSelection();
+      toast(`${ids.length} booking${ids.length!==1?'s':''} deleted.`,'success');
+    },{confirmLabel:'Delete',btnClass:'btn-danger'});
 }
 
 // ============================================================
@@ -1493,6 +1584,7 @@ function openBookingDrawer(id=null){
   document.getElementById('f-nights').value='';
   document.getElementById('overlapAlert').classList.remove('show');
   if(id){
+    addCmdRecent(id);
     const b=bookings.find(x=>x.id===id);
     if(b){
       _loadingDrawer=true; // prevent side-effect functions from overwriting saved values
@@ -3194,7 +3286,7 @@ function deleteProperty(id){
 }
 function renderProperties(){
   const grid=document.getElementById('propGrid');
-  if(!properties.length){grid.innerHTML=`<div class="empty"><div class="empty-icon">\u2302</div><div class="empty-text">No properties. Add your first one.</div></div>`;return;}
+  if(!properties.length){grid.innerHTML=`<div class="empty"><div class="empty-icon">\ud83c\udfe0</div><div class="empty-text">No properties yet</div><div class="empty-sub">Add your rental properties to start tracking bookings</div><button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="openPropertyModal()">\uff0b Add Property</button></div>`;return;}
   grid.innerHTML=properties.map(p=>{
     const bks=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled');
     const rev=bks.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
@@ -3269,7 +3361,7 @@ function renderGuests(){
       <div class="stat-card"><div class="stat-label">Repeat Guests</div><div class="stat-value">${repeats}</div></div>
       <div class="stat-card"><div class="stat-label">Repeat Rate</div><div class="stat-value">${total?Math.round(repeats/total*100):0}%</div></div>`;
   }
-  if(!guests.length){container.innerHTML=`<div class="empty"><div class="empty-icon">🧑</div><div class="empty-text">${q?'No guests match your search':'No guests yet'}</div></div>`;return;}
+  if(!guests.length){container.innerHTML=`<div class="empty"><div class="empty-icon">🧑</div><div class="empty-text">${q?'No guests match your search':'No guests yet'}</div><div class="empty-sub">${q?'Try a different name or clear your search':'Guest profiles are created automatically from bookings'}</div>${!q?'<button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="openBookingDrawer()">＋ Add First Booking</button>':''}</div>`;return;}
   container.innerHTML=guests.map(g=>{
     const repeatBadge=g.active.length>1?`<span class="badge badge-purple" style="font-size:9px">REPEAT×${g.active.length}</span>`:'';
     const nextStr=g.nextBk?`<span style="color:var(--blue);font-size:11px">↓ Next: ${fmtDate(g.nextBk.checkin)}</span>`:'';
@@ -3713,6 +3805,54 @@ function quickStatusUpdate(id,newStatus,btn){
   toast(`${b.guest} → ${newStatus}`,'success');
 }
 
+// ── WF1: Right-click / long-press quick status context menu ──
+let _ctxMenuTimeout=null;
+function showBookingContextMenu(id,x,y){
+  closeBookingContextMenu();
+  const b=bookings.find(bk=>bk.id===id);if(!b)return;
+  const statuses=['Confirmed','Pending','Checked-In','Checked-Out','Cancelled'];
+  const colors={Confirmed:'var(--green)',Pending:'var(--orange)','Checked-In':'var(--blue)','Checked-Out':'var(--text-3)',Cancelled:'var(--red)'};
+  const menu=document.createElement('div');
+  menu.id='bkCtxMenu';
+  menu.className='bk-ctx-menu';
+  menu.innerHTML=`<div class="bk-ctx-title">Change status · <b>${esc(b.guest)}</b></div>`+
+    statuses.map(s=>`<div class="bk-ctx-item${b.status===s?' bk-ctx-active':''}" style="--ctx-color:${colors[s]||'var(--text-1)'}" onclick="quickCtxStatus('${id}','${s}')">${s==='Checked-In'?'✓ ':s==='Checked-Out'?'✓✓ ':''}<span>${s}</span></div>`).join('')+
+    `<hr style="border:none;border-top:1px solid var(--border);margin:6px 0">
+     <div class="bk-ctx-item" onclick="closeBookingContextMenu();openBookingDrawer('${id}')">✏️ Edit booking</div>
+     <div class="bk-ctx-item" onclick="closeBookingContextMenu();cloneBooking('${id}',event)">⎘ Clone booking</div>`;
+  document.body.appendChild(menu);
+  // position so it stays on screen
+  const vw=window.innerWidth,vh=window.innerHeight;
+  const mw=180,mh=menu.offsetHeight||220;
+  menu.style.left=Math.min(x,vw-mw-8)+'px';
+  menu.style.top=Math.min(y,vh-mh-8)+'px';
+  menu.style.opacity='1';
+  requestAnimationFrame(()=>document.addEventListener('click',closeBookingContextMenu,{once:true}));
+}
+function quickCtxStatus(id,status){
+  closeBookingContextMenu();
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  b.status=status;b.updatedAt=new Date().toISOString();
+  saveAll();renderBookings();
+  toast(`${b.guest} → ${status}`,'success');
+}
+function closeBookingContextMenu(){
+  const m=document.getElementById('bkCtxMenu');if(m)m.remove();
+}
+function onBkRowContextMenu(e,id){
+  e.preventDefault();e.stopPropagation();
+  showBookingContextMenu(id,e.clientX,e.clientY);
+}
+function onBkRowTouchStart(e,id){
+  _ctxMenuTimeout=setTimeout(()=>{
+    const t=e.touches[0];
+    showBookingContextMenu(id,t.clientX,t.clientY);
+  },600);
+}
+function onBkRowTouchEnd(){
+  clearTimeout(_ctxMenuTimeout);
+}
+
 function bulkStatusUpdate(){
   const today=todayLocal();
   let count=0;
@@ -3730,6 +3870,14 @@ function bulkStatusUpdate(){
 // ============================================================
 // COMMAND PALETTE
 // ============================================================
+// Recent items for command palette — persisted in localStorage
+function getCmdRecent(){try{return JSON.parse(localStorage.getItem('cmd_recent'))||[];}catch(e){return[];}}
+function addCmdRecent(id){
+  const list=getCmdRecent().filter(x=>x!==id);
+  list.unshift(id);
+  localStorage.setItem('cmd_recent',JSON.stringify(list.slice(0,5)));
+}
+
 function openCmdPalette(){
   document.getElementById('cmdOverlay').classList.add('open');
   document.getElementById('cmdInput').value='';
@@ -3753,14 +3901,31 @@ function renderCmdResults(q){
     {icon:'+',label:'Add Expense',hint:'Expenses',action:()=>openExpenseModal()},
     {icon:'+',label:'Add Property',hint:'Properties',action:()=>openPropertyModal()},
     {icon:'+',label:'Add Platform',hint:'Platforms',action:()=>openPlatformModal()},
+    {icon:'\u2328',label:'Keyboard Shortcuts',hint:'Help',action:()=>showKeyboardShortcuts()},
   ];
-  const items=navItems.filter(i=>!ql||i.label.toLowerCase().includes(ql)||i.hint.toLowerCase().includes(ql));
-  if(ql){
+  let items=[];
+  let html='';
+  if(!ql){
+    // Show recent bookings at top
+    const recentIds=getCmdRecent();
+    const recentBks=recentIds.map(id=>bookings.find(b=>b.id===id)).filter(Boolean);
+    if(recentBks.length){
+      const recentItems=recentBks.map(b=>({icon:'\ud83d\udd50',label:b.guest,hint:`${propName(b.property)} \u00b7 ${fmtDate(b.checkin)}`,action:()=>openBookingDrawer(b.id)}));
+      items.push(...recentItems);
+      html+=`<div class="cmd-section-label">Recent</div>${recentItems.map((i,idx)=>`<div class="cmd-item" onclick="cmdExec(${idx})"><div class="cmd-item-icon">${i.icon}</div><div class="cmd-item-label">${esc(i.label)}</div><div class="cmd-item-hint">${esc(i.hint||'')}</div></div>`).join('')}`;
+    }
+    const navFiltered=navItems;
+    items.push(...navFiltered);
+    html+=`<div class="cmd-section-label">Quick Actions</div>${navFiltered.map((i,idx)=>`<div class="cmd-item" onclick="cmdExec(${items.indexOf(i)})"><div class="cmd-item-icon">${i.icon}</div><div class="cmd-item-label">${esc(i.label)}</div><div class="cmd-item-hint">${esc(i.hint||'')}</div></div>`).join('')}`;
+  }else{
+    const navFiltered=navItems.filter(i=>i.label.toLowerCase().includes(ql)||i.hint.toLowerCase().includes(ql));
+    items.push(...navFiltered);
     const bkMatches=bookings.filter(b=>[b.guest,propName(b.property),b.platform,b.checkin].join(' ').toLowerCase().includes(ql)).slice(0,6);
     items.push(...bkMatches.map(b=>({icon:'\ud83d\udccb',label:b.guest,hint:`${propName(b.property)} \u00b7 ${fmtDate(b.checkin)}`,type:'booking',action:()=>openBookingDrawer(b.id)})));
+    if(!items.length){out.innerHTML=`<div style="padding:14px 18px;color:var(--text-3);font-size:13px">No results for "${esc(q)}"</div>`;out._items=[];return;}
+    html=`<div class="cmd-section-label">Results</div>${items.map((i,idx)=>`<div class="cmd-item" onclick="cmdExec(${idx})"><div class="cmd-item-icon">${i.icon}</div><div class="cmd-item-label">${esc(i.label)}</div><div class="cmd-item-hint">${esc(i.hint||'')}</div></div>`).join('')}`;
   }
-  if(!items.length){out.innerHTML=`<div style="padding:14px 18px;color:var(--text-3);font-size:13px">No results for "${esc(q)}"</div>`;out._items=[];return;}
-  out.innerHTML=`<div class="cmd-section-label">${ql?'Results':'Quick Actions'}</div>${items.map((i,idx)=>`<div class="cmd-item" onclick="cmdExec(${idx})"><div class="cmd-item-icon">${i.icon}</div><div class="cmd-item-label">${esc(i.label)}</div><div class="cmd-item-hint">${esc(i.hint||'')}</div></div>`).join('')}`;
+  out.innerHTML=html;
   out._items=items;
 }
 function cmdExec(idx){
@@ -4150,14 +4315,53 @@ function setTheme(theme){
   const label=document.getElementById('themeLabel');
   if(icon)icon.textContent=theme==='dark'?'\u263e':theme==='system'?'\u25d0':'\u2600';
   if(label)label.textContent=theme==='dark'?'Dark mode':theme==='system'?'System':'Light mode';
+  // Also update overflow menu icon/label
+  const oi=document.getElementById('themeOverflowIcon');const ol=document.getElementById('themeOverflowLabel');
+  if(oi)oi.textContent=theme==='dark'?'\u263e':theme==='system'?'\u25d0':'\u2600';
+  if(ol)ol.textContent=theme==='dark'?'Dark mode':theme==='system'?'System':'Light mode';
 }
 document.getElementById('themeToggleBtn').addEventListener('click',()=>{
+  const current=localStorage.getItem('bloomstone_theme')||'light';
+  setTheme(current==='light'?'dark':current==='dark'?'system':'light');
+});
+document.getElementById('themeOverflowBtn')?.addEventListener('click',()=>{
   const current=localStorage.getItem('bloomstone_theme')||'light';
   setTheme(current==='light'?'dark':current==='dark'?'system':'light');
 });
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{
   if(localStorage.getItem('bloomstone_theme')==='system')setTheme('system');
 });
+
+// Topbar overflow menu toggle
+document.getElementById('topbarMoreBtn')?.addEventListener('click',e=>{
+  e.stopPropagation();
+  document.getElementById('topbarOverflowMenu').classList.toggle('open');
+});
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#topbarOverflow'))document.getElementById('topbarOverflowMenu')?.classList.remove('open');
+});
+
+// \u2500\u2500 Sync status dot \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+let _syncState='synced'; // 'synced' | 'pending' | 'error' | 'offline'
+function setSyncDot(state){
+  _syncState=state;
+  const dot=document.getElementById('syncDot');if(!dot)return;
+  dot.className='sync-dot '+state;
+  const labels={synced:'Synced with Google Sheets',pending:'Syncing\u2026',error:'Sync error \u2014 tap to retry',offline:'Offline'};
+  dot.title=labels[state]||state;
+}
+// Patch sheetsPush / sheetsQuietPull to update dot
+const _origPush=sheetsPush;
+window._wrappedSheetsPush=async function(silent){
+  setSyncDot('pending');
+  try{const r=await _origPush(silent);setSyncDot('synced');return r;}
+  catch(e){setSyncDot('error');throw e;}
+};
+// Patch sheetsQuietPull similarly via _isPulling state
+const _dotPullInterval=setInterval(()=>{
+  if(typeof _isPulling!=='undefined'&&_isPulling)setSyncDot('pending');
+  else if(_syncState==='pending')setSyncDot('synced');
+},800);
 
 // ============================================================
 // SIDEBAR & RESPONSIVE

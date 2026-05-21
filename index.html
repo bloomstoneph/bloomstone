@@ -170,6 +170,18 @@ a{color:inherit;text-decoration:none}
 }
 .topbar-title{font-size:15px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .topbar-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
+/* Sync status dot */
+.sync-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:background .4s}
+.sync-dot.synced{background:#10B981}.sync-dot.pending{background:#F59E0B;animation:pulse-dot 1.2s infinite}
+.sync-dot.error{background:var(--red)}.sync-dot.offline{background:var(--text-3)}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
+/* Overflow menu */
+.topbar-overflow{position:relative}
+.topbar-overflow-menu{position:absolute;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);min-width:180px;z-index:400;display:none;overflow:hidden}
+.topbar-overflow-menu.open{display:block}
+.topbar-overflow-item{display:flex;align-items:center;gap:10px;padding:9px 14px;font-size:13px;cursor:pointer;color:var(--text);transition:background .12s}
+.topbar-overflow-item:hover{background:var(--surface-2)}
+.topbar-overflow-item .oi{font-size:15px;width:20px;text-align:center}
 .workspace{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px;position:relative}
 
 /* ============================================================
@@ -249,6 +261,22 @@ a{color:inherit;text-decoration:none}
 .col-stripe{width:8px;padding:0!important}
 .col-stripe-bar{display:block;width:8px;height:100%;min-height:20px;border-radius:3px}
 .col-hidden{display:none!important}
+.bulk-check-cell{width:32px;padding:0 6px!important;text-align:center}
+.bulk-action-bar{position:fixed;bottom:-80px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:10px 16px;display:flex;align-items:center;gap:12px;z-index:500;transition:bottom .25s cubic-bezier(.34,1.3,.64,1);white-space:nowrap;font-size:13px;font-weight:600}
+.bulk-action-bar.show{bottom:24px}
+.bulk-action-bar-btns{display:flex;align-items:center;gap:8px;margin-left:8px}
+.bulk-status-dropdown{position:relative}
+.bulk-status-menu{position:absolute;bottom:calc(100% + 6px);left:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);min-width:140px;z-index:600;display:none;overflow:hidden}
+.bulk-status-menu.open{display:block}
+.bulk-status-menu div{padding:9px 14px;font-size:13px;cursor:pointer;color:var(--text);transition:background .12s}
+.bulk-status-menu div:hover{background:var(--surface-2)}
+.btn-danger{background:var(--red);color:#fff;border:none}
+.btn-danger:hover{background:#b91c1c}
+.bk-ctx-menu{position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);min-width:180px;padding:6px 0;opacity:0;transition:opacity .1s;pointer-events:auto}
+.bk-ctx-title{padding:8px 14px 6px;font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;pointer-events:none}
+.bk-ctx-item{padding:9px 14px;font-size:13px;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:8px;transition:background .12s}
+.bk-ctx-item:hover{background:var(--surface-2);color:var(--ctx-color,var(--text))}
+.bk-ctx-active{color:var(--ctx-color,var(--accent))!important;font-weight:700}
 
 /* ============================================================
    FORM ELEMENTS
@@ -941,7 +969,8 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 ============================================================ */
 .empty{text-align:center;padding:48px 20px;color:var(--text-3)}
 .empty-icon{font-size:30px;margin-bottom:10px;opacity:.5}
-.empty-text{font-size:13px}
+.empty-text{font-size:14px;font-weight:600;color:var(--text-2)}
+.empty-sub{font-size:12px;color:var(--text-3);margin-top:4px;max-width:280px;margin-left:auto;margin-right:auto}
 
 /* ============================================================
    MOBILE BOTTOM NAV
@@ -1126,12 +1155,20 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
       <button class="mobile-hamburger" id="mobileMenuBtn">☰</button>
       <div class="topbar-title" id="topbarTitle">Today</div>
       <div class="topbar-actions">
+        <div class="sync-dot synced" id="syncDot" title="Synced"></div>
         <button class="btn-icon" id="cmdPaletteBtn" title="Search (Ctrl+K)">⌕</button>
         <button class="btn-icon" id="dailyBriefBtn" title="Daily brief">☼</button>
-        <button class="btn-icon" id="excelLoadBtn" title="Load from Excel">📂</button>
-        <button class="btn-icon" id="excelSaveBtn" title="Save to Excel">💾</button>
         <button class="btn btn-primary btn-sm" id="addBookingBtn">＋ Booking</button>
-        <button class="btn btn-secondary btn-sm" id="logoutBtn" title="Sign out">⏏</button>
+        <!-- Overflow menu -->
+        <div class="topbar-overflow" id="topbarOverflow">
+          <button class="btn-icon" id="topbarMoreBtn" title="More options">···</button>
+          <div class="topbar-overflow-menu" id="topbarOverflowMenu">
+            <div class="topbar-overflow-item" id="excelLoadBtn"><span class="oi">📂</span>Load from Excel</div>
+            <div class="topbar-overflow-item" id="excelSaveBtn"><span class="oi">💾</span>Save to Excel</div>
+            <div class="topbar-overflow-item" id="themeOverflowBtn"><span class="oi" id="themeOverflowIcon">☀</span><span id="themeOverflowLabel">Theme</span></div>
+            <div class="topbar-overflow-item" id="logoutBtn"><span class="oi">⏏</span>Sign out</div>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -1163,6 +1200,7 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
         <div class="table-wrap">
           <table class="data-table" id="bookingsTable">
             <thead><tr>
+              <th class="bulk-check-cell"><input type="checkbox" id="bulkSelectAll" title="Select all" onchange="toggleSelectAll(this)"></th>
               <th class="col-stripe"></th>
               <th data-col="checkin">Check-in</th><th data-col="checkout">Check-out</th><th data-col="nights">Nights</th>
               <th data-col="platform">Platform</th><th data-col="guest">Guest</th><th data-col="property">Property</th>
@@ -1180,6 +1218,26 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
         </div>
         <!-- Mobile cards -->
         <div id="bookingCards" style="display:none"></div>
+      </div>
+
+      <!-- BULK ACTION BAR -->
+      <div class="bulk-action-bar" id="bulkActionBar">
+        <span id="bulkCountLbl">0 bookings selected</span>
+        <div class="bulk-action-bar-btns">
+          <div class="bulk-status-dropdown">
+            <button class="btn btn-sm btn-secondary" onclick="this.nextElementSibling.classList.toggle('open')">Set Status ▾</button>
+            <div class="bulk-status-menu">
+              <div onclick="bulkSetStatus('Confirmed')">Confirmed</div>
+              <div onclick="bulkSetStatus('Pending')">Pending</div>
+              <div onclick="bulkSetStatus('Checked-In')">Checked-In</div>
+              <div onclick="bulkSetStatus('Checked-Out')">Checked-Out</div>
+              <div onclick="bulkSetStatus('Cancelled')">Cancelled</div>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-secondary" onclick="bulkExportCSV()">⬇ Export CSV</button>
+          <button class="btn btn-sm btn-danger" onclick="bulkDelete()">🗑 Delete</button>
+          <button class="btn btn-sm btn-ghost" onclick="clearBulkSelection()">✕ Clear</button>
+        </div>
       </div>
 
       <!-- OPERATIONS: CALENDAR -->
