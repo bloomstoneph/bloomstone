@@ -277,6 +277,12 @@ a{color:inherit;text-decoration:none}
 .bk-ctx-item{padding:9px 14px;font-size:13px;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:8px;transition:background .12s}
 .bk-ctx-item:hover{background:var(--surface-2);color:var(--ctx-color,var(--text))}
 .bk-ctx-active{color:var(--ctx-color,var(--accent))!important;font-weight:700}
+.guide-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.guide-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px}
+.guide-card-title{font-size:12px;font-weight:800;letter-spacing:.02em;margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid var(--border)}
+.guide-row{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:var(--text-2);line-height:1.45;padding:2px 0}
+.guide-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.guide-row kbd{display:inline-block;background:var(--surface-3);border:1px solid var(--border-2);border-radius:4px;padding:1px 5px;font-size:11px;font-family:monospace;color:var(--text-2);line-height:1.4;flex-shrink:0}
 
 /* ============================================================
    FORM ELEMENTS
@@ -1391,6 +1397,157 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
       </div>
 
       <!-- SYSTEM: IMPORTS -->
+      <!-- SYSTEM: GUIDE -->
+      <div class="view" id="view-system-guide">
+        <div style="max-width:860px">
+
+          <div style="margin-bottom:18px">
+            <div style="font-size:18px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px">Bloomstone PMS — Feature Guide</div>
+            <div style="font-size:12px;color:var(--text-3)">Quick reference for every section and feature in the system.</div>
+          </div>
+
+          <div class="guide-grid">
+
+            <!-- TOPBAR -->
+            <div class="guide-card">
+              <div class="guide-card-title">⬆ Topbar</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#10B981"></span><b>Sync dot</b> — green=synced · amber=syncing · red=error</div>
+              <div class="guide-row"><span class="guide-dot" style="background:var(--accent)"></span><b>⌕ Search</b> — opens Command Palette (also <kbd>Ctrl+K</kbd>)</div>
+              <div class="guide-row"><span class="guide-dot" style="background:var(--accent)"></span><b>☼ Daily Brief</b> — today's check-ins, check-outs, auto-status update</div>
+              <div class="guide-row"><span class="guide-dot" style="background:var(--accent)"></span><b>＋ Booking</b> — create a new booking</div>
+              <div class="guide-row"><span class="guide-dot" style="background:var(--text-3)"></span><b>··· Menu</b> — Load/Save Excel · Theme toggle · Sign out</div>
+            </div>
+
+            <!-- DASHBOARD -->
+            <div class="guide-card">
+              <div class="guide-card-title">🏠 Dashboard</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#10B981"></span><b>Stat pills</b> — check-ins, check-outs, active stays, this month revenue, ADR, RevPAR</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#F59E0B"></span><b>Contract alerts</b> — red/amber banners if any property contract expires in ≤90 days</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#3B82F6"></span><b>Today's Overview</b> — all active stays, arriving & departing guests</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#8B5CF6"></span><b>Property grid</b> — quick stats per property (occupancy, next booking)</div>
+              <div class="guide-row"><span class="guide-dot" style="background:var(--text-3)"></span><b>Daily Brief popup</b> — tap ☼ to see status-update actions</div>
+            </div>
+
+            <!-- BOOKINGS -->
+            <div class="guide-card">
+              <div class="guide-card-title">📋 Bookings</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#10B981"></span><b>Click row</b> — open &amp; edit booking</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#3B82F6"></span><b>Right-click row</b> (or long-press mobile) — quick status change menu</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#8B5CF6"></span><b>⎘ Clone</b> — duplicate a booking with same property/guest/rate</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#F59E0B"></span><b>⊞ Columns</b> button — show/hide table columns (saved per device)</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#EF4444"></span><b>Checkboxes</b> — select rows → floating bar appears at bottom</div>
+              <div class="guide-row"><span class="guide-dot" style="background:var(--text-3)"></span><b>Bulk bar</b> — Set Status · Export CSV · Delete for selected rows</div>
+              <div class="guide-row"><span class="guide-dot" style="background:var(--text-3)"></span><b>Filters</b> — Month · Property · Platform · Status dropdowns</div>
+            </div>
+
+            <!-- BOOKING DRAWER -->
+            <div class="guide-card">
+              <div class="guide-card-title">✏️ Booking Drawer (Edit)</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#10B981"></span><b>Booking tab</b> — guest, property, dates, platform, payment, notes</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#3B82F6"></span><b>Financials tab</b> — rate, promo, fees, full breakdown, net revenue</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#8B5CF6"></span><b>Revenue Split box</b> — appears when property has an owner % set (e.g. 70/30)</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#F59E0B"></span><b>History tab</b> — prior bookings for same guest</div>
+              <div class="guide-row"><span class="guide-dot" style="background:var(--text-3)"></span><b>🖨 Print</b> — printable confirmation with guest details, rates, balance due, house rules</div>
+            </div>
+
+            <!-- CALENDAR -->
+            <div class="guide-card">
+              <div class="guide-card-title">📅 Calendar</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#10B981"></span><b>Month view</b> — overview of all bookings across properties</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#3B82F6"></span><b>Week / Day views</b> — detailed schedule</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#8B5CF6"></span><b>Timeline view</b> — horizontal Gantt per property</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#F59E0B"></span><b>Availability view</b> — free/booked grid by property</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#EF4444"></span><b>Occupancy view</b> — % occupancy heatmap per property</div>
+              <div class="guide-row"><span class="guide-dot" style="background:var(--text-3)"></span><b>Property pills</b> — filter calendar to one or more properties</div>
+            </div>
+
+            <!-- FINANCE -->
+            <div class="guide-card">
+              <div class="guide-card-title">💰 Finance</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#10B981"></span><b>Overview</b> — revenue, expenses, net profit; Owner Payable &amp; Bloomstone Earnings cards if revenue split is set</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#3B82F6"></span><b>Expenses</b> — monthly expense tracker per property</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#8B5CF6"></span><b>Deposits</b> — security deposit collection status</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#F59E0B"></span><b>Platforms</b> — manage platform commissions &amp; VAT rates</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#1a56db"></span><b>Owner Statements</b> — select property + month → generate printable payout statement + payout ledger (paid / unpaid history)</div>
+            </div>
+
+            <!-- PROPERTIES -->
+            <div class="guide-card">
+              <div class="guide-card-title">🏡 Properties</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#10B981"></span><b>＋ Add Property</b> — name, city, beds, base rate, extra guest fee, photos, icon</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#3B82F6"></span><b>✏ Edit</b> — update any property details</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#8B5CF6"></span><b>Owner &amp; Contract section</b> — in Edit modal, scroll down → tap "Owner &amp; Contract ▾". Set: owner name/phone/email, revenue share %, payout method, contract start/end dates</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#F59E0B"></span><b>🔴 Block Dates</b> — mark dates unavailable for booking</div>
+              <div class="guide-row"><span class="guide-dot" style="background:var(--text-3)"></span><b>Property card</b> — shows net revenue, occupancy %, owner split badge, contract status</div>
+            </div>
+
+            <!-- GUESTS -->
+            <div class="guide-card">
+              <div class="guide-card-title">🧑 Guests CRM</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#10B981"></span><b>Guest cards</b> — auto-built from all bookings. Shows total nights, total revenue, last/next stay</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#3B82F6"></span><b>REPEAT badge</b> — appears on guests with 2+ bookings</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#8B5CF6"></span><b>📋 Guest Prefs</b> — set in booking drawer; visible on guest card and printed confirmation</div>
+              <div class="guide-row"><span class="guide-dot" style="background:var(--text-3)"></span><b>Click guest</b> — see full booking history for that guest</div>
+            </div>
+
+            <!-- REPORTS -->
+            <div class="guide-card">
+              <div class="guide-card-title">📈 Reports</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#10B981"></span><b>Revenue by platform</b> — pie chart breakdown</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#3B82F6"></span><b>6-month trend</b> — bar chart of net revenue over time</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#8B5CF6"></span><b>Finance export</b> — Finance → Overview → ⬇ Export CSV</div>
+              <div class="guide-row"><span class="guide-dot" style="background:var(--text-3)"></span><b>Revenue attributed by check-in date.</b> Cleaning fees by check-out date.</div>
+            </div>
+
+            <!-- SYSTEM: IMPORTS -->
+            <div class="guide-card">
+              <div class="guide-card-title">⚙ System — Imports</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#10B981"></span><b>Bulk paste import</b> — copy rows from Google Sheets, paste here, preview, then import</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#3B82F6"></span><b>Load from Excel</b> — ··· menu (topbar) → Load from Excel. Accepts the Bloomstone export format</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#F59E0B"></span><b>Save to Excel</b> — ··· menu → Save to Excel. Exports all bookings, properties, platforms, expenses</div>
+              <div class="guide-row"><span class="guide-dot" style="background:var(--text-3)"></span>Skipped rows (bad dates / missing guest) are shown in the import result toast</div>
+            </div>
+
+            <!-- SYSTEM: INTEGRATIONS -->
+            <div class="guide-card">
+              <div class="guide-card-title">⚙ System — Integrations</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#10B981"></span><b>Google Sheets Sync</b> — two-way live sync. Paste your Apps Script Web App URL → Connect. Auto-syncs every 20 seconds</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#3B82F6"></span><b>⬆ Push / ⬇ Pull</b> — manual sync buttons after connecting</div>
+              <div class="guide-row"><span class="guide-dot" style="background:#8B5CF6"></span><b>Google Drive</b> — daily Excel auto-backup to a Drive folder</div>
+              <div class="guide-row"><span class="guide-dot" style="background:var(--text-3)"></span>Setup guide is inside System → Integrations → expand "Setup Guide"</div>
+            </div>
+
+            <!-- KEYBOARD SHORTCUTS -->
+            <div class="guide-card">
+              <div class="guide-card-title">⌨ Keyboard Shortcuts</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;margin-top:4px">
+                <div class="guide-row"><kbd>N</kbd> New booking</div>
+                <div class="guide-row"><kbd>P</kbd> New property</div>
+                <div class="guide-row"><kbd>K</kbd> Command palette</div>
+                <div class="guide-row"><kbd>1</kbd> Dashboard</div>
+                <div class="guide-row"><kbd>2</kbd> Bookings</div>
+                <div class="guide-row"><kbd>3</kbd> Calendar</div>
+                <div class="guide-row"><kbd>4</kbd> Finance</div>
+                <div class="guide-row"><kbd>5</kbd> Properties</div>
+                <div class="guide-row"><kbd>6</kbd> Guests</div>
+                <div class="guide-row"><kbd>Esc</kbd> Close drawer</div>
+                <div class="guide-row"><kbd>?</kbd> Show all shortcuts</div>
+              </div>
+            </div>
+
+          </div><!-- /guide-grid -->
+
+          <div style="margin-top:20px;padding:12px 16px;background:var(--surface-2);border-radius:var(--radius);font-size:12px;color:var(--text-3);line-height:1.7">
+            <b style="color:var(--text-2)">Tips:</b>
+            · All data is saved automatically to your browser (localStorage) — no internet needed.<br/>
+            · Connect Google Sheets (System → Integrations) to sync across devices.<br/>
+            · The sync dot in the topbar tells you the current sync state at a glance.<br/>
+            · Owner Statements (Finance → Owner Statements) require the property to have an <b>Owner Revenue Share %</b> set below 100% in the property editor.
+          </div>
+
+        </div>
+      </div>
+
       <div class="view" id="view-system-imports">
         <div class="card" style="margin-bottom:16px">
           <div class="section-header"><div class="section-title">Bulk Import from Google Sheets</div></div>

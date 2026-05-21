@@ -965,6 +965,7 @@ const NAV_STRUCTURE=[
   {id:'guests',   icon:'\u{1F9D1}',label:'Guests',   sub:[]},
   {id:'reports',  icon:'\u2197',label:'Reports',    sub:[]},
   {id:'system',   icon:'\u2699',label:'System',     sub:[
+    {id:'system-guide',label:'Guide'},
     {id:'system-imports',label:'Imports'},
     {id:'system-integrations',label:'Integrations'},
     {id:'system-settings',label:'Settings'},
@@ -1054,6 +1055,7 @@ function renderView(viewId){
     'properties':renderProperties,
     'guests':renderGuests,
     'reports':renderReports,
+    'system-guide':()=>{},
     'system-imports':populateBulkSelect,
     'system-trash':renderTrash,
     'system-settings':()=>{},
