@@ -2994,7 +2994,7 @@ function renderOwnerStatements(){
   if(osPropEl){
     const cur=osPropEl.value;
     osPropEl.innerHTML='<option value="">Select Property…</option>'+
-      properties.filter(p=>(p.ownerPct??100)<100).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+      properties.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
     if(cur)osPropEl.value=cur;
   }
   const osMonthEl=document.getElementById('os-month');
@@ -3004,7 +3004,7 @@ function renderOwnerStatements(){
     const prev=osMonthEl.value;
     osMonthEl.innerHTML='<option value="">Select Month…</option>'+months.map(m=>{const[y,mo]=m.split('-');const lbl=new Date(+y,+mo-1,1).toLocaleDateString('en-PH',{month:'long',year:'numeric'});return`<option value="${m}">${lbl}</option>`;}).join('');
     if(prev)osMonthEl.value=prev;
-    if(!osMonthEl.value){const now2=new Date();osMonthEl.value=`${now2.getFullYear()}-${String(now2.getMonth()).padStart(2,'0')}`;}
+    if(!osMonthEl.value){const now2=new Date();osMonthEl.value=`${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,'0')}`;}
   }
 
   const propId=osPropEl?.value||'';
