@@ -186,18 +186,23 @@ function loadFromExcel(){
       try{
         const wb=XLSX.read(ev.target.result,{type:'binary'});
         let imported={bookings:0,properties:0,platforms:0,expenses:0};
+        let propWarnings=0;
         // Bookings
         if(wb.SheetNames.includes('Bookings')){
           const rows=XLSX.utils.sheet_to_json(wb.Sheets['Bookings'],{defval:''});
-          const newBks=rows.map(r=>({
-            id:r.ID||genId(),guest:r.Guest||'',checkin:r['Check-in']||'',checkout:r['Check-out']||'',
-            platform:normPlatform(r.Platform||''),property:properties.find(p=>p.id===r.Property||p.name===r.Property)?.id||r.Property||'',
-            rate:+r.Rate||0,promo:+r.Promo||0,specialOffer:+r['Special Offer']||0,bookingFee:+r['Booking Fee']||0,
-            storeSales:+r['Store Sales']||0,deposit:+r.Deposit||0,
-            depositCollected:r['Dep Collected']==='Yes',depositRefunded:r['Dep Refunded']==='Yes',
-            payment:r.Payment||'',status:r.Status||'Confirmed',notes:r.Notes||'',guestPrefs:r['Guest Prefs']||'',
-            tasks:{},createdAt:r['Created At']||new Date().toISOString(),
-          })).filter(b=>b.checkin&&b.checkout&&b.guest);
+          const newBks=rows.map(r=>{
+            const propMatch=properties.find(p=>p.id===r.Property||p.name===r.Property);
+            if(r.Property&&!propMatch)propWarnings++;
+            return{
+              id:r.ID||genId(),guest:r.Guest||'',checkin:r['Check-in']||'',checkout:r['Check-out']||'',
+              platform:normPlatform(r.Platform||''),property:propMatch?.id||r.Property||'',
+              rate:+r.Rate||0,promo:+r.Promo||0,specialOffer:+r['Special Offer']||0,bookingFee:+r['Booking Fee']||0,
+              storeSales:+r['Store Sales']||0,deposit:+r.Deposit||0,
+              depositCollected:r['Dep Collected']==='Yes',depositRefunded:r['Dep Refunded']==='Yes',
+              payment:r.Payment||'',status:r.Status||'Confirmed',notes:r.Notes||'',guestPrefs:r['Guest Prefs']||'',
+              tasks:{},createdAt:r['Created At']||new Date().toISOString(),
+            };
+          }).filter(b=>b.checkin&&b.checkout&&b.guest);
           bookings=newBks;imported.bookings=newBks.length;
         }
         // Properties (optional - only if sheet exists and has rows)
@@ -225,7 +230,11 @@ function loadFromExcel(){
           if(rows.length){expenses=rows.map(r=>({id:r.ID||genId(),month:r.Month||'',prop:properties.find(p=>p.id===r.Property||p.name===r.Property)?.id||'all',water:+r.Water||0,electricity:+r.Electricity||0,supplies:+r.Supplies||0,maintenance:+r.Maintenance||0,cleaning:+r.Cleaning||0,other:+r.Other||0,amount:+r.Total||0,notes:r.Notes||''}));imported.expenses=expenses.length;}
         }
         saveAll();renderView(currentWs);populateSelects();
-        toast(`Loaded from Excel: ${imported.bookings} bookings, ${imported.properties} properties.`,'success');
+        const xlParts=[`${imported.bookings} bookings`];
+        if(imported.properties)xlParts.push(`${imported.properties} properties`);
+        if(imported.platforms)xlParts.push(`${imported.platforms} platforms`);
+        if(imported.expenses)xlParts.push(`${imported.expenses} expenses`);
+        toast(`Loaded from Excel: ${xlParts.join(', ')}.`+(propWarnings?` ⚠ ${propWarnings} booking${propWarnings!==1?'s':''} had unknown property — check their Property field.`:''),'success');
       }catch(err){console.error(err);toast('Failed to read Excel: '+err.message,'error');}
     };
     reader.readAsBinaryString(file);
@@ -3460,8 +3469,8 @@ function drawBars(canvas,labels,vals,color){
   const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;
   const bw=Math.max(6,cw/labels.length-6);
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
-  const gridColor=isDark?'#333330':'#e8e6e1';
-  const textColor=isDark?'#666660':'#9a9a9a';
+  const gridColor=isDark?'#444441':'#e8e6e1';
+  const textColor=isDark?'#888882':'#9a9a9a';
   ctx.font='10px Inter';ctx.fillStyle=textColor;
   for(let i=0;i<=4;i++){
     const y=PAD.t+(ch/4)*i;
@@ -3836,15 +3845,16 @@ document.getElementById('importDataBtn').addEventListener('click',()=>{
   if(!rows.length){toast('No preview rows.','warning');return;}
   const propId=document.getElementById('bulkImportProperty').value;
   if(!propId){toast('Select property first.','warning');return;}
-  let imported=0;let skipped=0;
+  let imported=0,dupSkipped=0,dateSkipped=0,noGuestSkipped=0;
   rows.forEach(row=>{
     const cells=row.querySelectorAll('td');
     const g=i=>(cells[i]?.innerText||'').trim();
     const ci=normalizeDate(g(0));const co=normalizeDate(g(1));
-    if(!ci||!co)return;
+    if(!ci||!co){dateSkipped++;return;}
     const guestName=properCase(g(3));
+    if(!guestName){noGuestSkipped++;return;}
     const isDup=bookings.some(b=>b.property===propId&&b.checkin===ci&&(b.guest||'').toLowerCase()===guestName.toLowerCase());
-    if(isDup){skipped++;return;}
+    if(isDup){dupSkipped++;return;}
     const bk={
       id:genId(),checkin:ci,checkout:co,
       platform:g(2),guest:guestName,property:propId,
@@ -3853,6 +3863,7 @@ document.getElementById('importDataBtn').addEventListener('click',()=>{
       guestCount:Math.max(1,parseInt(g(13))||1),
       storeSales:cleanMoney(g(18)),
       payment:g(15),notes:g(16),
+      guestPrefs:'',
       status:'Confirmed',tasks:{},
       createdAt:new Date().toISOString(),
     };
@@ -3860,7 +3871,11 @@ document.getElementById('importDataBtn').addEventListener('click',()=>{
     bookings.unshift(bk);imported++;
   });
   saveAll();renderView(currentWs);populateSelects();
-  toast(`${imported} imported${skipped?', '+skipped+' duplicates skipped':''}.`,'success');
+  const parts=[`${imported} imported`];
+  if(dupSkipped)parts.push(`${dupSkipped} duplicate${dupSkipped!==1?'s':''} skipped`);
+  if(dateSkipped)parts.push(`${dateSkipped} skipped (bad dates)`);
+  if(noGuestSkipped)parts.push(`${noGuestSkipped} skipped (no guest name)`);
+  toast(parts.join(' · ')+(imported?'':' — nothing added'),imported?'success':'warning');
   driveAutoBackup();
 });
 
@@ -4078,10 +4093,10 @@ function previewDriveImport(data){
 // ============================================================
 function buildXLSX(){
   const rows=[
-    ['ID','Guest','Check-in','Check-out','Nights','Platform','Property','City','Rate','Promo','Special Offer','Guest Service Fee','Stay Fee','Extra Fee','Booking Fee','Platform Fee','Net Revenue','Store Sales','Deposit','Dep Collected','Dep Refunded','Payment','Status','Notes','Created At'],
+    ['ID','Guest','Check-in','Check-out','Nights','Platform','Property','City','Rate','Promo','Special Offer','Guest Service Fee','Stay Fee','Extra Fee','Booking Fee','Platform Fee','Net Revenue','Store Sales','Deposit','Dep Collected','Dep Refunded','Payment','Status','Notes','Guest Prefs','Created At'],
     ...bookings.map(b=>{
       const t=calcTotals(b);
-      return[b.id||'',b.guest||'',b.checkin||'',b.checkout||'',t.nights,b.platform||'',propName(b.property),propCity(b.property),b.rate||0,b.promo||0,b.specialOffer||0,b.guestServiceFee||0,t.stayFee.toFixed(2),t.extraFee.toFixed(2),t.bkFee.toFixed(2),t.platFee.toFixed(2),t.netRevenue.toFixed(2),b.storeSales||0,b.deposit||0,b.depositCollected?'Yes':'No',b.depositRefunded?'Yes':'No',b.payment||'',b.status||'',b.notes||'',b.createdAt||''];
+      return[b.id||'',b.guest||'',b.checkin||'',b.checkout||'',t.nights,b.platform||'',propName(b.property),propCity(b.property),b.rate||0,b.promo||0,b.specialOffer||0,b.guestServiceFee||0,t.stayFee.toFixed(2),t.extraFee.toFixed(2),t.bkFee.toFixed(2),t.platFee.toFixed(2),t.netRevenue.toFixed(2),b.storeSales||0,b.deposit||0,b.depositCollected?'Yes':'No',b.depositRefunded?'Yes':'No',b.payment||'',b.status||'',b.notes||'',b.guestPrefs||'',b.createdAt||''];
     })
   ];
   const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');

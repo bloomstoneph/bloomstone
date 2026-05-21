@@ -57,7 +57,7 @@
 [data-theme="dark"] {
   --bg:#111110;--surface:#1c1c1a;--surface-2:#242422;--surface-3:#2e2e2b;
   --border:#333330;--border-2:#444441;
-  --text:#f0eeea;--text-2:#a0a09a;--text-3:#666660;
+  --text:#f0eeea;--text-2:#a0a09a;--text-3:#888882;
   --accent:#f0eeea;--accent-soft:#f0eeea18;
   --green:#4ade80;--green-bg:#1a2e1a;
   --red:#f87171;--red-bg:#2e1a1a;
@@ -1229,6 +1229,7 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
         <div class="filter-bar">
           <select class="input" id="exp-month"><option value="all">All Months</option></select>
           <select class="input" id="exp-prop"><option value="all">All Properties</option></select>
+          <span title="Revenue is attributed to check-in month. Cleaning fees are attributed to check-out month. Bookings spanning a month-end will have revenue in one month and cleaning cost in the next." style="cursor:help;font-size:13px;color:var(--text-3);border:1px solid var(--border);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">ℹ</span>
           <div class="filter-spacer"></div>
           <button class="btn btn-primary btn-sm" onclick="openExpenseModal()">＋ Add Expenses</button>
         </div>
