@@ -275,7 +275,7 @@ const DEFAULT_PROPERTIES = [
 ];
 
 // ---- STATE
-let bookings=[], properties=[], platforms=[], expenses=[], trash=[];
+let bookings=[], properties=[], platforms=[], expenses=[], trash=[], ownerPayouts=[];
 let settings={currency:'\u20b1',appName:'Bloomstone'};
 let driveConfig={connected:false,folderId:'',folderName:'',clientId:'',lastSync:null};
 let editingBookingId=null, editingPropId=null, editingExpId=null, editingPlatId=null;
@@ -291,7 +291,7 @@ let _loadingDrawer=false;
 let _isPulling=false;      // true while a pull is running
 let _pullCooldownUntil=0;  // timestamp — no auto-push before this time
 function saveAll(){
-  try{ localStorage.setItem(LS_KEY,JSON.stringify({bookings,properties,platforms,expenses,trash})); }
+  try{ localStorage.setItem(LS_KEY,JSON.stringify({bookings,properties,platforms,expenses,trash,ownerPayouts})); }
   catch(e){ console.error('save failed',e); }
   if(!_isPulling)scheduleSheetsAutoPush();
 }
@@ -392,8 +392,9 @@ function loadAll(){
         guestFee:p.guestFee!=null?p.guestFee:(def?.guestFee??0),
       };
     });
-    expenses  =Array.isArray(d.expenses)  ?d.expenses  :[];
-    trash     =Array.isArray(d.trash)     ?d.trash     :[];
+    expenses      =Array.isArray(d.expenses)     ?d.expenses     :[];
+    trash         =Array.isArray(d.trash)        ?d.trash        :[];
+    ownerPayouts  =Array.isArray(d.ownerPayouts) ?d.ownerPayouts :[];
     properties=properties.map(p=>({baseGuests:2,maxGuests:Math.max(2,(p.beds||1)*2),extraGuestFee:300,baseRate:0,blockedDates:[],...p}));
     // One-time migration: clear corrupted extraGuests data from old bad column mapping
     const migrated = localStorage.getItem('bls_eg_migrated_v1');
@@ -838,14 +839,20 @@ function calcTotals(b){
   const guestServiceFee=stayFee*(guestFeeRate/100); // platform charges to guest (informational)
   const totalGuestPaid=guestTotal+guestServiceFee;
   const cleaningFee=+b.cleaningFee||0;             // owner's cleaning cost
-  const storeSales=+b.storeSales||0;               // store/add-on income
+  const storeSales=+b.storeSales||0;               // store/add-on income — 100% owner per §7.8.3
   // ── Net Revenue to owner ──
   const netRevenue=guestTotal-svcFee-cleaningFee+storeSales;
   const totalWithout=guestTotal-extraFee;            // accommodation total without extra-guest fee
+  // ── Revenue split (Gap 2): split base excludes storeSales (100% owner) ──
+  const ownerPct=+(prop?.ownerPct??100);             // default 100% = no split / self-managed
+  const splitBase=guestTotal-svcFee-cleaningFee;     // net before store sales
+  const ownerShare=splitBase*(ownerPct/100)+storeSales;  // owner's share + all store sales
+  const bloomsShare=splitBase*((100-ownerPct)/100);  // Bloomstone's management cut
   return{nights,rate,promo,promoTotal,specialOffer,stayFee,bkFee,extraFee,svcFee,platFee,
          guestTotal,totalWithout,cleaningFee,storeSales,netRevenue,
          guestFeeRate,guestServiceFee,totalGuestPaid,
-         extraG,comm,vat,feePerG,baseG,maxG,adjTotal};
+         extraG,comm,vat,feePerG,baseG,maxG,adjTotal,
+         ownerPct,ownerShare,bloomsShare,splitBase};
 }
 
 function bookingsOverlap(a,b){
@@ -952,6 +959,7 @@ const NAV_STRUCTURE=[
     {id:'finance-expenses',label:'Expenses'},
     {id:'finance-deposits',label:'Deposits'},
     {id:'finance-platforms',label:'Platforms'},
+    {id:'finance-owner-statements',label:'Owner Statements'},
   ]},
   {id:'properties',icon:'\u2302',label:'Properties',sub:[]},
   {id:'guests',   icon:'\u{1F9D1}',label:'Guests',   sub:[]},
@@ -1042,6 +1050,7 @@ function renderView(viewId){
     'finance-expenses':renderExpenses,
     'finance-deposits':renderDeposits,
     'finance-platforms':renderPlatforms,
+    'finance-owner-statements':renderOwnerStatements,
     'properties':renderProperties,
     'guests':renderGuests,
     'reports':renderReports,
@@ -1255,6 +1264,30 @@ function renderToday(){
     <div class="today-active-hdr">\ud83d\udd25 Today's Overview<span class="today-active-badge">${tl.length} STAY${tl.length!==1?'S':''}</span></div>
     ${activeRows}
   </div>`;
+
+  // \u2500\u2500 Contract expiry alerts (P1-D) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  const expiring=properties.filter(p=>{
+    if(!p.contractEnd)return false;
+    const d=Math.ceil((new Date(p.contractEnd)-new Date(today))/86400000);
+    return d<=90;
+  }).sort((a,b)=>a.contractEnd.localeCompare(b.contractEnd));
+  const contractAlertEl=document.getElementById('contractAlerts');
+  if(contractAlertEl){
+    if(expiring.length){
+      contractAlertEl.innerHTML=expiring.map(p=>{
+        const d=Math.ceil((new Date(p.contractEnd)-new Date(today))/86400000);
+        const isExp=d<0;
+        const cls=isExp?'danger':'warning';
+        const icon=isExp?'\ud83d\udd34':'\u26a0\ufe0f';
+        const msg=isExp?`Contract EXPIRED ${Math.abs(d)} day${Math.abs(d)!==1?'s':''} ago`:`Contract expires in ${d} day${d!==1?'s':''} (${fmtDate(p.contractEnd)})`;
+        return`<div class="alert-bar show ${cls}" style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="openPropertyModal('${p.id}')">
+          <span>${icon}</span><span style="flex:1"><strong>${esc(p.name)}</strong> \u2014 ${msg}</span>
+          <span style="font-size:11px;opacity:.7">Tap to edit \u2192</span>
+        </div>`;
+      }).join('');
+      contractAlertEl.style.display='';
+    }else{contractAlertEl.innerHTML='';contractAlertEl.style.display='none';}
+  }
 }
 
 // ============================================================
@@ -1983,6 +2016,22 @@ function calcFinancials(){
   _set('s-cleaning',t.cleaningFee?`−${fmtMoney(t.cleaningFee)}`:'—','var(--text-2)');
   _set('s-store-display',t.storeSales?`+${fmtMoney(t.storeSales)}`:'—','var(--green)');
   _set('s-net',fmtMoney(actualNet),actualNet>=0?'var(--green)':'var(--red)');
+  // ── Revenue Split row (only shown when property has a split configured) ──
+  const actualOwnerPct=t.ownerPct??100;
+  const splitEl=document.getElementById('s-split-row');
+  if(splitEl){
+    if(actualOwnerPct<100&&actualNet){
+      const actualSplitBase=t.guestTotal-actualSvcFee-t.cleaningFee;
+      const ownerAmt=actualSplitBase*(actualOwnerPct/100)+t.storeSales;
+      const bloomsAmt=actualSplitBase*((100-actualOwnerPct)/100);
+      splitEl.innerHTML=`<div style="margin-top:8px;padding:8px 10px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--border);font-size:12px">
+        <div style="font-weight:700;color:var(--text-3);font-size:10px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Revenue Split (${actualOwnerPct}% / ${100-actualOwnerPct}%)</div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-2)">Owner Share (${actualOwnerPct}%)</span><span style="font-weight:700;color:var(--blue)">${fmtMoney(ownerAmt)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text-2)">Bloomstone (${100-actualOwnerPct}%)</span><span style="font-weight:700;color:var(--green)">${fmtMoney(bloomsAmt)}</span></div>
+      </div>`;
+      splitEl.style.display='';
+    }else{splitEl.style.display='none';}
+  }
   checkOverlap();
 }
 
@@ -2764,11 +2813,18 @@ function renderFinanceOverview(){
   const totalExp=filteredExp.reduce((s,e)=>s+((e.amount||0)-(e.cleaning||0)),0);
   // storeSales is already included in netRevenue; don't add it again
   const netProfit=totalRev-totalExp;
+  // Revenue split totals across all bookings in view
+  const totalOwnerShare=list.reduce((s,b)=>s+calcTotals(b).ownerShare,0);
+  const totalBloomsShare=list.reduce((s,b)=>s+calcTotals(b).bloomsShare,0);
+  const hasSplit=list.some(b=>{const p=properties.find(x=>x.id===b.property);return(p?.ownerPct??100)<100;});
   document.getElementById('finStats').innerHTML=`
     <div class="stat-card"><div class="stat-label">Net Revenue</div><div class="stat-value">${fmtMoney(totalRev)}</div><div class="stat-sub">${list.length} bookings</div></div>
     <div class="stat-card"><div class="stat-label">Add-on Sales</div><div class="stat-value">${fmtMoney(totalAddons)}</div></div>
     <div class="stat-card"><div class="stat-label">Total Expenses</div><div class="stat-value">${fmtMoney(totalExp)}</div></div>
-    <div class="stat-card"><div class="stat-label">Net Profit</div><div class="stat-value" style="color:${netProfit>=0?'var(--green)':'var(--red)'}">${fmtMoney(netProfit)}</div></div>`;
+    <div class="stat-card"><div class="stat-label">Net Profit</div><div class="stat-value" style="color:${netProfit>=0?'var(--green)':'var(--red)'}">${fmtMoney(netProfit)}</div></div>
+    ${hasSplit?`<div class="stat-card" style="border-color:#1a56db"><div class="stat-label" style="color:#1a56db">Owner Payable</div><div class="stat-value" style="color:#1a56db">${fmtMoney(totalOwnerShare)}</div><div class="stat-sub">across managed properties</div></div>
+    <div class="stat-card" style="border-color:var(--green)"><div class="stat-label" style="color:var(--green)">Bloomstone Earnings</div><div class="stat-value" style="color:var(--green)">${fmtMoney(totalBloomsShare)}</div><div class="stat-sub">management share</div></div>`:''}
+    `;
   document.getElementById('finBlocks').innerHTML=`
     <div class="finance-block"><div class="finance-block-title">Revenue</div>
       <div class="finance-row"><span class="label">Room Revenue</span><span class="val">${fmtMoney(totalRoom)}</span></div>
@@ -2907,6 +2963,169 @@ function expBookings(month,propId){
     return true;
   });
 }
+// ============================================================
+// OWNER STATEMENTS (Phase 2)
+// ============================================================
+function renderOwnerStatements(){
+  const container=document.getElementById('view-finance-owner-statements');if(!container)return;
+  const propSel=document.getElementById('os-prop')?.value||'';
+  const monthSel=document.getElementById('os-month')?.value||'';
+  // Payout ledger section
+  const ledgerEl=document.getElementById('osLedger');
+  const stmtEl=document.getElementById('osStatementPreview');
+  // Populate property selector if empty
+  const osPropEl=document.getElementById('os-prop');
+  if(osPropEl&&!osPropEl.options.length){
+    osPropEl.innerHTML='<option value="">Select Property…</option>'+properties.filter(p=>(p.ownerPct??100)<100).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  }
+  // Populate month selector if empty
+  const osMonthEl=document.getElementById('os-month');
+  if(osMonthEl&&!osMonthEl.options.length){
+    const months=[];const now=new Date();
+    for(let i=11;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);}
+    osMonthEl.innerHTML='<option value="">Select Month…</option>'+months.map(m=>{const[y,mo]=m.split('-');const lbl=new Date(+y,+mo-1,1).toLocaleDateString('en-PH',{month:'long',year:'numeric'});return`<option value="${m}">${lbl}</option>`;}).join('');
+    osMonthEl.value=`${now.getFullYear()}-${String(now.getMonth()).padStart(2,'0')}`||months[months.length-2]||'';
+  }
+  // Render payout ledger for selected property
+  if(ledgerEl){
+    if(!propSel){ledgerEl.innerHTML=`<div class="empty"><div class="empty-text">Select a property to view payout history</div></div>`;return;}
+    const prop=properties.find(p=>p.id===propSel);
+    const payouts=ownerPayouts.filter(x=>x.propertyId===propSel).sort((a,b)=>b.month.localeCompare(a.month));
+    const totalUnpaid=payouts.filter(x=>!x.paid).reduce((s,x)=>s+x.amountDue,0);
+    ledgerEl.innerHTML=`
+      <div class="finance-block" style="margin-bottom:12px">
+        <div class="finance-block-title">Payout Ledger — ${esc(prop?.name||'')} · Owner: ${esc(prop?.ownerName||'—')}</div>
+        ${totalUnpaid>0?`<div class="alert-bar show warning" style="margin-bottom:10px">⚠ Outstanding balance: <strong>${fmtMoney(totalUnpaid)}</strong> unpaid to owner</div>`:''}
+        <div class="table-wrap" style="margin-top:8px">
+          <table class="data-table">
+            <thead><tr><th>Month</th><th>Bookings</th><th>Gross</th><th>Plat Fees</th><th>Net</th><th>Owner (${prop?.ownerPct??70}%)</th><th>Status</th><th>Date Paid</th><th></th></tr></thead>
+            <tbody>
+              ${payouts.length?payouts.map(x=>`<tr>
+                <td style="font-weight:600">${x.month}</td>
+                <td>${x.bookingCount||'—'}</td>
+                <td>${fmtMoney(x.grossRevenue||0)}</td>
+                <td style="color:var(--red)">${x.platFees?`−${fmtMoney(x.platFees)}`:''}</td>
+                <td>${fmtMoney(x.netRevenue||0)}</td>
+                <td style="font-weight:700;color:var(--blue)">${fmtMoney(x.amountDue)}</td>
+                <td>${x.paid?`<span class="badge badge-green">✓ Paid</span>`:`<span class="badge badge-orange">Unpaid</span>`}</td>
+                <td style="font-size:11px;color:var(--text-3)">${x.datePaid?fmtDate(x.datePaid):'—'}</td>
+                <td onclick="event.stopPropagation()">
+                  ${!x.paid?`<button class="btn btn-sm btn-primary" onclick="markPayoutPaid('${x.id}')">Mark Paid</button>`:''}
+                  <button class="btn btn-sm btn-ghost" onclick="deleteOwnerPayout('${x.id}')" title="Delete">✕</button>
+                </td>
+              </tr>`).join(''):`<tr><td colspan="9" style="text-align:center;color:var(--text-3);padding:20px">No payout records yet — generate a statement to create one</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+}
+function generateOwnerStatement(){
+  const propId=document.getElementById('os-prop')?.value||'';
+  const month=document.getElementById('os-month')?.value||'';
+  if(!propId){toast('Select a property first.','warning');return;}
+  if(!month){toast('Select a month first.','warning');return;}
+  const prop=properties.find(p=>p.id===propId);
+  if(!prop){toast('Property not found.','error');return;}
+  const ownerPct=prop.ownerPct??70;
+  // Get bookings for that property in that month (by checkin date)
+  const list=bookings.filter(b=>b.property===propId&&b.status!=='Cancelled'&&(b.checkin||'').startsWith(month));
+  const totalGross=list.reduce((s,b)=>s+calcTotals(b).guestTotal,0);
+  const totalPlatFee=list.reduce((s,b)=>s+calcTotals(b).svcFee,0);
+  const totalCleaning=list.reduce((s,b)=>s+calcTotals(b).cleaningFee,0);
+  const totalStore=list.reduce((s,b)=>s+calcTotals(b).storeSales,0);
+  const totalNet=list.reduce((s,b)=>s+calcTotals(b).splitBase,0); // net excl store
+  const ownerAmount=totalNet*(ownerPct/100)+totalStore;
+  const bloomsAmount=totalNet*((100-ownerPct)/100);
+  const totalNights=list.reduce((s,b)=>s+calcTotals(b).nights,0);
+  const [y,mo]=month.split('-');
+  const monthLabel=new Date(+y,+mo-1,1).toLocaleDateString('en-PH',{month:'long',year:'numeric'});
+  const payoutDate=`${+mo===12?+y+1:+y}-${String(+mo===12?1:+mo+1).padStart(2,'0')}-05`;
+  // Save to payout ledger if not exists
+  const existing=ownerPayouts.find(x=>x.propertyId===propId&&x.month===month);
+  if(!existing){
+    ownerPayouts.push({id:genId(),propertyId:propId,month,bookingCount:list.length,grossRevenue:totalGross,platFees:totalPlatFee,netRevenue:totalNet+totalStore,amountDue:ownerAmount,paid:false,datePaid:'',method:prop.payoutMethod||'',notes:''});
+    saveAll();renderOwnerStatements();
+  }
+  // Generate print statement
+  const rows=list.map(b=>{const t=calcTotals(b);return`
+    <tr><td>${fmtDate(b.checkin)}</td><td>${fmtDate(b.checkout)}</td><td>${t.nights}</td><td>${esc(b.guest)}</td><td>${esc(b.platform||'—')}</td>
+    <td style="text-align:right">${fmtMoney(t.guestTotal)}</td><td style="text-align:right;color:#c0392b">${t.svcFee?`−${fmtMoney(t.svcFee)}`:''}</td>
+    <td style="text-align:right;color:#c0392b">${t.cleaningFee?`−${fmtMoney(t.cleaningFee)}`:''}</td>
+    <td style="text-align:right;font-weight:700">${fmtMoney(t.splitBase)}</td></tr>`}).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Owner Statement – ${monthLabel}</title>
+  <style>
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:0;color:#1a1a1a;background:#fff}
+    .page{max-width:680px;margin:0 auto;padding:32px 28px}
+    .logo{font-size:22px;font-weight:900;letter-spacing:-.04em;margin-bottom:2px}
+    .logo span{color:#888;font-weight:400}
+    .subtitle{font-size:11px;color:#999;margin-bottom:20px}
+    .divider{border:none;border-top:1px solid #e8e6e1;margin:16px 0}
+    h2{font-size:17px;font-weight:800;margin:0 0 2px}
+    .meta{font-size:12px;color:#666;margin-bottom:14px}
+    table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px}
+    th{background:#f5f4f0;padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:2px solid #e0ddd5}
+    td{padding:5px 8px;border-bottom:1px solid #f0ede5;vertical-align:top}
+    .section-title{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#999;padding:12px 0 6px}
+    .summary-table td{padding:5px 0}
+    .summary-table td:last-child{text-align:right;font-weight:600}
+    .total-row td{font-size:15px;font-weight:900;border-top:2px solid #1a1a1a;padding-top:8px}
+    .owner-box{background:#eef4ff;border:1.5px solid #1a56db;border-radius:8px;padding:16px 20px;margin:16px 0}
+    .owner-amt{font-size:28px;font-weight:900;color:#1a56db}
+    .blooms-row{display:flex;justify-content:space-between;font-size:12px;color:#555;margin-top:8px}
+    @media print{body{margin:0}@page{margin:14mm}}
+  </style></head><body><div class="page">
+    <div class="logo">Bloomstone<span> PMS</span></div>
+    <div class="subtitle">Monthly Owner Statement</div>
+    <hr class="divider"/>
+    <h2>${monthLabel} — ${esc(prop.name)}</h2>
+    <div class="meta">
+      Owner: <strong>${esc(prop.ownerName||'—')}</strong>${prop.ownerPhone?` · ${esc(prop.ownerPhone)}`:''}<br/>
+      Revenue Share: <strong>${ownerPct}% to owner · ${100-ownerPct}% to Bloomstone PH</strong><br/>
+      Payout Date: <strong>${fmtDate(payoutDate)}</strong> · Method: ${esc(prop.payoutMethod||'TBD')} ${esc(prop.payoutAccount||'')}
+    </div>
+    <div class="section-title">Booking Details</div>
+    <table>
+      <thead><tr><th>Check-in</th><th>Check-out</th><th>Nts</th><th>Guest</th><th>Platform</th><th style="text-align:right">Gross</th><th style="text-align:right">Svc Fee</th><th style="text-align:right">Cleaning</th><th style="text-align:right">Net</th></tr></thead>
+      <tbody>${rows||'<tr><td colspan="9" style="color:#999;padding:12px">No bookings this month</td></tr>'}</tbody>
+    </table>
+    <div class="section-title">Summary</div>
+    <table class="summary-table">
+      <tr><td style="color:#555">Total bookings</td><td>${list.length}</td></tr>
+      <tr><td style="color:#555">Total nights booked</td><td>${totalNights}</td></tr>
+      <tr><td style="color:#555">Gross guest charges</td><td>${fmtMoney(totalGross)}</td></tr>
+      <tr><td style="color:#555">Platform / service fees</td><td style="color:#c0392b">−${fmtMoney(totalPlatFee)}</td></tr>
+      <tr><td style="color:#555">Cleaning fees</td><td style="color:#c0392b">−${fmtMoney(totalCleaning)}</td></tr>
+      ${totalStore?`<tr><td style="color:#555">Honesty store sales (100% owner)</td><td style="color:#2d6a1f">+${fmtMoney(totalStore)}</td></tr>`:''}
+      <tr class="total-row"><td>Net Revenue</td><td>${fmtMoney(totalNet+totalStore)}</td></tr>
+    </table>
+    <div class="owner-box">
+      <div style="font-size:12px;font-weight:700;color:#1a56db;margin-bottom:4px">OWNER PAYOUT (${ownerPct}%)</div>
+      <div class="owner-amt">${fmtMoney(ownerAmount)}</div>
+      <div class="blooms-row"><span>Bloomstone PH share (${100-ownerPct}%)</span><span style="font-weight:700;color:#2d6a1f">${fmtMoney(bloomsAmount)}</span></div>
+    </div>
+    <hr class="divider"/>
+    <div style="font-size:10px;color:#aaa;text-align:center">Generated by Bloomstone PMS · ${new Date().toLocaleDateString('en-PH')} · Payout due ${fmtDate(payoutDate)}</div>
+  </div></body></html>`;
+  const win=window.open('','_blank','width=720,height=900');
+  if(!win){toast('Allow popups to generate the statement.','warning');return;}
+  win.document.write(html);win.document.close();win.focus();
+  setTimeout(()=>win.print(),500);
+}
+function markPayoutPaid(id){
+  const p=ownerPayouts.find(x=>x.id===id);if(!p)return;
+  p.paid=true;p.datePaid=todayISO();
+  saveAll();renderOwnerStatements();
+  toast('Payout marked as paid ✓','success');
+}
+function deleteOwnerPayout(id){
+  confirmDialog('Delete payout record?','This will remove the payout record from the ledger. The bookings themselves are not affected.',null,()=>{
+    ownerPayouts=ownerPayouts.filter(x=>x.id!==id);
+    saveAll();renderOwnerStatements();
+    toast('Payout record deleted.','warning');
+  });
+}
+
 function renderExpenses(){
   const mo=document.getElementById('exp-month')?.value||'all';
   const pr=document.getElementById('exp-prop')?.value||'all';
@@ -3195,7 +3414,10 @@ function openPropertyModal(id=null){
   editingPropId=id;
   _editingPhotos=[];
   document.getElementById('propModalTitle').textContent=id?'Edit Property':'Add Property';
-  ['fp-name','fp-city','fp-address','fp-map','fp-airbnb','fp-notes'].forEach(k=>{const el=document.getElementById(k);if(el)el.value='';});
+  ['fp-name','fp-city','fp-address','fp-map','fp-airbnb','fp-notes',
+   'fp-owner-name','fp-owner-phone','fp-owner-email','fp-owner-address',
+   'fp-payout-method','fp-payout-account','fp-contract-start','fp-contract-end'].forEach(k=>{const el=document.getElementById(k);if(el)el.value='';});
+  const opctEl=document.getElementById('fp-owner-pct');if(opctEl){opctEl.value=100;}
   document.getElementById('fp-beds').value='';
   document.getElementById('fp-baseguests').value=2;
   document.getElementById('fp-maxguests').value=4;
@@ -3226,6 +3448,17 @@ function openPropertyModal(id=null){
       document.getElementById('fp-icon-id').value=iconId;
       document.getElementById('fp-icon-custom').value=iconCustom;
       if(iconCustom)document.getElementById('fp-icon-clear').style.display='';
+      // Owner & Contract fields
+      const _fp=id=>document.getElementById(id);
+      if(_fp('fp-owner-name'))_fp('fp-owner-name').value=p.ownerName||'';
+      if(_fp('fp-owner-phone'))_fp('fp-owner-phone').value=p.ownerPhone||'';
+      if(_fp('fp-owner-email'))_fp('fp-owner-email').value=p.ownerEmail||'';
+      if(_fp('fp-owner-address'))_fp('fp-owner-address').value=p.ownerAddress||'';
+      if(_fp('fp-owner-pct'))_fp('fp-owner-pct').value=p.ownerPct??100;
+      if(_fp('fp-payout-method'))_fp('fp-payout-method').value=p.payoutMethod||'';
+      if(_fp('fp-payout-account'))_fp('fp-payout-account').value=p.payoutAccount||'';
+      if(_fp('fp-contract-start'))_fp('fp-contract-start').value=p.contractStart||'';
+      if(_fp('fp-contract-end'))_fp('fp-contract-end').value=p.contractEnd||'';
     }
   }
   renderPropIconGrid(document.getElementById('fp-icon-id').value);
@@ -3242,20 +3475,32 @@ function saveProperty(){
   const bg=Math.max(1,+document.getElementById('fp-baseguests').value||2);
   let mg=Math.max(1,+document.getElementById('fp-maxguests').value||bg);if(mg<bg)mg=bg;
   const existing=editingPropId?properties.find(p=>p.id===editingPropId):null;
+  const _gv=id=>document.getElementById(id)?.value||'';
+  const ownerPctVal=Math.min(100,Math.max(0,+_gv('fp-owner-pct')||100));
   const data={
     id:editingPropId||genId(),name,city,
-    address:document.getElementById('fp-address').value,
-    map:document.getElementById('fp-map').value,
-    airbnbUrl:document.getElementById('fp-airbnb').value,
-    iconId:document.getElementById('fp-icon-id').value||'house',
-    iconCustom:document.getElementById('fp-icon-custom').value||'',
-    beds:+document.getElementById('fp-beds').value||0,
+    address:_gv('fp-address'),
+    map:_gv('fp-map'),
+    airbnbUrl:_gv('fp-airbnb'),
+    iconId:_gv('fp-icon-id')||'house',
+    iconCustom:_gv('fp-icon-custom')||'',
+    beds:+_gv('fp-beds')||0,
     baseGuests:bg,maxGuests:mg,
-    baseRate:Math.max(0,+document.getElementById('fp-baserate').value||0),
-    extraGuestFee:Math.max(0,+document.getElementById('fp-extrafee').value||0),
+    baseRate:Math.max(0,+_gv('fp-baserate')||0),
+    extraGuestFee:Math.max(0,+_gv('fp-extrafee')||0),
     blockedDates:existing?.blockedDates||[],
     photos:[..._editingPhotos],
-    notes:document.getElementById('fp-notes').value,
+    notes:_gv('fp-notes'),
+    // Owner & Contract
+    ownerName:_gv('fp-owner-name'),
+    ownerPhone:_gv('fp-owner-phone'),
+    ownerEmail:_gv('fp-owner-email'),
+    ownerAddress:_gv('fp-owner-address'),
+    ownerPct:ownerPctVal,
+    payoutMethod:_gv('fp-payout-method'),
+    payoutAccount:_gv('fp-payout-account'),
+    contractStart:_gv('fp-contract-start'),
+    contractEnd:_gv('fp-contract-end'),
   };
   if(editingPropId){const i=properties.findIndex(p=>p.id===editingPropId);if(i>=0)properties[i]=data;}
   else properties.push(data);
@@ -3283,6 +3528,16 @@ function deleteProperty(id){
   confirmDialog('\u26a0 Delete Property',`You are about to delete "${p?.name}". ${cnt>0?`This property has ${cnt} booking(s). The bookings will be kept but will show missing property. `:''}Property data cannot be recovered after deletion.`,'\ud83d\uddd1',()=>{
     properties=properties.filter(x=>x.id!==id);saveAll();renderProperties();populateSelects();toast('Property deleted.','warning');
   });
+}
+function contractStatusBadge(p){
+  if(!p.contractEnd)return'';
+  const today=todayISO();
+  const end=p.contractEnd;
+  const daysLeft=Math.ceil((new Date(end)-new Date(today))/86400000);
+  if(daysLeft<0)return`<span class="badge badge-red" title="Contract expired ${fmtDate(end)}">Expired</span>`;
+  if(daysLeft<=30)return`<span class="badge badge-orange" title="Contract ends ${fmtDate(end)}">Expires in ${daysLeft}d</span>`;
+  if(daysLeft<=90)return`<span class="badge badge-orange" style="opacity:.7" title="Contract ends ${fmtDate(end)}">~${Math.ceil(daysLeft/30)}mo left</span>`;
+  return`<span class="badge badge-green" title="Contract ends ${fmtDate(end)}">Active</span>`;
 }
 function renderProperties(){
   const grid=document.getElementById('propGrid');
@@ -3314,10 +3569,15 @@ function renderProperties(){
         </div>
       </div>
       <div class="prop-stats">
-        <div><div class="prop-stat-label">Revenue</div><div class="prop-stat-value">${fmtMoney(rev)}</div></div>
+        <div><div class="prop-stat-label">Net Revenue</div><div class="prop-stat-value">${fmtMoney(rev)}</div></div>
         <div><div class="prop-stat-label">Occupancy</div><div class="prop-stat-value" style="color:${occ>70?'var(--green)':occ>40?'var(--orange)':'var(--red)'}">${occ}%</div></div>
         <div><div class="prop-stat-label">Base Rate</div><div class="prop-stat-value">${p.baseRate?fmtMoney(p.baseRate):'\u2014'}</div></div>
       </div>
+      ${(p.ownerPct??100)<100?`<div style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text-2)">👤 ${esc(p.ownerName||'Owner')}</span>
+        <span class="badge" style="background:#eef4ff;color:#1a56db;font-size:10px">${p.ownerPct}% owner · ${100-p.ownerPct}% Bloomstone</span>
+        ${contractStatusBadge(p)}
+      </div>`:''}
       ${(p.blockedDates||[]).length?`<div style="font-size:11px;color:var(--red);margin-top:8px">🔴 ${p.blockedDates.length} date(s) blocked</div>`:''}
       <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
         ${p.map?`<a href="${esc(p.map)}" target="_blank" class="btn btn-ghost btn-sm" style="justify-content:center;flex:1" onclick="event.stopPropagation()">📍 Map</a>`:''}

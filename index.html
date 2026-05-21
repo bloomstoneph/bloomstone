@@ -1178,6 +1178,7 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
       <!-- TODAY -->
       <div class="view active" id="view-today">
         <div id="todayStats"></div>
+        <div id="contractAlerts" style="margin-bottom:8px"></div>
         <div class="today-main-grid">
           <div id="todaySections"></div>
           <div id="todayTimeline"></div>
@@ -1327,6 +1328,17 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
             <tbody id="platformTbody"></tbody>
           </table>
         </div>
+      </div>
+
+      <!-- FINANCE: OWNER STATEMENTS -->
+      <div class="view" id="view-finance-owner-statements">
+        <div class="filter-bar">
+          <select class="input" id="os-prop" style="max-width:240px" onchange="renderOwnerStatements()"><option value="">Select Property…</option></select>
+          <select class="input" id="os-month" style="max-width:180px" onchange="renderOwnerStatements()"><option value="">Select Month…</option></select>
+          <button class="btn btn-primary btn-sm" onclick="generateOwnerStatement()">📄 Generate Statement</button>
+        </div>
+        <div id="osLedger"></div>
+        <div id="osStatementPreview"></div>
       </div>
 
       <!-- PROPERTIES: PORTFOLIO -->
@@ -1877,6 +1889,7 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
           <span style="font-size:14px;font-weight:800">Net Revenue</span>
           <span id="s-net" style="font-size:22px;font-weight:900;color:var(--green)">₱0</span>
         </div>
+        <div id="s-split-row" style="display:none"></div>
       </div>
     </div>
 
@@ -2068,7 +2081,27 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
         <div class="field"><label class="label">Base Nightly Rate (₱) <span class="req">*</span></label><input class="input" id="fp-baserate" type="number" min="0" placeholder="e.g. 2500" value="0"/></div>
         <div class="field"><label class="label">Extra Guest Fee (₱/night)</label><input class="input" id="fp-extrafee" type="number" min="0" value="300"/></div>
       </div>
-      <div class="field"><label class="label">Notes</label><input class="input" id="fp-notes"/></div>
+      <div class="field"><label class="label">Notes / House Rules</label><textarea class="input" id="fp-notes" rows="2" style="resize:vertical"></textarea></div>
+      <div class="field-divider" style="cursor:pointer;user-select:none" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">Owner &amp; Contract ▾</div>
+      <div id="fp-owner-section">
+        <div class="field-row">
+          <div class="field"><label class="label">Owner Name</label><input class="input" id="fp-owner-name" placeholder="Juan dela Cruz"/></div>
+          <div class="field"><label class="label">Owner Phone</label><input class="input" id="fp-owner-phone" type="tel" placeholder="+63 9XX XXX XXXX"/></div>
+        </div>
+        <div class="field"><label class="label">Owner Email</label><input class="input" id="fp-owner-email" type="email" placeholder="owner@email.com"/></div>
+        <div class="field"><label class="label">Owner Address</label><input class="input" id="fp-owner-address" placeholder="Full address"/></div>
+        <div class="field-row">
+          <div class="field"><label class="label">Owner Revenue Share %</label><input class="input" id="fp-owner-pct" type="number" min="0" max="100" value="100" placeholder="70"/><div style="font-size:11px;color:var(--text-3);margin-top:3px">Set to 70 for 70% owner / 30% Bloomstone</div></div>
+          <div class="field"><label class="label">Payout Method</label>
+            <select class="input" id="fp-payout-method"><option value="">Select…</option><option>GCash</option><option>Maya</option><option>BDO</option><option>BPI</option><option>Metrobank</option><option>Cash</option><option>Bank Transfer</option></select>
+          </div>
+        </div>
+        <div class="field"><label class="label">Payout Account No. / Number</label><input class="input" id="fp-payout-account" placeholder="GCash / account number"/></div>
+        <div class="field-row">
+          <div class="field"><label class="label">Contract Start</label><input class="input" id="fp-contract-start" type="date"/></div>
+          <div class="field"><label class="label">Contract End</label><input class="input" id="fp-contract-end" type="date"/></div>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('propertyModal')">Cancel</button>
