@@ -2968,151 +2968,306 @@ function expBookings(month,propId){
 // ============================================================
 // OWNER STATEMENTS (Phase 2)
 // ============================================================
-function renderOwnerStatements(){
-  const container=document.getElementById('view-finance-owner-statements');if(!container)return;
-  const propSel=document.getElementById('os-prop')?.value||'';
-  const monthSel=document.getElementById('os-month')?.value||'';
-  // Payout ledger section
-  const ledgerEl=document.getElementById('osLedger');
-  const stmtEl=document.getElementById('osStatementPreview');
-  // Populate property selector if empty
-  const osPropEl=document.getElementById('os-prop');
-  if(osPropEl&&!osPropEl.options.length){
-    osPropEl.innerHTML='<option value="">Select Property…</option>'+properties.filter(p=>(p.ownerPct??100)<100).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
-  }
-  // Populate month selector if empty
-  const osMonthEl=document.getElementById('os-month');
-  if(osMonthEl&&!osMonthEl.options.length){
-    const months=[];const now=new Date();
-    for(let i=11;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);}
-    osMonthEl.innerHTML='<option value="">Select Month…</option>'+months.map(m=>{const[y,mo]=m.split('-');const lbl=new Date(+y,+mo-1,1).toLocaleDateString('en-PH',{month:'long',year:'numeric'});return`<option value="${m}">${lbl}</option>`;}).join('');
-    osMonthEl.value=`${now.getFullYear()}-${String(now.getMonth()).padStart(2,'0')}`||months[months.length-2]||'';
-  }
-  // Render payout ledger for selected property
-  if(ledgerEl){
-    if(!propSel){ledgerEl.innerHTML=`<div class="empty"><div class="empty-text">Select a property to view payout history</div></div>`;return;}
-    const prop=properties.find(p=>p.id===propSel);
-    const payouts=ownerPayouts.filter(x=>x.propertyId===propSel).sort((a,b)=>b.month.localeCompare(a.month));
-    const totalUnpaid=payouts.filter(x=>!x.paid).reduce((s,x)=>s+x.amountDue,0);
-    ledgerEl.innerHTML=`
-      <div class="finance-block" style="margin-bottom:12px">
-        <div class="finance-block-title">Payout Ledger — ${esc(prop?.name||'')} · Owner: ${esc(prop?.ownerName||'—')}</div>
-        ${totalUnpaid>0?`<div class="alert-bar show warning" style="margin-bottom:10px">⚠ Outstanding balance: <strong>${fmtMoney(totalUnpaid)}</strong> unpaid to owner</div>`:''}
-        <div class="table-wrap" style="margin-top:8px">
-          <table class="data-table">
-            <thead><tr><th>Month</th><th>Bookings</th><th>Gross</th><th>Plat Fees</th><th>Net</th><th>Owner (${prop?.ownerPct??70}%)</th><th>Status</th><th>Date Paid</th><th></th></tr></thead>
-            <tbody>
-              ${payouts.length?payouts.map(x=>`<tr>
-                <td style="font-weight:600">${x.month}</td>
-                <td>${x.bookingCount||'—'}</td>
-                <td>${fmtMoney(x.grossRevenue||0)}</td>
-                <td style="color:var(--red)">${x.platFees?`−${fmtMoney(x.platFees)}`:''}</td>
-                <td>${fmtMoney(x.netRevenue||0)}</td>
-                <td style="font-weight:700;color:var(--blue)">${fmtMoney(x.amountDue)}</td>
-                <td>${x.paid?`<span class="badge badge-green">✓ Paid</span>`:`<span class="badge badge-orange">Unpaid</span>`}</td>
-                <td style="font-size:11px;color:var(--text-3)">${x.datePaid?fmtDate(x.datePaid):'—'}</td>
-                <td onclick="event.stopPropagation()">
-                  ${!x.paid?`<button class="btn btn-sm btn-primary" onclick="markPayoutPaid('${x.id}')">Mark Paid</button>`:''}
-                  <button class="btn btn-sm btn-ghost" onclick="deleteOwnerPayout('${x.id}')" title="Delete">✕</button>
-                </td>
-              </tr>`).join(''):`<tr><td colspan="9" style="text-align:center;color:var(--text-3);padding:20px">No payout records yet — generate a statement to create one</td></tr>`}
-            </tbody>
-          </table>
-        </div>
-      </div>`;
-  }
-}
-function generateOwnerStatement(){
-  const propId=document.getElementById('os-prop')?.value||'';
-  const month=document.getElementById('os-month')?.value||'';
-  if(!propId){toast('Select a property first.','warning');return;}
-  if(!month){toast('Select a month first.','warning');return;}
-  const prop=properties.find(p=>p.id===propId);
-  if(!prop){toast('Property not found.','error');return;}
-  const ownerPct=prop.ownerPct??70;
-  // Get bookings for that property in that month (by checkin date)
+// ── shared data builder ────────────────────────────────────────
+function _buildStatementData(propId,month){
+  const prop=properties.find(p=>p.id===propId);if(!prop)return null;
+  const ownerPct=+(prop.ownerPct??70);
   const list=bookings.filter(b=>b.property===propId&&b.status!=='Cancelled'&&(b.checkin||'').startsWith(month));
   const totalGross=list.reduce((s,b)=>s+calcTotals(b).guestTotal,0);
-  const totalPlatFee=list.reduce((s,b)=>s+calcTotals(b).svcFee,0);
+  const totalSvcFee=list.reduce((s,b)=>s+calcTotals(b).svcFee,0);
   const totalCleaning=list.reduce((s,b)=>s+calcTotals(b).cleaningFee,0);
   const totalStore=list.reduce((s,b)=>s+calcTotals(b).storeSales,0);
-  const totalNet=list.reduce((s,b)=>s+calcTotals(b).splitBase,0); // net excl store
-  const ownerAmount=totalNet*(ownerPct/100)+totalStore;
-  const bloomsAmount=totalNet*((100-ownerPct)/100);
+  const totalSplitBase=list.reduce((s,b)=>s+calcTotals(b).splitBase,0);
+  const ownerAmount=totalSplitBase*(ownerPct/100)+totalStore;
+  const bloomsAmount=totalSplitBase*((100-ownerPct)/100);
   const totalNights=list.reduce((s,b)=>s+calcTotals(b).nights,0);
   const [y,mo]=month.split('-');
   const monthLabel=new Date(+y,+mo-1,1).toLocaleDateString('en-PH',{month:'long',year:'numeric'});
   const payoutDate=`${+mo===12?+y+1:+y}-${String(+mo===12?1:+mo+1).padStart(2,'0')}-05`;
-  // Save to payout ledger if not exists
+  return{prop,ownerPct,list,totalGross,totalSvcFee,totalCleaning,totalStore,totalSplitBase,ownerAmount,bloomsAmount,totalNights,monthLabel,payoutDate,month};
+}
+
+// ── inline report renderer ─────────────────────────────────────
+function renderOwnerStatements(){
+  // Always refresh selectors
+  const osPropEl=document.getElementById('os-prop');
+  if(osPropEl){
+    const cur=osPropEl.value;
+    osPropEl.innerHTML='<option value="">Select Property…</option>'+
+      properties.filter(p=>(p.ownerPct??100)<100).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+    if(cur)osPropEl.value=cur;
+  }
+  const osMonthEl=document.getElementById('os-month');
+  if(osMonthEl&&osMonthEl.options.length<=1){
+    const months=[];const now=new Date();
+    for(let i=11;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);}
+    const prev=osMonthEl.value;
+    osMonthEl.innerHTML='<option value="">Select Month…</option>'+months.map(m=>{const[y,mo]=m.split('-');const lbl=new Date(+y,+mo-1,1).toLocaleDateString('en-PH',{month:'long',year:'numeric'});return`<option value="${m}">${lbl}</option>`;}).join('');
+    if(prev)osMonthEl.value=prev;
+    if(!osMonthEl.value){const now2=new Date();osMonthEl.value=`${now2.getFullYear()}-${String(now2.getMonth()).padStart(2,'0')}`;}
+  }
+
+  const propId=osPropEl?.value||'';
+  const month=osMonthEl?.value||'';
+  const stmtEl=document.getElementById('osStatementPreview');
+  const ledgerEl=document.getElementById('osLedger');
+  const printBtn=document.getElementById('osPrintBtn');
+
+  if(!propId||!month){
+    if(stmtEl)stmtEl.innerHTML=`<div class="empty" style="padding:40px 0"><div class="empty-icon">📄</div><div class="empty-text">Select a property and month to view the statement</div></div>`;
+    if(ledgerEl)ledgerEl.innerHTML='';
+    if(printBtn)printBtn.style.display='none';
+    return;
+  }
+
+  const d=_buildStatementData(propId,month);
+  if(!d){if(stmtEl)stmtEl.innerHTML='';return;}
+  if(printBtn)printBtn.style.display='';
+
+  // ── Save to ledger if not yet recorded ──
   const existing=ownerPayouts.find(x=>x.propertyId===propId&&x.month===month);
   if(!existing){
-    ownerPayouts.push({id:genId(),propertyId:propId,month,bookingCount:list.length,grossRevenue:totalGross,platFees:totalPlatFee,netRevenue:totalNet+totalStore,amountDue:ownerAmount,paid:false,datePaid:'',method:prop.payoutMethod||'',notes:''});
-    saveAll();renderOwnerStatements();
+    ownerPayouts.push({id:genId(),propertyId:propId,month,bookingCount:d.list.length,grossRevenue:d.totalGross,platFees:d.totalSvcFee,netRevenue:d.totalSplitBase+d.totalStore,amountDue:d.ownerAmount,paid:false,datePaid:'',method:d.prop.payoutMethod||'',notes:''});
+    saveAll();
   }
-  // Generate print statement
-  const rows=list.map(b=>{const t=calcTotals(b);return`
-    <tr><td>${fmtDate(b.checkin)}</td><td>${fmtDate(b.checkout)}</td><td>${t.nights}</td><td>${esc(b.guest)}</td><td>${esc(b.platform||'—')}</td>
-    <td style="text-align:right">${fmtMoney(t.guestTotal)}</td><td style="text-align:right;color:#c0392b">${t.svcFee?`−${fmtMoney(t.svcFee)}`:''}</td>
+
+  // ── Inline statement ──────────────────────────────────────────
+  if(stmtEl){
+    const ledgerRec=ownerPayouts.find(x=>x.propertyId===propId&&x.month===month);
+    const isPaid=ledgerRec?.paid||false;
+    const rows=d.list.map(b=>{
+      const t=calcTotals(b);
+      return`<tr>
+        <td style="white-space:nowrap">${fmtDate(b.checkin)}</td>
+        <td style="white-space:nowrap">${fmtDate(b.checkout)}</td>
+        <td style="text-align:center">${t.nights}</td>
+        <td><strong>${esc(b.guest)}</strong></td>
+        <td>${platformPillHtml(b.platform)}</td>
+        <td style="text-align:right">${fmtMoney(t.guestTotal)}</td>
+        <td style="text-align:right;color:var(--red)">${t.svcFee?`−${fmtMoney(t.svcFee)}`:''}</td>
+        <td style="text-align:right;color:var(--red)">${t.cleaningFee?`−${fmtMoney(t.cleaningFee)}`:''}</td>
+        <td style="text-align:right;font-weight:700">${fmtMoney(t.splitBase)}</td>
+      </tr>`;
+    }).join('');
+
+    stmtEl.innerHTML=`<div class="os-statement" id="osStatementDoc">
+      <!-- Header -->
+      <div class="os-header">
+        <div>
+          <div class="os-logo">Bloomstone <span>PMS</span></div>
+          <div class="os-subtitle">Monthly Owner Statement</div>
+        </div>
+        <div style="text-align:right">
+          ${isPaid?`<span class="badge badge-green" style="font-size:12px;padding:4px 12px">✓ PAID</span>`:`<span class="badge badge-orange" style="font-size:12px;padding:4px 12px">UNPAID</span>`}
+          <div style="font-size:11px;color:var(--text-3);margin-top:6px">Generated ${new Date().toLocaleDateString('en-PH')}</div>
+        </div>
+      </div>
+
+      <!-- Property + Owner meta -->
+      <div class="os-meta-grid">
+        <div class="os-meta-block">
+          <div class="os-meta-label">Property</div>
+          <div class="os-meta-value">${esc(d.prop.name)}</div>
+          ${d.prop.city?`<div class="os-meta-sub">${esc(d.prop.city)}</div>`:''}
+        </div>
+        <div class="os-meta-block">
+          <div class="os-meta-label">Owner</div>
+          <div class="os-meta-value">${esc(d.prop.ownerName||'—')}</div>
+          ${d.prop.ownerPhone?`<div class="os-meta-sub">${esc(d.prop.ownerPhone)}</div>`:''}
+          ${d.prop.ownerEmail?`<div class="os-meta-sub">${esc(d.prop.ownerEmail)}</div>`:''}
+        </div>
+        <div class="os-meta-block">
+          <div class="os-meta-label">Period</div>
+          <div class="os-meta-value">${d.monthLabel}</div>
+          <div class="os-meta-sub">Revenue share: ${d.ownerPct}% owner · ${100-d.ownerPct}% Bloomstone</div>
+        </div>
+        <div class="os-meta-block">
+          <div class="os-meta-label">Payout Info</div>
+          <div class="os-meta-value">Due ${fmtDate(d.payoutDate)}</div>
+          <div class="os-meta-sub">${esc(d.prop.payoutMethod||'Method not set')}${d.prop.payoutAccount?' · '+esc(d.prop.payoutAccount):''}</div>
+        </div>
+      </div>
+
+      <!-- KPI row -->
+      <div class="os-kpi-row">
+        <div class="os-kpi"><div class="os-kpi-val">${d.list.length}</div><div class="os-kpi-lbl">Bookings</div></div>
+        <div class="os-kpi"><div class="os-kpi-val">${d.totalNights}</div><div class="os-kpi-lbl">Nights</div></div>
+        <div class="os-kpi"><div class="os-kpi-val">${fmtMoney(d.totalGross)}</div><div class="os-kpi-lbl">Gross Revenue</div></div>
+        <div class="os-kpi"><div class="os-kpi-val" style="color:var(--red)">−${fmtMoney(d.totalSvcFee+d.totalCleaning)}</div><div class="os-kpi-lbl">Fees & Cleaning</div></div>
+        <div class="os-kpi"><div class="os-kpi-val">${fmtMoney(d.totalSplitBase+d.totalStore)}</div><div class="os-kpi-lbl">Net Revenue</div></div>
+      </div>
+
+      <!-- Booking table -->
+      <div class="os-section-title">Booking Details</div>
+      <div class="table-wrap" style="margin-bottom:0">
+        <table class="data-table">
+          <thead><tr>
+            <th>Check-in</th><th>Check-out</th><th style="text-align:center">Nts</th><th>Guest</th><th>Platform</th>
+            <th style="text-align:right">Gross</th><th style="text-align:right">Svc Fee</th><th style="text-align:right">Cleaning</th><th style="text-align:right">Net</th>
+          </tr></thead>
+          <tbody>${rows||`<tr><td colspan="9" style="text-align:center;color:var(--text-3);padding:24px">No bookings for this month</td></tr>`}</tbody>
+        </table>
+      </div>
+
+      <!-- Summary + Payout side by side -->
+      <div class="os-bottom-grid">
+        <div class="os-summary-block">
+          <div class="os-section-title">Revenue Summary</div>
+          <div class="os-sum-row"><span>Gross guest charges</span><span>${fmtMoney(d.totalGross)}</span></div>
+          <div class="os-sum-row" style="color:var(--red)"><span>Platform / service fees</span><span>−${fmtMoney(d.totalSvcFee)}</span></div>
+          <div class="os-sum-row" style="color:var(--red)"><span>Cleaning fees</span><span>−${fmtMoney(d.totalCleaning)}</span></div>
+          ${d.totalStore?`<div class="os-sum-row" style="color:var(--green)"><span>Honesty store (100% owner)</span><span>+${fmtMoney(d.totalStore)}</span></div>`:''}
+          <div class="os-sum-row os-sum-total"><span>Net Revenue</span><span>${fmtMoney(d.totalSplitBase+d.totalStore)}</span></div>
+        </div>
+        <div class="os-payout-block">
+          <div class="os-section-title">Payout Breakdown</div>
+          <div class="os-owner-box">
+            <div class="os-owner-label">OWNER PAYOUT (${d.ownerPct}%)</div>
+            <div class="os-owner-amt">${fmtMoney(d.ownerAmount)}</div>
+            ${isPaid&&ledgerRec?.datePaid?`<div class="os-owner-paid">✓ Paid on ${fmtDate(ledgerRec.datePaid)}</div>`:''}
+          </div>
+          <div class="os-blooms-row"><span>Bloomstone PH (${100-d.ownerPct}%)</span><span style="font-weight:700;color:var(--green)">${fmtMoney(d.bloomsAmount)}</span></div>
+          ${!isPaid?`<button class="btn btn-primary btn-sm" style="margin-top:12px;width:100%" onclick="markPayoutPaidForProp('${propId}','${month}')">✓ Mark as Paid</button>`:'<div style="text-align:center;margin-top:12px;font-size:12px;color:var(--green);font-weight:700">✓ Payment recorded</div>'}
+        </div>
+      </div>
+
+      <div style="font-size:11px;color:var(--text-3);text-align:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+        Bloomstone PMS · Payout due ${fmtDate(d.payoutDate)} · ${d.monthLabel}
+      </div>
+    </div>`;
+  }
+
+  // ── Payout Ledger ─────────────────────────────────────────────
+  if(ledgerEl){
+    const prop=d.prop;
+    const payouts=ownerPayouts.filter(x=>x.propertyId===propId).sort((a,b)=>b.month.localeCompare(a.month));
+    const totalUnpaid=payouts.filter(x=>!x.paid).reduce((s,x)=>s+x.amountDue,0);
+    ledgerEl.innerHTML=`<div class="os-section-title" style="margin-top:24px">Payout Ledger — ${esc(prop.name)}</div>
+      ${totalUnpaid>0?`<div class="alert-bar show warning" style="margin-bottom:10px">⚠ Outstanding: <strong>${fmtMoney(totalUnpaid)}</strong> unpaid to ${esc(prop.ownerName||'owner')}</div>`:''}
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Month</th><th>Bookings</th><th>Gross</th><th>Plat Fees</th><th>Net</th><th>Owner (${prop.ownerPct??70}%)</th><th>Status</th><th>Date Paid</th><th></th></tr></thead>
+          <tbody>${payouts.length?payouts.map(x=>`<tr style="cursor:pointer" onclick="document.getElementById('os-month').value='${x.month}';renderOwnerStatements()">
+            <td style="font-weight:600">${x.month}</td>
+            <td>${x.bookingCount||'—'}</td>
+            <td>${fmtMoney(x.grossRevenue||0)}</td>
+            <td style="color:var(--red)">${x.platFees?`−${fmtMoney(x.platFees)}`:''}</td>
+            <td>${fmtMoney(x.netRevenue||0)}</td>
+            <td style="font-weight:700;color:var(--blue)">${fmtMoney(x.amountDue)}</td>
+            <td>${x.paid?`<span class="badge badge-green">✓ Paid</span>`:`<span class="badge badge-orange">Unpaid</span>`}</td>
+            <td style="font-size:11px;color:var(--text-3)">${x.datePaid?fmtDate(x.datePaid):'—'}</td>
+            <td onclick="event.stopPropagation()">
+              ${!x.paid?`<button class="btn btn-sm btn-primary" onclick="markPayoutPaid('${x.id}')">Mark Paid</button>`:''}
+              <button class="btn btn-sm btn-ghost" onclick="deleteOwnerPayout('${x.id}')" title="Delete">✕</button>
+            </td>
+          </tr>`).join(''):`<tr><td colspan="9" style="text-align:center;color:var(--text-3);padding:20px">No payout records yet</td></tr>`}</tbody>
+        </table>
+      </div>`;
+  }
+}
+
+function markPayoutPaidForProp(propId,month){
+  const rec=ownerPayouts.find(x=>x.propertyId===propId&&x.month===month);
+  if(rec){rec.paid=true;rec.datePaid=todayISO();saveAll();renderOwnerStatements();toast('Payout marked as paid ✓','success');}
+}
+
+function printOwnerStatement(){
+  const propId=document.getElementById('os-prop')?.value||'';
+  const month=document.getElementById('os-month')?.value||'';
+  if(!propId||!month){toast('Select a property and month first.','warning');return;}
+  const d=_buildStatementData(propId,month);
+  if(!d){toast('No data found.','error');return;}
+  const ledgerRec=ownerPayouts.find(x=>x.propertyId===propId&&x.month===month);
+  const isPaid=ledgerRec?.paid||false;
+  const rows=d.list.map(b=>{const t=calcTotals(b);return`
+    <tr><td>${fmtDate(b.checkin)}</td><td>${fmtDate(b.checkout)}</td><td style="text-align:center">${t.nights}</td><td>${esc(b.guest)}</td><td>${esc(b.platform||'—')}</td>
+    <td style="text-align:right">${fmtMoney(t.guestTotal)}</td>
+    <td style="text-align:right;color:#c0392b">${t.svcFee?`−${fmtMoney(t.svcFee)}`:''}</td>
     <td style="text-align:right;color:#c0392b">${t.cleaningFee?`−${fmtMoney(t.cleaningFee)}`:''}</td>
     <td style="text-align:right;font-weight:700">${fmtMoney(t.splitBase)}</td></tr>`}).join('');
-  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Owner Statement – ${monthLabel}</title>
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Owner Statement – ${d.monthLabel}</title>
   <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:0;color:#1a1a1a;background:#fff}
-    .page{max-width:680px;margin:0 auto;padding:32px 28px}
-    .logo{font-size:22px;font-weight:900;letter-spacing:-.04em;margin-bottom:2px}
-    .logo span{color:#888;font-weight:400}
-    .subtitle{font-size:11px;color:#999;margin-bottom:20px}
-    .divider{border:none;border-top:1px solid #e8e6e1;margin:16px 0}
-    h2{font-size:17px;font-weight:800;margin:0 0 2px}
-    .meta{font-size:12px;color:#666;margin-bottom:14px}
-    table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px}
-    th{background:#f5f4f0;padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:2px solid #e0ddd5}
-    td{padding:5px 8px;border-bottom:1px solid #f0ede5;vertical-align:top}
-    .section-title{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#999;padding:12px 0 6px}
-    .summary-table td{padding:5px 0}
-    .summary-table td:last-child{text-align:right;font-weight:600}
-    .total-row td{font-size:15px;font-weight:900;border-top:2px solid #1a1a1a;padding-top:8px}
-    .owner-box{background:#eef4ff;border:1.5px solid #1a56db;border-radius:8px;padding:16px 20px;margin:16px 0}
-    .owner-amt{font-size:28px;font-weight:900;color:#1a56db}
-    .blooms-row{display:flex;justify-content:space-between;font-size:12px;color:#555;margin-top:8px}
-    @media print{body{margin:0}@page{margin:14mm}}
+    *{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:0;color:#1a1a1a;background:#fff}
+    .page{max-width:700px;margin:0 auto;padding:28px}
+    .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
+    .logo{font-size:20px;font-weight:900;letter-spacing:-.03em}.logo span{color:#999;font-weight:400}
+    .subtitle{font-size:11px;color:#999;margin-top:2px}
+    .status-badge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700}
+    .paid{background:#edf7ea;color:#2d6a1f}.unpaid{background:#fef8ec;color:#c47c0a}
+    hr{border:none;border-top:1px solid #e8e6e1;margin:14px 0}
+    .meta-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;background:#f8f7f4;border-radius:8px;padding:14px;margin-bottom:16px}
+    .meta-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#999;margin-bottom:3px}
+    .meta-val{font-size:13px;font-weight:700;color:#1a1a1a}
+    .meta-sub{font-size:11px;color:#666;margin-top:1px}
+    .kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:#e8e6e1;border-radius:8px;overflow:hidden;margin-bottom:16px}
+    .kpi{background:#fff;padding:10px 12px;text-align:center}
+    .kpi-val{font-size:15px;font-weight:900;color:#1a1a1a}
+    .kpi-lbl{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+    .sec{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#999;margin:14px 0 6px}
+    table{width:100%;border-collapse:collapse;font-size:11px}
+    th{background:#f5f4f0;padding:5px 7px;text-align:left;font-weight:700;font-size:10px;border-bottom:2px solid #e0ddd5}
+    td{padding:4px 7px;border-bottom:1px solid #f0ede5;vertical-align:top}
+    .bottom{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px}
+    .sum-row{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid #f0ede5}
+    .sum-total{font-weight:900;font-size:13px;border-top:2px solid #1a1a1a;border-bottom:none;padding-top:6px;margin-top:2px}
+    .owner-box{background:#eef4ff;border:2px solid #1a56db;border-radius:8px;padding:14px 16px}
+    .owner-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#1a56db;margin-bottom:4px}
+    .owner-amt{font-size:26px;font-weight:900;color:#1a56db;line-height:1}
+    .owner-paid{font-size:11px;color:#2d6a1f;font-weight:700;margin-top:6px}
+    .blooms{display:flex;justify-content:space-between;font-size:11px;color:#555;margin-top:10px;padding-top:8px;border-top:1px solid #d1d9f0}
+    .footer{font-size:9px;color:#bbb;text-align:center;margin-top:16px}
+    @media print{body{margin:0}@page{margin:12mm 10mm}button{display:none}}
   </style></head><body><div class="page">
-    <div class="logo">Bloomstone<span> PMS</span></div>
-    <div class="subtitle">Monthly Owner Statement</div>
-    <hr class="divider"/>
-    <h2>${monthLabel} — ${esc(prop.name)}</h2>
-    <div class="meta">
-      Owner: <strong>${esc(prop.ownerName||'—')}</strong>${prop.ownerPhone?` · ${esc(prop.ownerPhone)}`:''}<br/>
-      Revenue Share: <strong>${ownerPct}% to owner · ${100-ownerPct}% to Bloomstone PH</strong><br/>
-      Payout Date: <strong>${fmtDate(payoutDate)}</strong> · Method: ${esc(prop.payoutMethod||'TBD')} ${esc(prop.payoutAccount||'')}
+    <div class="hdr">
+      <div><div class="logo">Bloomstone <span>PMS</span></div><div class="subtitle">Monthly Owner Statement</div></div>
+      <div style="text-align:right"><div class="status-badge ${isPaid?'paid':'unpaid'}">${isPaid?'✓ PAID':'UNPAID'}</div><div style="font-size:10px;color:#999;margin-top:5px">Generated ${new Date().toLocaleDateString('en-PH')}</div></div>
     </div>
-    <div class="section-title">Booking Details</div>
-    <table>
-      <thead><tr><th>Check-in</th><th>Check-out</th><th>Nts</th><th>Guest</th><th>Platform</th><th style="text-align:right">Gross</th><th style="text-align:right">Svc Fee</th><th style="text-align:right">Cleaning</th><th style="text-align:right">Net</th></tr></thead>
-      <tbody>${rows||'<tr><td colspan="9" style="color:#999;padding:12px">No bookings this month</td></tr>'}</tbody>
-    </table>
-    <div class="section-title">Summary</div>
-    <table class="summary-table">
-      <tr><td style="color:#555">Total bookings</td><td>${list.length}</td></tr>
-      <tr><td style="color:#555">Total nights booked</td><td>${totalNights}</td></tr>
-      <tr><td style="color:#555">Gross guest charges</td><td>${fmtMoney(totalGross)}</td></tr>
-      <tr><td style="color:#555">Platform / service fees</td><td style="color:#c0392b">−${fmtMoney(totalPlatFee)}</td></tr>
-      <tr><td style="color:#555">Cleaning fees</td><td style="color:#c0392b">−${fmtMoney(totalCleaning)}</td></tr>
-      ${totalStore?`<tr><td style="color:#555">Honesty store sales (100% owner)</td><td style="color:#2d6a1f">+${fmtMoney(totalStore)}</td></tr>`:''}
-      <tr class="total-row"><td>Net Revenue</td><td>${fmtMoney(totalNet+totalStore)}</td></tr>
-    </table>
-    <div class="owner-box">
-      <div style="font-size:12px;font-weight:700;color:#1a56db;margin-bottom:4px">OWNER PAYOUT (${ownerPct}%)</div>
-      <div class="owner-amt">${fmtMoney(ownerAmount)}</div>
-      <div class="blooms-row"><span>Bloomstone PH share (${100-ownerPct}%)</span><span style="font-weight:700;color:#2d6a1f">${fmtMoney(bloomsAmount)}</span></div>
+    <div class="meta-grid">
+      <div><div class="meta-lbl">Property</div><div class="meta-val">${esc(d.prop.name)}</div>${d.prop.city?`<div class="meta-sub">${esc(d.prop.city)}</div>`:''}</div>
+      <div><div class="meta-lbl">Owner</div><div class="meta-val">${esc(d.prop.ownerName||'—')}</div>${d.prop.ownerPhone?`<div class="meta-sub">${esc(d.prop.ownerPhone)}</div>`:''}</div>
+      <div><div class="meta-lbl">Period</div><div class="meta-val">${d.monthLabel}</div><div class="meta-sub">${d.ownerPct}% owner · ${100-d.ownerPct}% Bloomstone</div></div>
+      <div><div class="meta-lbl">Payout Due</div><div class="meta-val">${fmtDate(d.payoutDate)}</div><div class="meta-sub">${esc(d.prop.payoutMethod||'TBD')}${d.prop.payoutAccount?' · '+esc(d.prop.payoutAccount):''}</div></div>
     </div>
-    <hr class="divider"/>
-    <div style="font-size:10px;color:#aaa;text-align:center">Generated by Bloomstone PMS · ${new Date().toLocaleDateString('en-PH')} · Payout due ${fmtDate(payoutDate)}</div>
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-val">${d.list.length}</div><div class="kpi-lbl">Bookings</div></div>
+      <div class="kpi"><div class="kpi-val">${d.totalNights}</div><div class="kpi-lbl">Nights</div></div>
+      <div class="kpi"><div class="kpi-val">${fmtMoney(d.totalGross)}</div><div class="kpi-lbl">Gross</div></div>
+      <div class="kpi"><div class="kpi-val" style="color:#c0392b">−${fmtMoney(d.totalSvcFee+d.totalCleaning)}</div><div class="kpi-lbl">Fees</div></div>
+      <div class="kpi"><div class="kpi-val">${fmtMoney(d.totalSplitBase+d.totalStore)}</div><div class="kpi-lbl">Net Revenue</div></div>
+    </div>
+    <div class="sec">Booking Details</div>
+    <table><thead><tr><th>Check-in</th><th>Check-out</th><th>Nts</th><th>Guest</th><th>Platform</th><th style="text-align:right">Gross</th><th style="text-align:right">Svc Fee</th><th style="text-align:right">Cleaning</th><th style="text-align:right">Net</th></tr></thead>
+    <tbody>${rows||`<tr><td colspan="9" style="color:#999;padding:10px">No bookings this month</td></tr>`}</tbody></table>
+    <div class="bottom">
+      <div>
+        <div class="sec">Revenue Summary</div>
+        <div class="sum-row"><span style="color:#555">Gross charges</span><span>${fmtMoney(d.totalGross)}</span></div>
+        <div class="sum-row" style="color:#c0392b"><span>Platform / svc fees</span><span>−${fmtMoney(d.totalSvcFee)}</span></div>
+        <div class="sum-row" style="color:#c0392b"><span>Cleaning fees</span><span>−${fmtMoney(d.totalCleaning)}</span></div>
+        ${d.totalStore?`<div class="sum-row" style="color:#2d6a1f"><span>Honesty store (100% owner)</span><span>+${fmtMoney(d.totalStore)}</span></div>`:''}
+        <div class="sum-row sum-total"><span>Net Revenue</span><span>${fmtMoney(d.totalSplitBase+d.totalStore)}</span></div>
+      </div>
+      <div>
+        <div class="sec">Payout</div>
+        <div class="owner-box">
+          <div class="owner-lbl">OWNER PAYOUT (${d.ownerPct}%)</div>
+          <div class="owner-amt">${fmtMoney(d.ownerAmount)}</div>
+          ${isPaid&&ledgerRec?.datePaid?`<div class="owner-paid">✓ Paid ${fmtDate(ledgerRec.datePaid)}</div>`:''}
+          <div class="blooms"><span>Bloomstone PH (${100-d.ownerPct}%)</span><span style="font-weight:700;color:#2d6a1f">${fmtMoney(d.bloomsAmount)}</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="footer">Bloomstone PMS · Payout due ${fmtDate(d.payoutDate)} · ${d.monthLabel}</div>
   </div></body></html>`;
-  const win=window.open('','_blank','width=720,height=900');
-  if(!win){toast('Allow popups to generate the statement.','warning');return;}
+  const win=window.open('','_blank','width=760,height=920');
+  if(!win){toast('Allow popups to print.','warning');return;}
   win.document.write(html);win.document.close();win.focus();
   setTimeout(()=>win.print(),500);
+}
+
+function generateOwnerStatement(){
+  // Now just an alias — view renders inline automatically; this triggers a print
+  printOwnerStatement();
 }
 function markPayoutPaid(id){
   const p=ownerPayouts.find(x=>x.id===id);if(!p)return;
