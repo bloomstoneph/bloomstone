@@ -1232,8 +1232,8 @@ function renderToday(){
     const isCI=b.checkin===today2;
     const lastNight=new Date(b.checkout+'T12:00:00');lastNight.setDate(lastNight.getDate()-1);
     const isCO=dateToISO(lastNight)===today2;
-    const ciBadge=`<span class="cal-ci-badge" style="font-size:8px;padding:1px 5px">CHECK IN</span>`;
-    const coBadge=`<span class="cal-co-badge" style="font-size:8px;padding:1px 5px">CHECK OUT</span>`;
+    const ciBadge=`<span class="cal-ci-badge" style="font-size:10px;padding:1px 5px">CHECK IN</span>`;
+    const coBadge=`<span class="cal-co-badge" style="font-size:10px;padding:1px 5px">CHECK OUT</span>`;
     const badge=isCI?ciBadge:isCO?coBadge:'';
     const nightsLeft=isNow?Math.ceil((new Date(b.checkout)-new Date(today2))/86400000):0;
     const sd=d=>{const dt=new Date(d+'T12:00:00');return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
@@ -1246,11 +1246,11 @@ function renderToday(){
           ${badge}
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
-          <span style="font-size:9px;color:rgba(255,255,255,.75)">${esc(b.platform)} · ${shortRange}</span>
-          <span style="font-size:10px;font-weight:800;color:#fff;flex-shrink:0">${fmtMoney(t.guestTotal)}</span>
+          <span style="font-size:10px;color:rgba(255,255,255,.75)">${esc(b.platform)} · ${shortRange}</span>
+          <span style="font-size:11px;font-weight:800;color:#fff;flex-shrink:0">${fmtMoney(t.guestTotal)}</span>
         </div>
       </div>
-      ${isNow?`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;margin-left:4px"><span style="font-size:8px;font-weight:800;padding:2px 6px;border-radius:10px;background:rgba(0,0,0,.3);color:#fff;white-space:nowrap">TODAY</span><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,.9);white-space:nowrap">${nightsLeft}d left</span></div>`:''}
+      ${isNow?`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;margin-left:4px"><span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:10px;background:rgba(0,0,0,.3);color:#fff;white-space:nowrap">TODAY</span><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.9);white-space:nowrap">${nightsLeft}d left</span></div>`:''}
     </div>`;
   };
   const propGrid=properties.map(p=>{
@@ -1259,12 +1259,12 @@ function renderToday(){
     const isOccupied=!!curStay;
     const borderColor=curStay?platformColor(curStay.platform):(upcoming.length?platformColor(upcoming[0].platform):'#ccc');
     const statusPill=isOccupied
-      ?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:800;padding:3px 8px;border-radius:20px;background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5;white-space:nowrap;letter-spacing:.3px;flex-shrink:0"><span style="width:7px;height:7px;border-radius:50%;background:#dc2626;flex-shrink:0"></span>OCCUPIED</span>`
-      :`<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:800;padding:3px 8px;border-radius:20px;background:#dcfce7;color:#16a34a;border:1.5px solid #86efac;white-space:nowrap;letter-spacing:.3px;flex-shrink:0"><span style="width:7px;height:7px;border-radius:50%;background:#16a34a;flex-shrink:0"></span>AVAILABLE TODAY</span>`;
+      ?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5;white-space:nowrap;letter-spacing:.3px;flex-shrink:0"><span style="width:7px;height:7px;border-radius:50%;background:#dc2626;flex-shrink:0"></span>OCCUPIED</span>`
+      :`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;background:#dcfce7;color:#16a34a;border:1.5px solid #86efac;white-space:nowrap;letter-spacing:.3px;flex-shrink:0"><span style="width:7px;height:7px;border-radius:50%;background:#16a34a;flex-shrink:0"></span>AVAILABLE TODAY</span>`;
     let availSub='';
     if(!isOccupied&&upcoming.length){
       const dFree=Math.ceil((new Date(upcoming[0].checkin)-new Date(today2))/86400000);
-      availSub=`<div style="font-size:9px;font-weight:600;color:#16a34a;text-align:right;line-height:1.3;white-space:nowrap;margin-top:2px">Free ${dFree}d · until ${fmtDate(upcoming[0].checkin)}</div>`;
+      availSub=`<div style="font-size:10px;font-weight:600;color:#16a34a;text-align:right;line-height:1.3;white-space:nowrap;margin-top:2px">Free ${dFree}d · until ${fmtDate(upcoming[0].checkin)}</div>`;
     }
     const pillsHtml=(curStay?makeTpcPill(curStay,true):'')
       +upcoming.map(b=>makeTpcPill(b,false)).join('')
