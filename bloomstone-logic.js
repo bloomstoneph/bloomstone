@@ -148,12 +148,12 @@ function saveAsExcel(){
   try{
     const wb=XLSX.utils.book_new();
     // Bookings sheet
-    const bkHeaders=['ID','Guest','Check-in','Check-out','Nights','Platform','Property','Rate','Promo','Booking Fee','Net Revenue','Store Sales','Deposit','Dep Collected','Dep Refunded','Payment','Status','Notes','Guest Prefs','Created At'];
-    const bkRows=bookings.map(b=>{const t=calcTotals(b);return[b.id,b.guest,b.checkin,b.checkout,t.nights,b.platform,propName(b.property),b.rate||0,b.promo||0,b.bookingFee||0,t.netRevenue,b.storeSales||0,b.deposit||0,b.depositCollected?'Yes':'No',b.depositRefunded?'Yes':'No',b.payment||'',b.status||'',b.notes||'',b.guestPrefs||'',b.createdAt||''];});
+    const bkHeaders=['ID','Guest','Check-in','Check-out','Nights','Platform','Property','Rate','Promo','Special Offer','Service Fee','Booking Fee','Extra Guests','Guest Count','Cleaning Fee','Store Sales','Deposit','Deposit Refunded','Dep Collected','Dep Refunded','Adjustments','Net Revenue','Payment','Status','Notes','Guest Prefs','Created At'];
+    const bkRows=bookings.map(b=>{const t=calcTotals(b);return[b.id,b.guest,b.checkin,b.checkout,t.nights,b.platform,propName(b.property),b.rate||0,b.promo||0,b.specialOffer||0,b.serviceFee||0,t.bkFee,b.extraGuests||0,b.guestCount||1,b.cleaningFee||0,b.storeSales||0,b.deposit||0,b.depositRefundedAmt||0,b.depositCollected?'Yes':'No',b.depositRefunded?'Yes':'No',JSON.stringify(b.adjustments||[]),t.netRevenue,b.payment||'',b.status||'',b.notes||'',b.guestPrefs||'',b.createdAt||''];});
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([bkHeaders,...bkRows]),'Bookings');
     // Properties sheet
-    const prHeaders=['ID','Name','City','Address','Beds','Base Guests','Max Guests','Base Rate','Extra Guest Fee','Blocked Dates','Notes','Airbnb URL','Icon','Owner Name','Owner Phone','Owner Email','Owner Address','Owner Pct','Payout Method','Payout Account','Contract Start','Contract End'];
-    const prRows=properties.map(p=>[p.id,p.name,p.city,p.address||'',p.beds||0,p.baseGuests||2,p.maxGuests||4,p.baseRate||0,p.extraGuestFee||0,(p.blockedDates||[]).join(','),p.notes||'',p.airbnbUrl||'',p.iconId||'house',p.ownerName||'',p.ownerPhone||'',p.ownerEmail||'',p.ownerAddress||'',p.ownerPct??100,p.payoutMethod||'',p.payoutAccount||'',p.contractStart||'',p.contractEnd||'']);
+    const prHeaders=['ID','Name','City','Address','Beds','Base Guests','Max Guests','Base Rate','Extra Guest Fee','Blocked Dates','Map URL','Notes','Airbnb URL','Icon','Owner Name','Owner Phone','Owner Email','Owner Address','Owner Pct','Payout Method','Payout Account','Contract Start','Contract End'];
+    const prRows=properties.map(p=>[p.id,p.name,p.city,p.address||'',p.beds||0,p.baseGuests||2,p.maxGuests||4,p.baseRate||0,p.extraGuestFee||0,(p.blockedDates||[]).join(','),p.map||'',p.notes||'',p.airbnbUrl||'',p.iconId||'house',p.ownerName||'',p.ownerPhone||'',p.ownerEmail||'',p.ownerAddress||'',p.ownerPct??100,p.payoutMethod||'',p.payoutAccount||'',p.contractStart||'',p.contractEnd||'']);
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([prHeaders,...prRows]),'Properties');
     // Platforms sheet
     const plHeaders=['ID','Name','Commission %','VAT %','Guest Fee %','Color'];
@@ -196,9 +196,19 @@ function loadFromExcel(){
             return{
               id:r.ID||genId(),guest:r.Guest||'',checkin:r['Check-in']||'',checkout:r['Check-out']||'',
               platform:normPlatform(r.Platform||''),property:propMatch?.id||r.Property||'',
-              rate:+r.Rate||0,promo:+r.Promo||0,specialOffer:+r['Special Offer']||0,bookingFee:+r['Booking Fee']||0,
-              storeSales:+r['Store Sales']||0,deposit:+r.Deposit||0,
-              depositCollected:r['Dep Collected']==='Yes',depositRefunded:r['Dep Refunded']==='Yes',
+              rate:+r.Rate||0,promo:+r.Promo||0,
+              specialOffer:+r['Special Offer']||0,
+              serviceFee:+r['Service Fee']||0,
+              bookingFee:+r['Booking Fee']||0,
+              extraGuests:+r['Extra Guests']||0,
+              guestCount:+r['Guest Count']||1,
+              cleaningFee:+r['Cleaning Fee']||0,
+              storeSales:+r['Store Sales']||0,
+              deposit:+r.Deposit||0,
+              depositRefundedAmt:+r['Deposit Refunded']||0,
+              depositCollected:r['Dep Collected']==='Yes',
+              depositRefunded:r['Dep Refunded']==='Yes',
+              adjustments:(()=>{try{const a=JSON.parse(r['Adjustments']||'[]');return Array.isArray(a)?a:[];}catch(e){return[];}}()),
               payment:r.Payment||'',status:r.Status||'Confirmed',notes:r.Notes||'',guestPrefs:r['Guest Prefs']||'',
               tasks:{},createdAt:r['Created At']||new Date().toISOString(),
             };
@@ -1232,31 +1242,28 @@ function renderToday(){
     const isCI=b.checkin===today2;
     const lastNight=new Date(b.checkout+'T12:00:00');lastNight.setDate(lastNight.getDate()-1);
     const isCO=dateToISO(lastNight)===today2;
-    const ciBadge=`<span class="cal-ci-badge" style="font-size:10px;padding:1px 5px">CHECK IN</span>`;
-    const coBadge=`<span class="cal-co-badge" style="font-size:10px;padding:1px 5px">CHECK OUT</span>`;
-    const badge=isCI?ciBadge:isCO?coBadge:'';
     const nightsLeft=isNow?Math.ceil((new Date(b.checkout)-new Date(today2))/86400000):0;
     const sd=d=>{const dt=new Date(d+'T12:00:00');return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
-    const ciD=sd(b.checkin),coD=sd(b.checkout);
-    const shortRange=`${ciD} – ${coD}`;
-    const pillStyle=isNow
-      ?`background:${c};border-radius:8px;padding:7px 10px;display:flex;align-items:center;gap:6px;cursor:pointer;flex-wrap:wrap`
-      :`background:${c}18;border:1.5px solid ${c};border-radius:8px;padding:7px 10px;display:flex;align-items:center;gap:6px;cursor:pointer;flex-wrap:wrap`;
+    const shortRange=`${sd(b.checkin)} – ${sd(b.checkout)}`;
+    const bg=isNow?c:`${c}18`;
+    const border=isNow?'none':`1.5px solid ${c}`;
     const guestClr=isNow?'#fff':c;
-    const subClr=isNow?'rgba(255,255,255,.75)':'#64748b';
+    const subClr=isNow?'rgba(255,255,255,.78)':'#64748b';
     const amtClr=isNow?'#fff':c;
-    return`<div style="${pillStyle}" onclick="event.stopPropagation();openBookingDrawer('${b.id}')">
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
-          <span style="font-size:11px;font-weight:800;color:${guestClr};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">${esc(b.guest)}</span>
-          ${badge}
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;flex-wrap:wrap">
-          <span style="font-size:10px;color:${subClr};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(b.platform)} · ${shortRange}</span>
-          <span style="font-size:11px;font-weight:800;color:${amtClr};flex-shrink:0">${fmtMoney(t.guestTotal)}</span>
-        </div>
+    // Row 2 prefix: CI / CO badge if applicable
+    const cicoTag=isCI?`<span class="cal-ci-badge" style="font-size:9px;padding:1px 5px;flex-shrink:0;white-space:nowrap">CI</span>`
+                 :isCO?`<span class="cal-co-badge" style="font-size:9px;padding:1px 5px;flex-shrink:0;white-space:nowrap">CO</span>`:'';
+    // TODAY/Xd left shown inline in row 2 (right side) so guest name owns row 1 entirely
+    const todayTag=isNow?`<span style="margin-left:auto;display:inline-flex;flex-direction:column;align-items:flex-end;gap:1px;flex-shrink:0"><span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:8px;background:rgba(0,0,0,.28);color:#fff;white-space:nowrap">TODAY</span><span style="font-size:9px;font-weight:700;color:${subClr};white-space:nowrap">${nightsLeft}d left</span></span>`:'';
+    return`<div style="background:${bg};border:${border};border-radius:9px;padding:9px 12px;cursor:pointer;transition:filter .12s" onclick="event.stopPropagation();openBookingDrawer('${b.id}')">
+      <div style="font-size:13px;font-weight:800;color:${guestClr};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px">${esc(b.guest)}</div>
+      <div style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap">
+        ${cicoTag}
+        <span style="font-size:10px;font-weight:700;color:${subClr};white-space:nowrap;flex-shrink:0">${esc(b.platform)}</span>
+        <span style="font-size:10px;color:${subClr};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0">· ${shortRange}</span>
+        <span style="font-size:12px;font-weight:800;color:${amtClr};white-space:nowrap;flex-shrink:0">${fmtMoney(t.guestTotal)}</span>
+        ${todayTag}
       </div>
-      ${isNow?`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;margin-left:4px"><span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:10px;background:rgba(0,0,0,.3);color:#fff;white-space:nowrap">TODAY</span><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.9);white-space:nowrap">${nightsLeft}d left</span></div>`:''}
     </div>`;
   };
   // ── PROPERTY GRID — grouped by city ────────────────────────────────────────
@@ -1279,15 +1286,15 @@ function renderToday(){
       +upcoming.map(b=>makeTpcPill(b,false)).join('')
       +(!curStay&&!upcoming.length?`<div style="font-size:10px;color:var(--text-3);font-style:italic;padding:2px 0">No upcoming bookings</div>`:'');
     return`<div class="today-prop-card" style="border-left-color:${borderColor}" onclick="navigateTo('properties')">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:8px;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">
-          <div class="tpc-icon">${propIconHtml(p,14)}</div>
-          <div style="font-size:13px;font-weight:800;color:var(--text);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}</div>
+      <div style="margin-bottom:9px">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+          <div class="tpc-icon">${propIconHtml(p,15)}</div>
+          <div style="font-size:15px;font-weight:800;color:var(--text);line-height:1.25;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(p.name)}</div>
         </div>
-        <div style="flex-shrink:0">${statusPill}</div>
+        <div>${statusPill}</div>
       </div>
-      <div style="height:1px;background:rgba(0,0,0,.07);margin:0 0 8px"></div>
-      <div style="display:flex;flex-direction:column;gap:5px">${pillsHtml}</div>
+      <div style="height:1px;background:rgba(0,0,0,.07);margin:0 0 9px"></div>
+      <div style="display:flex;flex-direction:column;gap:6px">${pillsHtml}</div>
     </div>`;
   };
   // Group by city
@@ -5044,8 +5051,10 @@ async function sheetsPush(silent=false){
           'Service Fee (Auto From Airbnb)':b.serviceFee||0,
           'Extra Guests':b.extraGuests||0,
           'Extra Guest Fee':b.extraGuestFee||0,
-          'Adjustments':(b.adjustments||[]).filter(a=>a.desc||a.amount).map(a=>`${a.desc||'Adjustment'}: ₱${(+a.amount||0).toLocaleString()}`).join(' | ')||'',
+          'Adjustments':JSON.stringify(b.adjustments||[]),
+          'Adjustments (Readable)':(b.adjustments||[]).filter(a=>a.desc||a.amount).map(a=>`${a.desc||'Adjustment'}: ₱${(+a.amount||0).toLocaleString()}`).join(' | ')||'',
           'Adjustments Total':t.adjTotal,
+          'Guest Service Fee':b.guestServiceFee||t.guestServiceFee||0,
           'Total (excl. Extra Guests)':t.totalWithout,
           'Total Charged to Guest':t.guestTotal,
           'Total Guest Paid to Platform':t.totalGuestPaid,
@@ -5180,7 +5189,8 @@ function applySheetsPullData(data){
         const prev = properties.find(p => p.id === r.ID || p.name === r.Name) || {};
         return {
           photos: prev.photos || [],
-          customIcon: prev.customIcon || '',
+          // Preserve custom icon — saved under 'iconCustom' key, also handle legacy 'customIcon'
+          iconCustom: prev.iconCustom || prev.customIcon || '',
         };
       })(),
       id:r.ID||genId(),name:r.Name||'',city:r.City||'',
@@ -5236,12 +5246,21 @@ function applySheetsPullData(data){
         platformCommission:pNum(r['Platform Commission'])||pNum(r['Platform Comm']),
         extraGuests:pNum(r['Extra Guests'])||pNum(r['Extra Guest']),
         extraGuestFee:pNum(r['Extra Guest Fee']),
+        guestServiceFee:pNum(r['Guest Service Fee'])||0,
         storeSales:pNum(r['Store Sales'])||pNum(r['Store Sale']),
         cleaningFee:pNum(r['Cleaning Fee'])||pNum(r['Cleaning']),
         deposit:pNum(r.Deposit),
         depositRefundedAmt:pNum(r['Deposit Refunded'])||pNum(r['Deposit Refunded Amt']),
         depositCollected:r['Dep Collected']==='Yes',
         depositRefunded:r['Dep Refunded']==='Yes',
+        adjustments:(()=>{
+          const raw=r['Adjustments']||'';
+          if(!raw)return bookings.find(bk=>bk.id===r.ID)?.adjustments||[];
+          // Try JSON first (new format), then fall back to preserving existing local data
+          try{const a=JSON.parse(raw);if(Array.isArray(a))return a;}catch(e){}
+          // Legacy human-readable: "Desc: ₱500 | Desc2: ₱200" — parse back
+          return raw.split(' | ').map(s=>{const m=s.match(/^(.*?):\s*[₱]?([\d,.]+)$/);return m?{desc:m[1].trim(),amount:+m[2].replace(/,/g,'')}:{desc:s.trim(),amount:0};}).filter(a=>a.desc||a.amount);
+        })(),
         // Preserve existing local value if Sheet column is blank — prevents a missing/
         // misnamed Sheet column from silently wiping data the user already entered
         payment:r.Payment||(bookings.find(bk=>bk.id===r.ID)?.payment)||'',

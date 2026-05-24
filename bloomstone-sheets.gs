@@ -1,6 +1,6 @@
 // ============================================================
 // BLOOMSTONE PMS — Google Sheets Sync Backend
-// Version 1.0
+// Version 2.0 — Added owner/contract fields, guest service fee, adjustments readable
 //
 // HOW TO SET UP:
 // 1. Open Google Sheets → Extensions → Apps Script
@@ -14,6 +14,14 @@
 // 6. In Bloomstone → System → Integrations → Google Sheets section
 //    → paste the URL and click "Connect"
 //
+// HOW TO UPDATE (existing deployment):
+// 1. Open Google Sheets → Extensions → Apps Script
+// 2. Replace the existing code with this file
+// 3. Click "Deploy" → "Manage Deployments"
+// 4. Click the pencil ✏ icon on your existing deployment
+// 5. Set "Version" to "New version"
+// 6. Click "Deploy" — the URL stays the same, no need to reconnect
+//
 // SHEET TABS CREATED AUTOMATICALLY:
 //   Bookings | Properties | Platforms | Expenses | SyncLog
 // ============================================================
@@ -24,21 +32,30 @@
 const HEADERS = {
   Bookings: [
     'ID','Guest','Check-in','Check-out','Nights','Platform','Property',
-    'Rate','Promo','Special Offer','Guest Service Fee',
-    'Booking Fee','Service Fee','Platform Commission',
-    'Extra Guests','Extra Guest Fee','Total (excl. Extra Guests)','Net Revenue',
-    'Adjustments Total','Store Sales','Cleaning Fee',
-    'Deposit','Dep Collected','Dep Refunded','Dep Refunded Amt','Payment','Status',
-    'Guest Count','Notes','Guest Prefs','Created At','Updated At'
+    'Rate',
+    'Total Promo (Manual Set by User)','Booking Fee','Total Promo',
+    'Special Promo (Auto From Airbnb)','Platform Commission',
+    'Service Fee (Auto From Airbnb)','Extra Guests','Extra Guest Fee',
+    'Adjustments','Adjustments (Readable)','Adjustments Total',
+    'Guest Service Fee',
+    'Total (excl. Extra Guests)','Total Charged to Guest',
+    'Total Guest Paid to Platform','Net Revenue',
+    'Store Sales','Cleaning Fee',
+    'Deposit','Deposit Refunded','Dep Collected','Dep Refunded',
+    'Payment','Status','Guest Count','Notes','Guest Prefs',
+    'Created At','Updated At'
   ],
   Properties: [
     'ID','Name','City','Address','Beds',
     'Base Guests','Max Guests','Base Rate','Extra Guest Fee',
-    'Blocked Dates','Map URL','Airbnb URL','Icon','Notes'
+    'Blocked Dates','Map URL','Notes','Airbnb URL','Icon',
+    'Owner Name','Owner Phone','Owner Email','Owner Address',
+    'Owner Pct','Payout Method','Payout Account',
+    'Contract Start','Contract End'
   ],
   Platforms: ['ID','Name','Commission %','VAT %','Guest Fee %','Color'],
   Expenses: [
-    'ID','Month','Property','Promo Cost','Cleaning Cost',
+    'ID','Month','Property','Promo Cost','Cleaning Cost','Cleaning',
     'Water','Electricity','Supplies','Maintenance','Other Expenses','Total','Notes'
   ],
   Settings: ['Key','Value','Updated At'],
@@ -114,23 +131,29 @@ function bookingRow(b) {
     b.Platform    || b.platform    || '',
     b.Property    || b.property    || '',
     num(b.Rate    || b.rate),
-    num(b.Promo   || b.promo),
-    num(b['Special Offer'] || b.specialOffer),
-    num(b['Guest Service Fee'] || b.guestServiceFee),
-    num(b['Booking Fee'] || b.bookingFee),
-    num(b['Service Fee'] || b.serviceFee),
+    // Financial columns — match exact key names the app sends
+    num(b['Total Promo (Manual Set by User)'] || b.promo),
+    num(b['Booking Fee']  || b.bookingFee),
+    num(b['Total Promo']  || b.promoTotal),
+    num(b['Special Promo (Auto From Airbnb)'] || b['Special Offer'] || b.specialOffer),
     num(b['Platform Commission'] || b.platformCommission),
-    num(b['Extra Guests']              || b.extraGuests),
-    num(b['Extra Guest Fee']           || b.extraGuestFee),
-    num(b['Total (excl. Extra Guests)']|| b.totalWithout),
-    num(b['Net Revenue']   || b.netRevenue),
+    num(b['Service Fee (Auto From Airbnb)'] || b['Service Fee'] || b.serviceFee),
+    num(b['Extra Guests']    || b.extraGuests),
+    num(b['Extra Guest Fee'] || b.extraGuestFee),
+    b['Adjustments'] || '[]',
+    b['Adjustments (Readable)'] || '',
     num(b['Adjustments Total'] || b.adjustmentsTotal || 0),
+    num(b['Guest Service Fee'] || b.guestServiceFee),
+    num(b['Total (excl. Extra Guests)'] || b.totalWithout),
+    num(b['Total Charged to Guest']     || b.guestTotal),
+    num(b['Total Guest Paid to Platform'] || b.totalGuestPaid),
+    num(b['Net Revenue']   || b.netRevenue),
     num(b['Store Sales']   || b.storeSales),
     num(b['Cleaning Fee']  || b.cleaningFee),
     num(b.Deposit || b.deposit),
+    num(b['Deposit Refunded'] || b.depositRefundedAmt),
     yn(b['Dep Collected'] || b.depositCollected),
     yn(b['Dep Refunded']  || b.depositRefunded),
-    num(b['Dep Refunded Amt'] || b.depositRefundedAmt),
     b.Payment     || b.payment  || '',
     b.Status      || b.status   || 'Confirmed',
     num(b['Guest Count'] || b.guestCount || 1),
@@ -142,23 +165,32 @@ function bookingRow(b) {
 }
 
 function propertyRow(p) {
+  const blocked = p['Blocked Dates'] || p.blockedDates || '';
   return [
     p.ID   || p.id   || '',
     p.Name || p.name || '',
     p.City || p.city || '',
     p.Address || p.address || '',
     num(p.Beds || p.beds),
-    num(p['Base Guests']  || p.baseGuests  || 2),
-    num(p['Max Guests']   || p.maxGuests   || 4),
-    num(p['Base Rate']    || p.baseRate    || 0),
+    num(p['Base Guests']     || p.baseGuests  || 2),
+    num(p['Max Guests']      || p.maxGuests   || 4),
+    num(p['Base Rate']       || p.baseRate    || 0),
     num(p['Extra Guest Fee'] || p.extraGuestFee || 0),
-    Array.isArray(p['Blocked Dates'] || p.blockedDates)
-      ? (p['Blocked Dates'] || p.blockedDates).join(',')
-      : (p['Blocked Dates'] || p.blockedDates || ''),
-    p['Map URL'] || p.map   || '',
+    Array.isArray(blocked) ? blocked.join(',') : blocked,
+    p['Map URL']    || p.map       || '',
+    p.Notes         || p.notes     || '',
     p['Airbnb URL'] || p.airbnbUrl || '',
-    p.Icon || p.iconId || 'house',
-    p.Notes      || p.notes || ''
+    p.Icon          || p.iconId    || 'house',
+    // Owner & Contract fields
+    p['Owner Name']    || p.ownerName    || '',
+    p['Owner Phone']   || p.ownerPhone   || '',
+    p['Owner Email']   || p.ownerEmail   || '',
+    p['Owner Address'] || p.ownerAddress || '',
+    p['Owner Pct'] != null ? num(p['Owner Pct']) : (p.ownerPct != null ? num(p.ownerPct) : 100),
+    p['Payout Method']  || p.payoutMethod  || '',
+    p['Payout Account'] || p.payoutAccount || '',
+    p['Contract Start'] || p.contractStart || '',
+    p['Contract End']   || p.contractEnd   || ''
   ];
 }
 
@@ -180,6 +212,7 @@ function expenseRow(e) {
     e.Property || e.prop || 'all',
     num(e['Promo Cost']    || e.promoCost),
     num(e['Cleaning Cost'] || e.cleaningCost),
+    num(e.Cleaning         || e.cleaning),
     num(e.Water        || e.water),
     num(e.Electricity  || e.electricity),
     num(e.Supplies     || e.supplies),
