@@ -1215,6 +1215,31 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 
 /* Booking card footer layout fix */
 .bk-card-footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+
+/* ── Guests CRM ──────────────────────────────────────────── */
+.guest-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;flex-shrink:0;letter-spacing:.5px}
+.guest-chip{padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);font-size:12px;cursor:pointer;background:var(--surface);color:var(--text-1);transition:all .15s;white-space:nowrap}
+.guest-chip:hover{border-color:var(--accent);color:var(--accent)}
+.guest-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.guest-card{transition:box-shadow .15s}
+.guest-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}
+#guestChipsRow{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;overflow-x:auto;padding-bottom:2px}
+#guestTopStrip .top3-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.top3-card{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface);border-radius:10px;border:1px solid var(--border);cursor:pointer;transition:box-shadow .15s}
+.top3-card:hover{box-shadow:0 2px 10px rgba(0,0,0,.08)}
+.guest-table{width:100%;border-collapse:collapse;font-size:13px}
+.guest-table th{padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-3);border-bottom:2px solid var(--border);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+.guest-table td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.guest-table tbody tr{cursor:pointer;transition:background .1s}
+.guest-table tbody tr:hover{background:var(--surface-2)}
+.guest-view-btn{padding:6px 11px;border-radius:7px;border:1.5px solid var(--border);background:var(--surface);cursor:pointer;font-size:14px;transition:all .15s}
+.guest-view-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+@media(max-width:640px){
+  #guestTopStrip .top3-grid{grid-template-columns:1fr}
+  #guestCrmStats{grid-template-columns:repeat(2,1fr)!important}
+  .guest-table th:nth-child(4),.guest-table td:nth-child(4),
+  .guest-table th:nth-child(5),.guest-table td:nth-child(5){display:none}
+}
 </style>
 </head>
 <body>
@@ -1477,12 +1502,29 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 
       <!-- GUESTS CRM -->
       <div class="view" id="view-guests">
-        <div class="filter-bar">
-          <input class="input" id="guestCrmSearch" placeholder="🔍 Search guests…" style="max-width:260px"/>
+        <!-- Dashboard -->
+        <div class="stats-grid" id="guestCrmStats" style="grid-template-columns:repeat(5,1fr);margin-bottom:12px"></div>
+        <div id="guestTopStrip"></div>
+        <!-- Filter + Sort bar -->
+        <div class="filter-bar" style="flex-wrap:wrap;gap:8px">
+          <input class="input" id="guestCrmSearch" placeholder="🔍 Search guests…" style="max-width:220px;flex-shrink:0"/>
+          <select class="input" id="guestSortSel" style="max-width:170px;flex-shrink:0" onchange="_guestSort=this.value;renderGuests()">
+            <option value="revenue">Revenue ↓</option>
+            <option value="lastStay">Last Stay</option>
+            <option value="name">Name A–Z</option>
+            <option value="nights">Most Nights</option>
+            <option value="nextCheckin">Next Check-in</option>
+          </select>
           <div class="filter-spacer"></div>
+          <div style="display:flex;gap:4px">
+            <button id="gvCards" class="guest-view-btn active" onclick="setGuestView('cards')" title="Card view">⊞</button>
+            <button id="gvTable" class="guest-view-btn" onclick="setGuestView('table')" title="Table view">☰</button>
+          </div>
         </div>
-        <div class="stats-grid" id="guestCrmStats" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px"></div>
-        <div class="prop-grid" id="guestCrmList"></div>
+        <!-- Filter chips -->
+        <div id="guestChipsRow"></div>
+        <!-- List -->
+        <div id="guestCrmList"></div>
       </div>
 
       <!-- REPORTS -->

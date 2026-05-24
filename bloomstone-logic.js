@@ -3895,59 +3895,217 @@ function renderProperties(){
 // GUESTS CRM VIEW (F5)
 // ============================================================
 let _guestSearchQ='';
+let _guestSort='revenue';
+let _guestTagFilter='all';
+let _guestView='cards';
+
+// Avatar helpers
+function _guestInitials(name){
+  const p=(name||'?').trim().split(/\s+/).filter(Boolean);
+  return p.length>=2?(p[0][0]+p[1][0]).toUpperCase():(name||'?').substring(0,2).toUpperCase();
+}
+function _guestColor(name){
+  const c=['#6366f1','#f59e0b','#10b981','#ef4444','#3b82f6','#8b5cf6','#06b6d4','#ec4899'];
+  return c[((name||'').charCodeAt(0)||0)%c.length];
+}
+function setGuestView(v){
+  _guestView=v;
+  const cards=document.getElementById('gvCards');
+  const table=document.getElementById('gvTable');
+  if(cards)cards.className='guest-view-btn'+(v==='cards'?' active':'');
+  if(table)table.className='guest-view-btn'+(v==='table'?' active':'');
+  renderGuests();
+}
+
 function renderGuests(){
   const container=document.getElementById('guestCrmList');if(!container)return;
   const q=(_guestSearchQ||'').toLowerCase().trim();
-  // Aggregate unique guests from bookings
+
+  // ── Aggregate guests from bookings (unchanged logic) ─────
   const guestMap={};
   bookings.forEach(b=>{
     if(!b.guest)return;
     const key=b.guest.toLowerCase().trim();
-    if(!guestMap[key])guestMap[key]={name:b.guest,bookings:[],prefs:'',contact:''};
+    if(!guestMap[key])guestMap[key]={name:b.guest,bookings:[],prefs:''};
     guestMap[key].bookings.push(b);
     if(b.guestPrefs)guestMap[key].prefs=b.guestPrefs;
   });
-  let guests=Object.values(guestMap).map(g=>{
+  const allGuests=Object.values(guestMap).map(g=>{
     const active=g.bookings.filter(b=>b.status!=='Cancelled');
     const totalNights=active.reduce((s,b)=>s+nightsBetween(b.checkin,b.checkout),0);
     const totalRev=active.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
     const lastBk=active.slice().sort((a,b)=>b.checkin.localeCompare(a.checkin))[0];
     const nextBk=active.filter(b=>b.checkin>=todayISO()).sort((a,b)=>a.checkin.localeCompare(b.checkin))[0];
     return{...g,active,totalNights,totalRev,lastBk,nextBk};
-  }).sort((a,b)=>b.totalRev-a.totalRev);
-  if(q)guests=guests.filter(g=>g.name.toLowerCase().includes(q)||(g.prefs||'').toLowerCase().includes(q));
+  });
+
+  // ── Dashboard stats ──────────────────────────────────────
   const statsEl=document.getElementById('guestCrmStats');
   if(statsEl){
-    const total=Object.keys(guestMap).length;
-    const repeats=Object.values(guestMap).filter(g=>g.bookings.filter(b=>b.status!=='Cancelled').length>1).length;
-    statsEl.innerHTML=`<div class="stat-card"><div class="stat-label">Total Guests</div><div class="stat-value">${total}</div></div>
-      <div class="stat-card"><div class="stat-label">Repeat Guests</div><div class="stat-value">${repeats}</div></div>
-      <div class="stat-card"><div class="stat-label">Repeat Rate</div><div class="stat-value">${total?Math.round(repeats/total*100):0}%</div></div>`;
+    const total=allGuests.length;
+    const repeats=allGuests.filter(g=>g.active.length>1).length;
+    const rate=total?Math.round(repeats/total*100):0;
+    const avgSpend=total?Math.round(allGuests.reduce((s,g)=>s+g.totalRev,0)/total):0;
+    const soon7=new Date(Date.now()+7*86400000).toISOString().split('T')[0];
+    const soonCount=allGuests.filter(g=>g.nextBk&&g.nextBk.checkin<=soon7).length;
+    statsEl.innerHTML=[
+      {label:'Total Guests',   val:total,        sub:''},
+      {label:'Repeat Guests',  val:repeats,       sub:''},
+      {label:'Repeat Rate',    val:rate+'%',      sub:''},
+      {label:'Avg Lifetime',   val:fmtMoney(avgSpend), sub:'per guest'},
+      {label:'Checking In Soon',val:soonCount,    sub:'next 7 days'}
+    ].map(s=>`<div class="stat-card" style="cursor:default">
+      <div class="stat-label">${s.label}</div>
+      <div class="stat-value">${s.val}</div>
+      ${s.sub?`<div style="font-size:10px;color:var(--text-3);margin-top:2px">${s.sub}</div>`:''}
+    </div>`).join('');
   }
-  if(!guests.length){container.innerHTML=`<div class="empty"><div class="empty-icon">🧑</div><div class="empty-text">${q?'No guests match your search':'No guests yet'}</div><div class="empty-sub">${q?'Try a different name or clear your search':'Guest profiles are created automatically from bookings'}</div>${!q?'<button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="openBookingDrawer()">＋ Add First Booking</button>':''}</div>`;return;}
-  container.innerHTML=guests.map(g=>{
+
+  // ── Top 3 strip ──────────────────────────────────────────
+  const topEl=document.getElementById('guestTopStrip');
+  if(topEl){
+    const top3=[...allGuests].sort((a,b)=>b.totalRev-a.totalRev).slice(0,3);
+    const medals=['🥇','🥈','🥉'];
+    topEl.innerHTML=top3.length?`<div style="background:var(--surface-2);border-radius:12px;padding:12px 16px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:.5px;margin-bottom:10px">🏆 TOP GUESTS</div>
+      <div class="top3-grid">${top3.map((g,i)=>`
+        <div class="top3-card" onclick="showGuestHistory('${esc(g.name)}')">
+          <span style="font-size:22px;flex-shrink:0">${medals[i]}</span>
+          <div class="guest-avatar" style="background:${_guestColor(g.name)};width:32px;height:32px;font-size:12px;flex-shrink:0">${_guestInitials(g.name)}</div>
+          <div style="min-width:0">
+            <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(g.name)}</div>
+            <div style="font-size:11px;color:var(--text-3)">${fmtMoney(g.totalRev)} · ${g.totalNights} nights</div>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`:'';
+  }
+
+  // ── Filter chips ─────────────────────────────────────────
+  const chipsEl=document.getElementById('guestChipsRow');
+  if(chipsEl){
+    const upcoming7=new Date(Date.now()+7*86400000).toISOString().split('T')[0];
+    const counts={
+      all:allGuests.length,
+      repeat:allGuests.filter(g=>g.active.length>1).length,
+      upcoming:allGuests.filter(g=>g.nextBk&&g.nextBk.checkin<=upcoming7).length,
+      nocontact:allGuests.filter(g=>!g.prefs).length
+    };
+    chipsEl.innerHTML=[
+      {id:'all',      label:`All (${counts.all})`},
+      {id:'repeat',   label:`🔄 Repeat (${counts.repeat})`},
+      {id:'upcoming', label:`📅 Upcoming (${counts.upcoming})`},
+      {id:'nocontact',label:`📞 No Prefs (${counts.nocontact})`}
+    ].map(c=>`<button class="guest-chip${_guestTagFilter===c.id?' active':''}" onclick="_guestTagFilter='${c.id}';renderGuests()">${c.label}</button>`).join('');
+  }
+
+  // ── Sync sort select ─────────────────────────────────────
+  const sortSel=document.getElementById('guestSortSel');
+  if(sortSel&&sortSel.value!==_guestSort)sortSel.value=_guestSort;
+
+  // ── Apply search ─────────────────────────────────────────
+  let guests=allGuests;
+  if(q)guests=guests.filter(g=>g.name.toLowerCase().includes(q)||(g.prefs||'').toLowerCase().includes(q));
+
+  // ── Apply tag filter ─────────────────────────────────────
+  const soon7b=new Date(Date.now()+7*86400000).toISOString().split('T')[0];
+  if(_guestTagFilter==='repeat')   guests=guests.filter(g=>g.active.length>1);
+  else if(_guestTagFilter==='upcoming') guests=guests.filter(g=>g.nextBk&&g.nextBk.checkin<=soon7b);
+  else if(_guestTagFilter==='nocontact')guests=guests.filter(g=>!g.prefs);
+
+  // ── Apply sort ───────────────────────────────────────────
+  if(_guestSort==='revenue')     guests=[...guests].sort((a,b)=>b.totalRev-a.totalRev);
+  else if(_guestSort==='lastStay')guests=[...guests].sort((a,b)=>(b.lastBk?.checkin||'').localeCompare(a.lastBk?.checkin||''));
+  else if(_guestSort==='name')    guests=[...guests].sort((a,b)=>a.name.localeCompare(b.name));
+  else if(_guestSort==='nights')  guests=[...guests].sort((a,b)=>b.totalNights-a.totalNights);
+  else if(_guestSort==='nextCheckin'){
+    guests=[...guests].sort((a,b)=>{
+      if(!a.nextBk&&!b.nextBk)return 0;if(!a.nextBk)return 1;if(!b.nextBk)return-1;
+      return a.nextBk.checkin.localeCompare(b.nextBk.checkin);
+    });
+  }
+
+  // ── Empty state ──────────────────────────────────────────
+  if(!guests.length){
+    container.innerHTML=`<div class="empty">
+      <div class="empty-icon">🧑</div>
+      <div class="empty-text">${q||_guestTagFilter!=='all'?'No guests match your filters':'No guests yet'}</div>
+      <div class="empty-sub">${q||_guestTagFilter!=='all'?'Try clearing your search or filters':'Guest profiles are created automatically from bookings'}</div>
+      ${!q&&_guestTagFilter==='all'?'<button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="openBookingDrawer()">＋ Add First Booking</button>':''}
+    </div>`;
+    return;
+  }
+
+  // ── Render: TABLE view ───────────────────────────────────
+  if(_guestView==='table'){
+    container.innerHTML=`<div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border)">
+      <table class="guest-table">
+        <thead><tr>
+          <th style="width:44px"></th>
+          <th>Guest</th>
+          <th style="text-align:center">Stays</th>
+          <th>Last Stay</th>
+          <th style="text-align:center">Nights</th>
+          <th>Revenue</th>
+          <th style="width:80px"></th>
+        </tr></thead>
+        <tbody>${guests.map(g=>{
+          const color=_guestColor(g.name);
+          const initials=_guestInitials(g.name);
+          const repeatBadge=g.active.length>1?`<span class="badge badge-purple" style="font-size:9px;margin-left:5px">×${g.active.length}</span>`:'';
+          return`<tr onclick="showGuestHistory('${esc(g.name)}')">
+            <td><div class="guest-avatar" style="background:${color};width:32px;height:32px;font-size:11px">${initials}</div></td>
+            <td>
+              <div style="font-weight:600;font-size:13px">${esc(g.name)}${repeatBadge}</div>
+              ${g.nextBk?`<div style="font-size:10px;color:var(--blue)">↓ Next: ${fmtDate(g.nextBk.checkin)}</div>`:''}
+            </td>
+            <td style="text-align:center;color:var(--text-2)">${g.active.length}</td>
+            <td style="color:var(--text-2);font-size:12px">${g.lastBk?fmtDate(g.lastBk.checkin):'—'}</td>
+            <td style="text-align:center;color:var(--text-2)">${g.totalNights}</td>
+            <td style="font-weight:700;color:var(--green)">${fmtMoney(g.totalRev)}</td>
+            <td onclick="event.stopPropagation()" style="white-space:nowrap">
+              <button class="btn btn-ghost btn-sm" title="New Booking" onclick="openBookingDrawer();document.getElementById('f-guest').value='${esc(g.name)}';updateDrawerProfile('${esc(g.name)}')">＋</button>
+              <button class="btn btn-ghost btn-sm" title="History" onclick="showGuestHistory('${esc(g.name)}')">📋</button>
+            </td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`;
+    return;
+  }
+
+  // ── Render: CARDS view ───────────────────────────────────
+  container.innerHTML=`<div class="prop-grid">${guests.map(g=>{
+    const color=_guestColor(g.name);
+    const initials=_guestInitials(g.name);
     const repeatBadge=g.active.length>1?`<span class="badge badge-purple" style="font-size:9px">REPEAT×${g.active.length}</span>`:'';
-    const nextStr=g.nextBk?`<span style="color:var(--blue);font-size:11px">↓ Next: ${fmtDate(g.nextBk.checkin)}</span>`:'';
-    const prefsStr=g.prefs?`<div style="font-size:11px;color:var(--text-2);margin-top:4px">📋 ${esc(g.prefs)}</div>`:'';
-    return`<div class="prop-card" style="cursor:pointer" onclick="showGuestHistory('${esc(g.name)}')">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <div style="width:38px;height:38px;border-radius:50%;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🧑</div>
+    const nextStr=g.nextBk?`<div style="font-size:11px;color:var(--blue);margin-top:1px">↓ Next: ${fmtDate(g.nextBk.checkin)}</div>`:'';
+    const prefsStr=g.prefs?`<div style="font-size:11px;color:var(--text-2);margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📋 ${esc(g.prefs)}</div>`:'';
+    // WhatsApp link — works with or without a stored number
+    const waMsg=encodeURIComponent(`Hi ${g.name}! This is Bloomstone. `);
+    const phoneMatch=(g.prefs||'').match(/0\d{9,}/);
+    const waHref=phoneMatch?`https://wa.me/63${phoneMatch[0].slice(1)}?text=${waMsg}`:`https://wa.me/?text=${waMsg}`;
+    return`<div class="prop-card guest-card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <div class="guest-avatar" style="background:${color}">${initials}</div>
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">${esc(g.name)}${repeatBadge}</div>
-          <div style="font-size:11px;color:var(--text-3)">${g.lastBk?`Last stay: ${fmtDate(g.lastBk.checkin)}`:''} ${nextStr}</div>
+          <div style="font-size:11px;color:var(--text-3)">${g.lastBk?`Last: ${fmtDate(g.lastBk.checkin)}`:''}</div>
+          ${nextStr}
         </div>
         <div style="text-align:right;flex-shrink:0">
-          <div style="font-weight:700;color:var(--green)">${fmtMoney(g.totalRev)}</div>
+          <div style="font-weight:700;color:var(--green);font-size:14px">${fmtMoney(g.totalRev)}</div>
           <div style="font-size:11px;color:var(--text-3)">${g.totalNights} night${g.totalNights!==1?'s':''}</div>
         </div>
       </div>
       ${prefsStr}
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openBookingDrawer();document.getElementById('f-guest').value='${esc(g.name)}';updateDrawerProfile('${esc(g.name)}')">＋ New Booking</button>
-        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();showGuestHistory('${esc(g.name)}')">📋 History</button>
+      <div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="openBookingDrawer();document.getElementById('f-guest').value='${esc(g.name)}';updateDrawerProfile('${esc(g.name)}')">＋ Booking</button>
+        <a class="btn btn-ghost btn-sm" href="${waHref}" target="_blank" title="WhatsApp">💬</a>
+        <button class="btn btn-ghost btn-sm" onclick="showGuestHistory('${esc(g.name)}')">👁 View</button>
       </div>
     </div>`;
-  }).join('');
+  }).join('')}</div>`;
 }
 document.addEventListener('DOMContentLoaded',()=>{
   const si=document.getElementById('guestCrmSearch');
