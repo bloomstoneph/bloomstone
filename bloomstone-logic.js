@@ -1240,15 +1240,15 @@ function renderToday(){
     const ciD=sd(b.checkin),coD=sd(b.checkout);
     const shortRange=`${ciD} – ${coD}`;
     const pillStyle=isNow
-      ?`background:${c};border-radius:9px;padding:9px 12px;display:flex;align-items:center;gap:8px;cursor:pointer`
-      :`background:${c}18;border:1.5px solid ${c};border-radius:9px;padding:9px 12px;display:flex;align-items:center;gap:8px;cursor:pointer`;
+      ?`background:${c};border-radius:8px;padding:7px 10px;display:flex;align-items:center;gap:6px;cursor:pointer`
+      :`background:${c}18;border:1.5px solid ${c};border-radius:8px;padding:7px 10px;display:flex;align-items:center;gap:6px;cursor:pointer`;
     const guestClr=isNow?'#fff':c;
     const subClr=isNow?'rgba(255,255,255,.75)':'#64748b';
     const amtClr=isNow?'#fff':c;
     return`<div style="${pillStyle}" onclick="event.stopPropagation();openBookingDrawer('${b.id}')">
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
-          <span style="font-size:12px;font-weight:800;color:${guestClr};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">${esc(b.guest)}</span>
+          <span style="font-size:11px;font-weight:800;color:${guestClr};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">${esc(b.guest)}</span>
           ${badge}
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
@@ -1259,38 +1259,52 @@ function renderToday(){
       ${isNow?`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;margin-left:4px"><span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:10px;background:rgba(0,0,0,.3);color:#fff;white-space:nowrap">TODAY</span><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.9);white-space:nowrap">${nightsLeft}d left</span></div>`:''}
     </div>`;
   };
-  const propGrid=properties.map(p=>{
+  // ── PROPERTY GRID — grouped by city ────────────────────────────────────────
+  const sdShort=d=>{const dt=new Date(d+'T12:00:00');return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
+  const makeCard=p=>{
     const curStay=bookings.find(b=>b.property===p.id&&b.status!=='Cancelled'&&b.checkin<=today2&&b.checkout>today2);
     const upcoming=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled'&&b.checkin>today2).sort((a,b2)=>a.checkin.localeCompare(b2.checkin)).slice(0,3);
     const isOccupied=!!curStay;
     const borderColor=curStay?platformColor(curStay.platform):(upcoming.length?platformColor(upcoming[0].platform):'#ccc');
-    const statusPill=isOccupied
-      ?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5;white-space:nowrap;letter-spacing:.3px;flex-shrink:0"><span style="width:7px;height:7px;border-radius:50%;background:#dc2626;flex-shrink:0"></span>OCCUPIED</span>`
-      :`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;background:#dcfce7;color:#16a34a;border:1.5px solid #86efac;white-space:nowrap;letter-spacing:.3px;flex-shrink:0"><span style="width:7px;height:7px;border-radius:50%;background:#16a34a;flex-shrink:0"></span>AVAILABLE TODAY</span>`;
-    let availSub='';
+    const occPill=`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5;white-space:nowrap;flex-shrink:0"><span style="width:6px;height:6px;border-radius:50%;background:#dc2626;flex-shrink:0"></span>OCCUPIED</span>`;
+    let availPill;
     if(!isOccupied&&upcoming.length){
-      const dFree=Math.ceil((new Date(upcoming[0].checkin)-new Date(today2))/86400000);
-      availSub=`<div style="font-size:10px;font-weight:600;color:#16a34a;text-align:right;line-height:1.3;white-space:nowrap;margin-top:2px">Free ${dFree}d · until ${fmtDate(upcoming[0].checkin)}</div>`;
+      const untilStr=sdShort(upcoming[0].checkin);
+      availPill=`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;background:#dcfce7;color:#16a34a;border:1.5px solid #86efac;white-space:nowrap;flex-shrink:0"><span style="width:6px;height:6px;border-radius:50%;background:#16a34a;flex-shrink:0"></span>AVAILABLE · until ${untilStr}</span>`;
+    }else if(!isOccupied){
+      availPill=`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;background:#dcfce7;color:#16a34a;border:1.5px solid #86efac;white-space:nowrap;flex-shrink:0"><span style="width:6px;height:6px;border-radius:50%;background:#16a34a;flex-shrink:0"></span>AVAILABLE TODAY</span>`;
     }
+    const statusPill=isOccupied?occPill:availPill;
     const pillsHtml=(curStay?makeTpcPill(curStay,true):'')
       +upcoming.map(b=>makeTpcPill(b,false)).join('')
-      +(!curStay&&!upcoming.length?`<div class="tpc-no-bk">No upcoming bookings</div>`:'');
+      +(!curStay&&!upcoming.length?`<div style="font-size:10px;color:var(--text-3);font-style:italic;padding:2px 0">No upcoming bookings</div>`:'');
     return`<div class="today-prop-card" style="border-left-color:${borderColor}" onclick="navigateTo('properties')">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
-          <div class="tpc-icon">${propIconHtml(p,16)}</div>
-          <div class="tpc-prop-name">${esc(p.name)}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">
+          <div class="tpc-icon">${propIconHtml(p,14)}</div>
+          <div style="font-size:13px;font-weight:800;color:var(--text);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}</div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">${statusPill}${availSub}</div>
+        <div style="flex-shrink:0">${statusPill}</div>
       </div>
-      <div style="height:1px;background:rgba(0,0,0,.07);margin:0 0 10px"></div>
-      <div style="display:flex;flex-direction:column;gap:8px">${pillsHtml}</div>
+      <div style="height:1px;background:rgba(0,0,0,.07);margin:0 0 8px"></div>
+      <div style="display:flex;flex-direction:column;gap:5px">${pillsHtml}</div>
+    </div>`;
+  };
+  // Group by city
+  const citiesMap={};
+  properties.forEach(p=>{const c=p.city||'Other';if(!citiesMap[c])citiesMap[c]=[];citiesMap[c].push(p);});
+  const cityHtml=Object.entries(citiesMap).map(([city,props])=>{
+    return`<div style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap">${esc(city)}</span>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+        <span style="font-size:10px;color:var(--text-3)">${props.length} ${props.length===1?'property':'properties'}</span>
+      </div>
+      <div class="today-prop-grid">${props.map(makeCard).join('')}</div>
     </div>`;
   }).join('');
 
-  document.getElementById('todaySections').innerHTML=`
-    ${properties.length?`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font-size:13px;font-weight:700;color:var(--text)">Properties</span><span style="font-size:11px;color:var(--text-3)">${properties.length} total</span></div>
-    <div class="today-prop-grid">${propGrid}</div>`:''}`;
+  document.getElementById('todaySections').innerHTML=properties.length?cityHtml:'';
 
   document.getElementById('todayTimeline').innerHTML='';
 
