@@ -4316,17 +4316,21 @@ function onBkRowTouchEnd(){
 }
 
 function bulkStatusUpdate(){
-  const today=todayLocal();
+  const today=todayISO();
   let count=0;
   bookings.forEach(b=>{
-    if(b.status==='Cancelled'||b.status==='Checked-In'||b.status==='Checked-Out')return;
-    const inProgress=b.checkin<=today&&b.checkout>today;
-    const pastCheckout=b.checkout<=today&&b.checkin<today;
-    if(inProgress){b.status='Checked-In';b.updatedAt=new Date().toISOString();count++;}
-    else if(pastCheckout){b.status='Checked-Out';b.updatedAt=new Date().toISOString();count++;}
+    if(b.status==='Cancelled'||b.status==='Checked-Out')return;
+    // Past checkout: promote Confirmed / Pending / Checked-In → Checked-Out
+    if(b.checkout<=today&&b.checkin<today){
+      b.status='Checked-Out';b.updatedAt=new Date().toISOString();count++;return;
+    }
+    // Currently in-progress: promote Confirmed / Pending → Checked-In
+    if(b.checkin<=today&&b.checkout>today&&(b.status==='Confirmed'||b.status==='Pending')){
+      b.status='Checked-In';b.updatedAt=new Date().toISOString();count++;
+    }
   });
-  if(count){saveAll();closeModal('dailyBriefModal');toast(`Updated ${count} booking${count!==1?'s':''} automatically.`,'success');}
-  else{toast('No bookings needed updating.','info');}
+  if(count){saveAll();renderView(currentWs);closeModal('dailyBriefModal');toast(`✓ Updated ${count} booking${count!==1?'s':''} automatically.`,'success');}
+  else{toast('All statuses are already up to date.','info');}
 }
 
 // ============================================================
