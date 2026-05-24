@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Booking Style Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; padding: 24px; }
+  h1 { font-size: 13px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+  .col { display: flex; flex-direction: column; gap: 8px; }
+  .col-label { font-size: 11px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+  .col-sub { font-size: 10px; color: #94a3b8; margin-bottom: 8px; line-height: 1.4; }
+  .card { background: #fff; border-radius: 14px; padding: 16px; border-left: 6px solid #b45309; box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+  .card-header { font-size: 14px; font-weight: 800; color: #0f172a; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+  .occ-pill { font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 20px; background: #fee2e2; color: #dc2626; border: 1.5px solid #fca5a5; }
+  .divider { height: 1px; background: rgba(0,0,0,.07); margin-bottom: 10px; }
+  .pills { display: flex; flex-direction: column; gap: 8px; }
+
+  /* CURRENT pill — same across all options */
+  .pill-current {
+    border-radius: 9px; padding: 9px 12px;
+    display: flex; align-items: center; gap: 8px;
+    background: #b45309;
+  }
+  .pill-body { flex: 1; min-width: 0; }
+  .pill-row1 { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+  .pill-guest { font-size: 12px; font-weight: 800; color: #fff; flex: 1; }
+  .pill-row2 { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+  .pill-sub { font-size: 10px; color: rgba(255,255,255,.78); }
+  .pill-amt { font-size: 11px; font-weight: 800; color: #fff; }
+  .today-tag { font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 10px; background: rgba(0,0,0,.3); color: #fff; white-space: nowrap; flex-shrink: 0; }
+  .days-left { font-size: 10px; font-weight: 700; color: rgba(255,255,255,.9); white-space: nowrap; }
+  .now-block { display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0; }
+  .ci-badge { font-size: 10px; font-weight: 800; background: #16a34a; border-radius: 20px; padding: 1px 6px; color: #fff; }
+
+  /* ─── OPTION A — Outline upcoming ─── */
+  .optA .pill-upcoming {
+    border-radius: 9px; padding: 9px 12px;
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(180,83,9,.08);
+    border: 1.5px solid #b45309;
+  }
+  .optA .pill-upcoming .pill-guest { color: #b45309; }
+  .optA .pill-upcoming .pill-sub { color: #92400e; opacity: .8; }
+  .optA .pill-upcoming .pill-amt { color: #b45309; }
+
+  /* ─── OPTION B — Strong opacity ─── */
+  .optB .pill-upcoming {
+    border-radius: 9px; padding: 9px 12px;
+    display: flex; align-items: center; gap: 8px;
+    background: #b45309;
+    opacity: .38;
+  }
+  .optB .pill-upcoming .pill-guest { color: #fff; }
+  .optB .pill-upcoming .pill-sub { color: rgba(255,255,255,.78); }
+  .optB .pill-upcoming .pill-amt { color: #fff; }
+
+  /* ─── OPTION C — UPCOMING label ─── */
+  .optC .pill-upcoming {
+    border-radius: 9px; padding: 9px 12px;
+    display: flex; align-items: center; gap: 8px;
+    background: #b45309;
+    opacity: .5;
+  }
+  .optC .pill-upcoming .pill-guest { color: #fff; }
+  .optC .pill-upcoming .pill-sub { color: rgba(255,255,255,.78); }
+  .optC .pill-upcoming .pill-amt { color: #fff; }
+  .upcoming-tag { font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 6px; background: rgba(255,255,255,.25); color: #fff; white-space: nowrap; flex-shrink: 0; letter-spacing: .3px; }
+
+  /* ─── OPTION D — Size difference ─── */
+  .optD .pill-upcoming {
+    border-radius: 9px; padding: 6px 12px;
+    display: flex; align-items: center; gap: 8px;
+    background: #b45309;
+    opacity: .55;
+  }
+  .optD .pill-upcoming .pill-guest { color: #fff; font-size: 11px; font-weight: 600; }
+  .optD .pill-upcoming .pill-sub { color: rgba(255,255,255,.7); font-size: 9px; }
+  .optD .pill-upcoming .pill-amt { color: #fff; font-size: 10px; font-weight: 600; }
+
+  /* ─── OPTION E — Outline + slim ─── */
+  .optE .pill-upcoming {
+    border-radius: 9px; padding: 6px 12px;
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(180,83,9,.07);
+    border: 1.5px solid rgba(180,83,9,.45);
+  }
+  .optE .pill-upcoming .pill-guest { color: #92400e; font-size: 11px; }
+  .optE .pill-upcoming .pill-sub { color: #b45309; opacity: .75; font-size: 9px; }
+  .optE .pill-upcoming .pill-amt { color: #92400e; font-size: 10px; }
+
+  /* Airbnb variant (red) for second property */
+  .card2 { border-left-color: #e8294f; }
+  .pill-current2 { background: #e8294f; }
+  .optA .pill-upcoming2 { background: rgba(232,41,79,.08); border-color: #e8294f; }
+  .optA .pill-upcoming2 .pill-guest, .optA .pill-upcoming2 .pill-amt { color: #e8294f; }
+  .optA .pill-upcoming2 .pill-sub { color: #9f1239; opacity: .8; }
+  .optB .pill-upcoming2, .optC .pill-upcoming2, .optD .pill-upcoming2 { background: #e8294f; }
+  .optE .pill-upcoming2 { background: rgba(232,41,79,.07); border-color: rgba(232,41,79,.45); }
+  .optE .pill-upcoming2 .pill-guest, .optE .pill-upcoming2 .pill-amt { color: #9f1239; }
+  .optE .pill-upcoming2 .pill-sub { color: #e8294f; }
+</style>
+</head>
+<body>
+<h1>Upcoming booking distinction — 5 options</h1>
+
+<div class="grid">
+
+  <!-- OPTION A -->
+  <div class="col optA">
+    <div class="col-label">A — Outline</div>
+    <div class="col-sub">Current: solid fill<br>Upcoming: border + tinted bg</div>
+
+    <div class="card">
+      <div class="card-header">3BR Family Suite <span class="occ-pill">● OCCUPIED</span></div>
+      <div class="divider"></div>
+      <div class="pills">
+        <div class="pill-current">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Michael Scott</span></div>
+            <div class="pill-row2"><span class="pill-sub">Booking.com · May 22–26</span><span class="pill-amt">₱8,000</span></div>
+          </div>
+          <div class="now-block"><span class="today-tag">TODAY</span><span class="days-left">2d left</span></div>
+        </div>
+        <div class="pill-upcoming">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Tecson Ellaine</span></div>
+            <div class="pill-row2"><span class="pill-sub">Booking.com · Jun 5–12</span><span class="pill-amt">₱13,202</span></div>
+          </div>
+        </div>
+        <div class="pill-upcoming">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Ana Tingson</span></div>
+            <div class="pill-row2"><span class="pill-sub">Your.Rentals · Jun 20–21</span><span class="pill-amt">₱1,700</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card2">
+      <div class="card-header">2BR Aurora <span class="occ-pill">● OCCUPIED</span></div>
+      <div class="divider"></div>
+      <div class="pills">
+        <div class="pill-current pill-current2">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Lyne Legaspi</span><span class="ci-badge">CHECK IN</span></div>
+            <div class="pill-row2"><span class="pill-sub">Airbnb · May 24–26</span><span class="pill-amt">₱5,000</span></div>
+          </div>
+          <div class="now-block"><span class="today-tag">TODAY</span><span class="days-left">2d left</span></div>
+        </div>
+        <div class="pill-upcoming pill-upcoming2">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Arianah</span></div>
+            <div class="pill-row2"><span class="pill-sub">Airbnb · Jun 3–4</span><span class="pill-amt">₱2,500</span></div>
+          </div>
+        </div>
+        <div class="pill-upcoming pill-upcoming2">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Jan Kristine</span></div>
+            <div class="pill-row2"><span class="pill-sub">Direct · Jun 4–6</span><span class="pill-amt">₱5,000</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION B -->
+  <div class="col optB">
+    <div class="col-label">B — Heavy Fade</div>
+    <div class="col-sub">Current: 100% opacity<br>Upcoming: 38% opacity</div>
+
+    <div class="card">
+      <div class="card-header">3BR Family Suite <span class="occ-pill">● OCCUPIED</span></div>
+      <div class="divider"></div>
+      <div class="pills">
+        <div class="pill-current">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Michael Scott</span></div>
+            <div class="pill-row2"><span class="pill-sub">Booking.com · May 22–26</span><span class="pill-amt">₱8,000</span></div>
+          </div>
+          <div class="now-block"><span class="today-tag">TODAY</span><span class="days-left">2d left</span></div>
+        </div>
+        <div class="pill-upcoming">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Tecson Ellaine</span></div>
+            <div class="pill-row2"><span class="pill-sub">Booking.com · Jun 5–12</span><span class="pill-amt">₱13,202</span></div>
+          </div>
+        </div>
+        <div class="pill-upcoming">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Ana Tingson</span></div>
+            <div class="pill-row2"><span class="pill-sub">Your.Rentals · Jun 20–21</span><span class="pill-amt">₱1,700</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card2">
+      <div class="card-header">2BR Aurora <span class="occ-pill">● OCCUPIED</span></div>
+      <div class="divider"></div>
+      <div class="pills">
+        <div class="pill-current pill-current2">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Lyne Legaspi</span><span class="ci-badge">CHECK IN</span></div>
+            <div class="pill-row2"><span class="pill-sub">Airbnb · May 24–26</span><span class="pill-amt">₱5,000</span></div>
+          </div>
+          <div class="now-block"><span class="today-tag">TODAY</span><span class="days-left">2d left</span></div>
+        </div>
+        <div class="pill-upcoming pill-upcoming2">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Arianah</span></div>
+            <div class="pill-row2"><span class="pill-sub">Airbnb · Jun 3–4</span><span class="pill-amt">₱2,500</span></div>
+          </div>
+        </div>
+        <div class="pill-upcoming pill-upcoming2">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Jan Kristine</span></div>
+            <div class="pill-row2"><span class="pill-sub">Direct · Jun 4–6</span><span class="pill-amt">₱5,000</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION C -->
+  <div class="col optC">
+    <div class="col-label">C — UPCOMING tag</div>
+    <div class="col-sub">Current: solid + TODAY<br>Upcoming: 50% + UPCOMING tag</div>
+
+    <div class="card">
+      <div class="card-header">3BR Family Suite <span class="occ-pill">● OCCUPIED</span></div>
+      <div class="divider"></div>
+      <div class="pills">
+        <div class="pill-current">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Michael Scott</span></div>
+            <div class="pill-row2"><span class="pill-sub">Booking.com · May 22–26</span><span class="pill-amt">₱8,000</span></div>
+          </div>
+          <div class="now-block"><span class="today-tag">TODAY</span><span class="days-left">2d left</span></div>
+        </div>
+        <div class="pill-upcoming">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Tecson Ellaine</span></div>
+            <div class="pill-row2"><span class="pill-sub">Booking.com · Jun 5–12</span><span class="pill-amt">₱13,202</span></div>
+          </div>
+          <span class="upcoming-tag">NEXT</span>
+        </div>
+        <div class="pill-upcoming">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Ana Tingson</span></div>
+            <div class="pill-row2"><span class="pill-sub">Your.Rentals · Jun 20–21</span><span class="pill-amt">₱1,700</span></div>
+          </div>
+          <span class="upcoming-tag">NEXT</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card2">
+      <div class="card-header">2BR Aurora <span class="occ-pill">● OCCUPIED</span></div>
+      <div class="divider"></div>
+      <div class="pills">
+        <div class="pill-current pill-current2">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Lyne Legaspi</span><span class="ci-badge">CHECK IN</span></div>
+            <div class="pill-row2"><span class="pill-sub">Airbnb · May 24–26</span><span class="pill-amt">₱5,000</span></div>
+          </div>
+          <div class="now-block"><span class="today-tag">TODAY</span><span class="days-left">2d left</span></div>
+        </div>
+        <div class="pill-upcoming pill-upcoming2">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Arianah</span></div>
+            <div class="pill-row2"><span class="pill-sub">Airbnb · Jun 3–4</span><span class="pill-amt">₱2,500</span></div>
+          </div>
+          <span class="upcoming-tag">NEXT</span>
+        </div>
+        <div class="pill-upcoming pill-upcoming2">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Jan Kristine</span></div>
+            <div class="pill-row2"><span class="pill-sub">Direct · Jun 4–6</span><span class="pill-amt">₱5,000</span></div>
+          </div>
+          <span class="upcoming-tag">NEXT</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION D -->
+  <div class="col optD">
+    <div class="col-label">D — Size diff</div>
+    <div class="col-sub">Current: full size<br>Upcoming: slimmer + lighter</div>
+
+    <div class="card">
+      <div class="card-header">3BR Family Suite <span class="occ-pill">● OCCUPIED</span></div>
+      <div class="divider"></div>
+      <div class="pills">
+        <div class="pill-current">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Michael Scott</span></div>
+            <div class="pill-row2"><span class="pill-sub">Booking.com · May 22–26</span><span class="pill-amt">₱8,000</span></div>
+          </div>
+          <div class="now-block"><span class="today-tag">TODAY</span><span class="days-left">2d left</span></div>
+        </div>
+        <div class="pill-upcoming">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Tecson Ellaine</span></div>
+            <div class="pill-row2"><span class="pill-sub">Booking.com · Jun 5–12</span><span class="pill-amt">₱13,202</span></div>
+          </div>
+        </div>
+        <div class="pill-upcoming">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Ana Tingson</span></div>
+            <div class="pill-row2"><span class="pill-sub">Your.Rentals · Jun 20–21</span><span class="pill-amt">₱1,700</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card2">
+      <div class="card-header">2BR Aurora <span class="occ-pill">● OCCUPIED</span></div>
+      <div class="divider"></div>
+      <div class="pills">
+        <div class="pill-current pill-current2">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Lyne Legaspi</span><span class="ci-badge">CHECK IN</span></div>
+            <div class="pill-row2"><span class="pill-sub">Airbnb · May 24–26</span><span class="pill-amt">₱5,000</span></div>
+          </div>
+          <div class="now-block"><span class="today-tag">TODAY</span><span class="days-left">2d left</span></div>
+        </div>
+        <div class="pill-upcoming pill-upcoming2">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Arianah</span></div>
+            <div class="pill-row2"><span class="pill-sub">Airbnb · Jun 3–4</span><span class="pill-amt">₱2,500</span></div>
+          </div>
+        </div>
+        <div class="pill-upcoming pill-upcoming2">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Jan Kristine</span></div>
+            <div class="pill-row2"><span class="pill-sub">Direct · Jun 4–6</span><span class="pill-amt">₱5,000</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION E -->
+  <div class="col optE">
+    <div class="col-label">E — Outline + slim ★</div>
+    <div class="col-sub">Current: solid fill + full size<br>Upcoming: outline + compact</div>
+
+    <div class="card">
+      <div class="card-header">3BR Family Suite <span class="occ-pill">● OCCUPIED</span></div>
+      <div class="divider"></div>
+      <div class="pills">
+        <div class="pill-current">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Michael Scott</span></div>
+            <div class="pill-row2"><span class="pill-sub">Booking.com · May 22–26</span><span class="pill-amt">₱8,000</span></div>
+          </div>
+          <div class="now-block"><span class="today-tag">TODAY</span><span class="days-left">2d left</span></div>
+        </div>
+        <div class="pill-upcoming">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Tecson Ellaine</span></div>
+            <div class="pill-row2"><span class="pill-sub">Booking.com · Jun 5–12</span><span class="pill-amt">₱13,202</span></div>
+          </div>
+        </div>
+        <div class="pill-upcoming">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Ana Tingson</span></div>
+            <div class="pill-row2"><span class="pill-sub">Your.Rentals · Jun 20–21</span><span class="pill-amt">₱1,700</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card2">
+      <div class="card-header">2BR Aurora <span class="occ-pill">● OCCUPIED</span></div>
+      <div class="divider"></div>
+      <div class="pills">
+        <div class="pill-current pill-current2">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Lyne Legaspi</span><span class="ci-badge">CHECK IN</span></div>
+            <div class="pill-row2"><span class="pill-sub">Airbnb · May 24–26</span><span class="pill-amt">₱5,000</span></div>
+          </div>
+          <div class="now-block"><span class="today-tag">TODAY</span><span class="days-left">2d left</span></div>
+        </div>
+        <div class="pill-upcoming pill-upcoming2">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Arianah</span></div>
+            <div class="pill-row2"><span class="pill-sub">Airbnb · Jun 3–4</span><span class="pill-amt">₱2,500</span></div>
+          </div>
+        </div>
+        <div class="pill-upcoming pill-upcoming2">
+          <div class="pill-body">
+            <div class="pill-row1"><span class="pill-guest">Jan Kristine</span></div>
+            <div class="pill-row2"><span class="pill-sub">Direct · Jun 4–6</span><span class="pill-amt">₱5,000</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

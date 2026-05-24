@@ -467,32 +467,35 @@ a{color:inherit;text-decoration:none}
 .today-stat-pill-val{font-size:22px;font-weight:800;color:#fff;line-height:1;letter-spacing:-.03em}
 .today-stat-pill-lbl{font-size:11px;font-weight:600;color:rgba(255,255,255,.72);text-transform:uppercase;letter-spacing:.05em}
 /* Property grid */
-.today-prop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:16px}
-.today-prop-card{background:var(--surface);border-radius:12px;padding:12px 14px;border-left:5px solid #ccc;box-shadow:0 1px 4px rgba(0,0,0,.07),0 2px 12px rgba(0,0,0,.04);display:flex;flex-direction:column;cursor:pointer;transition:box-shadow .15s,transform .12s}
+.today-prop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:16px}
+.today-prop-card{background:var(--surface);border-radius:12px;padding:14px 16px;border-left:5px solid #ccc;box-shadow:0 1px 4px rgba(0,0,0,.07),0 2px 12px rgba(0,0,0,.04);display:flex;flex-direction:column;cursor:pointer;transition:box-shadow .15s,transform .12s}
 .today-prop-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.14);transform:translateY(-1px)}
 /* Card header */
 .tpc-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px}
-.tpc-icon{width:24px;height:24px;border-radius:6px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.tpc-prop-name{font-size:15px;font-weight:800;color:var(--text);line-height:1.25}
+.tpc-icon{width:26px;height:26px;border-radius:6px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tpc-prop-name{font-size:14px;font-weight:800;color:var(--text);line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .tpc-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
 .tpc-occ-pill{font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;white-space:nowrap;letter-spacing:.3px;display:flex;align-items:center;gap:3px}
 .tpc-occ-pill.occupied{background:var(--red-bg);color:#dc2626;border:1.5px solid #fca5a5}
 .tpc-occ-pill.available{background:var(--green-bg);color:#16a34a;border:1.5px solid #86efac}
 .tpc-avail-sub{font-size:10px;font-weight:600;color:#16a34a;text-align:right;line-height:1.3;white-space:nowrap}
 .tpc-divider{height:1px;background:var(--border);margin-bottom:9px}
-/* Booking pills — fully platform-colored, same as calendar */
-.tpc-pills{display:flex;flex-direction:column;gap:8px}
-.tpc-bk-pill{border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:filter .1s}
+/* Booking pills */
+.tpc-pills{display:flex;flex-direction:column;gap:7px}
+.tpc-bk-pill{border-radius:9px;padding:9px 11px;display:flex;align-items:flex-start;gap:8px;cursor:pointer;transition:filter .1s}
 .tpc-bk-pill:hover{filter:brightness(1.08)}
 .tpc-pill-body{flex:1;min-width:0}
-.tpc-pill-row1{display:flex;align-items:center;gap:5px;margin-bottom:3px}
-.tpc-pill-guest{font-size:12px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
-.tpc-pill-plat{font-size:10px;font-weight:700;color:rgba(255,255,255,.8);white-space:nowrap;flex-shrink:0}
-.tpc-pill-row2{display:flex;align-items:center;justify-content:space-between;gap:4px}
-.tpc-pill-dates{font-size:10px;color:rgba(255,255,255,.75)}
-.tpc-pill-amount{font-size:11px;font-weight:800;color:#fff}
-.tpc-pill-now{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0}
-.tpc-now-tag{font-size:10px;font-weight:800;padding:2px 5px;border-radius:10px;background:rgba(0,0,0,.28);color:#fff;white-space:nowrap}
+/* Row 1: guest name fills full width */
+.tpc-pill-row1{display:flex;align-items:center;gap:5px;margin-bottom:4px}
+.tpc-pill-guest{font-size:13px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+/* Row 2: badge (if any) · platform · date · amount */
+.tpc-pill-row2{display:flex;align-items:center;gap:5px;flex-wrap:nowrap}
+.tpc-pill-plat{font-size:10px;font-weight:700;color:rgba(255,255,255,.85);white-space:nowrap;flex-shrink:0}
+.tpc-pill-dates{font-size:10px;color:rgba(255,255,255,.72);white-space:nowrap;flex:1;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.tpc-pill-amount{font-size:12px;font-weight:800;color:#fff;white-space:nowrap;flex-shrink:0}
+/* TODAY / Xd left tag — vertical stack on right */
+.tpc-pill-now{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;margin-left:2px}
+.tpc-now-tag{font-size:10px;font-weight:800;padding:2px 6px;border-radius:10px;background:rgba(0,0,0,.28);color:#fff;white-space:nowrap}
 .tpc-now-left{font-size:10px;font-weight:700;color:rgba(255,255,255,.85);white-space:nowrap}
 .tpc-no-bk{font-size:10px;color:var(--text-3);font-style:italic;padding:3px 0}
 /* Booking card B-style (mobile) */
@@ -1190,16 +1193,24 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
   .today-stat-pill{min-width:90px}
 }
 
-/* Property grid — mobile: 1 col, tablet: 2 col, desktop: auto-fill */
+/* Property grid — mobile: 1 col, tablet: 2 col, desktop: auto-fill ≥260px */
 @media(max-width:480px){
   .today-prop-grid{grid-template-columns:1fr!important}
-  .today-prop-card{padding:10px 11px}
+  .today-prop-card{padding:10px 12px}
   .today-stat-pill-val{font-size:16px!important}
   .today-stat-pill{min-width:70px!important;padding:7px 12px}
   .stats-scroll{flex-wrap:nowrap;overflow-x:auto}
 }
 @media(min-width:481px) and (max-width:860px){
   .today-prop-grid{grid-template-columns:repeat(2,1fr)!important}
+}
+/* Desktop: lock to 3 columns with generous width */
+@media(min-width:861px){
+  .today-prop-grid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))!important;gap:14px}
+  .today-prop-card{padding:16px 18px}
+  .tpc-bk-pill{padding:10px 13px}
+  .tpc-pill-guest{font-size:13px}
+  .tpc-pill-amount{font-size:12px}
 }
 
 /* Booking card footer layout fix */

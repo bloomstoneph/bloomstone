@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Today Module Mockup</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;padding:20px;color:#111}
+  .panel{max-width:900px;margin:0 auto}
+  h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#888;margin:18px 0 10px}
+
+  /* ── STAT PILLS ── */
+  .stats-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:20px}
+  .stat-pill{flex-shrink:0;border-radius:50px;padding:10px 18px;display:flex;flex-direction:column;gap:2px;min-width:80px}
+  .stat-pill-val{font-size:22px;font-weight:800;color:#fff;line-height:1}
+  .stat-pill-lbl{font-size:9px;font-weight:600;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.05em}
+
+  /* ── PROPERTY GRID — NEW ── */
+  .prop-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+
+  .prop-card{
+    background:#fff;
+    border-radius:14px;
+    padding:14px 14px 13px;
+    border-left:5px solid #ccc;
+    box-shadow:0 1px 4px rgba(0,0,0,.07),0 2px 12px rgba(0,0,0,.04);
+    display:flex;flex-direction:column;gap:0;
+    cursor:pointer;
+    transition:box-shadow .15s, transform .12s;
+  }
+  .prop-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.12);transform:translateY(-1px)}
+
+  .pc-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px}
+  .pc-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+  .pc-name{font-size:12px;font-weight:800;color:#111;line-height:1.3;flex:1}
+
+  /* Status dot cluster */
+  .pc-status{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+  .pc-dot{width:13px;height:13px;border-radius:50%;flex-shrink:0}
+  .pc-dot.occupied{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.2)}
+  .pc-dot.available{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.2)}
+  .pc-event-badges{display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;margin-top:2px}
+  .pc-badge{font-size:9px;font-weight:800;padding:2px 6px;border-radius:20px;white-space:nowrap;letter-spacing:.3px}
+  .pc-badge-in{background:#16a34a;color:#fff}
+  .pc-badge-out{background:#dc2626;color:#fff}
+
+  /* Divider */
+  .pc-divider{height:1px;background:#f0f0f0;margin-bottom:9px}
+
+  .pc-guest{font-size:12px;font-weight:700;color:#111;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pc-dates{font-size:10px;color:#666;display:flex;align-items:center;gap:6px}
+  .pc-nights-badge{background:#f3f4f6;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:700;color:#374151}
+  .pc-next-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#aaa;margin-bottom:3px}
+  .pc-no-booking{font-size:10px;color:#bbb;font-style:italic;padding-top:2px}
+
+  /* ── TODAY'S OVERVIEW LIST ── */
+  .overview-wrap{background:#fff;border-radius:16px;box-shadow:0 1px 4px rgba(0,0,0,.07);overflow:hidden}
+  .overview-hdr{background:#1e293b;padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
+  .overview-hdr-title{font-size:14px;font-weight:800;color:#f1f5f9}
+  .overview-hdr-badge{background:#ef4444;color:#fff;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px}
+  .overview-row{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #f4f4f4;cursor:pointer;transition:background .1s}
+  .overview-row:last-child{border-bottom:none}
+  .overview-row:hover{background:#fafafa}
+  .ov-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .ov-main{flex:1;min-width:0}
+  .ov-guest{font-size:13px;font-weight:700;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ov-prop{font-size:10px;font-weight:600;margin-top:1px}
+  .ov-right{text-align:right;flex-shrink:0}
+  .ov-status{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
+  .ov-dates{font-size:9px;color:#999;margin-top:3px}
+  .ov-status.checked-in{background:#eff6ff;color:#2563eb}
+  .ov-status.confirmed{background:#f0fdf4;color:#16a34a}
+
+  /* label showing what's removed */
+  .removed-note{background:#fef3c7;border:1.5px dashed #f59e0b;border-radius:10px;padding:10px 14px;font-size:11px;color:#92400e;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+</style>
+</head>
+<body>
+<div class="panel">
+
+  <h2>STAT PILLS (unchanged)</h2>
+  <div class="stats-scroll">
+    <div class="stat-pill" style="background:#10B981"><div class="stat-pill-val">2</div><div class="stat-pill-lbl">Check-in</div></div>
+    <div class="stat-pill" style="background:#F59E0B"><div class="stat-pill-val">1</div><div class="stat-pill-lbl">Check-out</div></div>
+    <div class="stat-pill" style="background:#3B82F6"><div class="stat-pill-val">5</div><div class="stat-pill-lbl">Active</div></div>
+    <div class="stat-pill" style="background:#8B5CF6"><div class="stat-pill-val">1</div><div class="stat-pill-lbl">Pending</div></div>
+    <div class="stat-pill" style="background:#1E293B;min-width:120px"><div class="stat-pill-val" style="font-size:17px">₱42,500</div><div class="stat-pill-lbl">This month</div></div>
+    <div class="stat-pill" style="background:#0F766E;min-width:110px"><div class="stat-pill-val" style="font-size:16px">₱3,180</div><div class="stat-pill-lbl">ADR</div></div>
+    <div class="stat-pill" style="background:#4338CA;min-width:110px"><div class="stat-pill-val" style="font-size:16px">₱890</div><div class="stat-pill-lbl">RevPAR/day</div></div>
+  </div>
+
+  <div class="removed-note">✂️ REMOVED — The separate "Arriving / Departing" 2-column section is gone. That info now lives inside each property card below.</div>
+
+  <h2>PROPERTIES — NEW DESIGN (white cards · colored left border · big status dot)</h2>
+  <div class="prop-grid">
+
+    <!-- OCCUPIED — check-in today -->
+    <div class="prop-card" style="border-left-color:#F59E0B">
+      <div class="pc-header">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <div class="pc-icon" style="background:#fff8e7">🏠</div>
+          <div class="pc-name">2BR Town House AURORA</div>
+        </div>
+        <div class="pc-status">
+          <div class="pc-dot occupied" title="Occupied"></div>
+          <div class="pc-event-badges">
+            <span class="pc-badge pc-badge-in">↑ IN</span>
+            <span class="pc-badge pc-badge-out">↓ OUT</span>
+          </div>
+        </div>
+      </div>
+      <div class="pc-divider"></div>
+      <div class="pc-guest">Lyne Legaspi</div>
+      <div class="pc-dates">May 24 → May 26 <span class="pc-nights-badge">2d left</span></div>
+    </div>
+
+    <!-- OCCUPIED — active stay -->
+    <div class="prop-card" style="border-left-color:#3B82F6">
+      <div class="pc-header">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <div class="pc-icon" style="background:#eff6ff">🛏</div>
+          <div class="pc-name">2BR Family Suite</div>
+        </div>
+        <div class="pc-status">
+          <div class="pc-dot occupied" title="Occupied"></div>
+        </div>
+      </div>
+      <div class="pc-divider"></div>
+      <div class="pc-guest">Jehan Ali</div>
+      <div class="pc-dates">May 22 → May 25 <span class="pc-nights-badge">1d left</span></div>
+    </div>
+
+    <!-- OCCUPIED — long stay -->
+    <div class="prop-card" style="border-left-color:#10B981">
+      <div class="pc-header">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <div class="pc-icon" style="background:#f0fdf4">🌿</div>
+          <div class="pc-name">Urban Chill Cabin</div>
+        </div>
+        <div class="pc-status">
+          <div class="pc-dot occupied" title="Occupied"></div>
+        </div>
+      </div>
+      <div class="pc-divider"></div>
+      <div class="pc-guest">Queentin Penaflorida</div>
+      <div class="pc-dates">May 3 → Jun 3 <span class="pc-nights-badge">10d left</span></div>
+    </div>
+
+    <!-- OCCUPIED — 3BR -->
+    <div class="prop-card" style="border-left-color:#8B5CF6">
+      <div class="pc-header">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <div class="pc-icon" style="background:#f5f3ff">🛏</div>
+          <div class="pc-name">3BR Family Suite</div>
+        </div>
+        <div class="pc-status">
+          <div class="pc-dot occupied" title="Occupied"></div>
+        </div>
+      </div>
+      <div class="pc-divider"></div>
+      <div class="pc-guest">Michael Scott</div>
+      <div class="pc-dates">May 22 → May 26 <span class="pc-nights-badge">2d left</span></div>
+    </div>
+
+    <!-- AVAILABLE — next booking soon -->
+    <div class="prop-card" style="border-left-color:#ef4444">
+      <div class="pc-header">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <div class="pc-icon" style="background:#fef2f2">🏡</div>
+          <div class="pc-name">2BR Town House BLISS</div>
+        </div>
+        <div class="pc-status">
+          <div class="pc-dot available" title="Available"></div>
+        </div>
+      </div>
+      <div class="pc-divider"></div>
+      <div class="pc-next-lbl">Next Arrival</div>
+      <div class="pc-guest">Arnel Diola</div>
+      <div class="pc-dates">Jun 2 → Jun 6</div>
+    </div>
+
+    <!-- AVAILABLE — coming soon -->
+    <div class="prop-card" style="border-left-color:#06b6d4">
+      <div class="pc-header">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <div class="pc-icon" style="background:#ecfeff">🏠</div>
+          <div class="pc-name">4BR TWIN Town Houses</div>
+        </div>
+        <div class="pc-status">
+          <div class="pc-dot available" title="Available"></div>
+        </div>
+      </div>
+      <div class="pc-divider"></div>
+      <div class="pc-next-lbl">Next Arrival</div>
+      <div class="pc-guest">Samantha</div>
+      <div class="pc-dates">May 28 → May 29</div>
+    </div>
+
+  </div>
+
+  <h2>TODAY'S OVERVIEW — ACTIVE STAYS (slightly improved rows)</h2>
+  <div class="overview-wrap">
+    <div class="overview-hdr">
+      <span class="overview-hdr-title">🔥 Today's Overview</span>
+      <span class="overview-hdr-badge">5 STAYS</span>
+    </div>
+    <div class="overview-row">
+      <div class="ov-dot" style="background:#F59E0B"></div>
+      <div class="ov-main">
+        <div class="ov-guest">Lyne Legaspi</div>
+        <div class="ov-prop" style="color:#F59E0B">2BR Town House AURORA · <strong>Check-in Today</strong></div>
+      </div>
+      <div class="ov-right">
+        <div class="ov-status confirmed">Confirmed</div>
+        <div class="ov-dates">May 24 → May 26</div>
+      </div>
+    </div>
+    <div class="overview-row">
+      <div class="ov-dot" style="background:#F59E0B"></div>
+      <div class="ov-main">
+        <div class="ov-guest">Liliane Faye Rosit</div>
+        <div class="ov-prop" style="color:#F59E0B">2BR Town House AURORA · <strong>Check-out Today</strong></div>
+      </div>
+      <div class="ov-right">
+        <div class="ov-status checked-in">Checked-In</div>
+        <div class="ov-dates">May 22 → May 24</div>
+      </div>
+    </div>
+    <div class="overview-row">
+      <div class="ov-dot" style="background:#3B82F6"></div>
+      <div class="ov-main">
+        <div class="ov-guest">Jehan Ali</div>
+        <div class="ov-prop" style="color:#3B82F6">2BR Family Suite · Active stay</div>
+      </div>
+      <div class="ov-right">
+        <div class="ov-status checked-in">Checked-In</div>
+        <div class="ov-dates">May 22 → May 25</div>
+      </div>
+    </div>
+    <div class="overview-row">
+      <div class="ov-dot" style="background:#8B5CF6"></div>
+      <div class="ov-main">
+        <div class="ov-guest">Michael Scott</div>
+        <div class="ov-prop" style="color:#8B5CF6">3BR Family Suite · Active stay</div>
+      </div>
+      <div class="ov-right">
+        <div class="ov-status checked-in">Checked-In</div>
+        <div class="ov-dates">May 22 → May 26</div>
+      </div>
+    </div>
+    <div class="overview-row">
+      <div class="ov-dot" style="background:#10B981"></div>
+      <div class="ov-main">
+        <div class="ov-guest">Queentin Penaflorida</div>
+        <div class="ov-prop" style="color:#10B981">Urban Chill Cabin · Active stay</div>
+      </div>
+      <div class="ov-right">
+        <div class="ov-status checked-in">Checked-In</div>
+        <div class="ov-dates">May 3 → Jun 3</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
