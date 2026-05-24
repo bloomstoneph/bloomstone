@@ -1229,19 +1229,19 @@ function renderToday(){
     const coBadge=`<span class="cal-co-badge" style="font-size:8px;padding:1px 5px">CHECK OUT</span>`;
     const badge=isCI?ciBadge:isCO?coBadge:'';
     const nightsLeft=isNow?Math.ceil((new Date(b.checkout)-new Date(today2))/86400000):0;
-    return`<div class="tpc-bk-pill" style="background:${c};opacity:${isNow?1:.78}" onclick="event.stopPropagation();openBookingDrawer('${b.id}')">
-      <div class="tpc-pill-body">
-        <div class="tpc-pill-row1">
-          <span class="tpc-pill-guest">${esc(b.guest)}</span>
+    return`<div style="background:${c};opacity:${isNow?1:.78};border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px;cursor:pointer" onclick="event.stopPropagation();openBookingDrawer('${b.id}')">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+          <span style="font-size:12px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">${esc(b.guest)}</span>
           ${badge}
-          <span class="tpc-pill-plat">${esc(b.platform)}</span>
+          <span style="font-size:9px;font-weight:700;color:rgba(255,255,255,.8);white-space:nowrap;flex-shrink:0">${esc(b.platform)}</span>
         </div>
-        <div class="tpc-pill-row2">
-          <span class="tpc-pill-dates">${fmtDate(b.checkin)} → ${fmtDate(b.checkout)}</span>
-          <span class="tpc-pill-amount">${fmtMoney(t.guestTotal)}</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
+          <span style="font-size:9px;color:rgba(255,255,255,.75)">${fmtDate(b.checkin)} → ${fmtDate(b.checkout)}</span>
+          <span style="font-size:10px;font-weight:800;color:#fff">${fmtMoney(t.guestTotal)}</span>
         </div>
       </div>
-      ${isNow?`<div class="tpc-pill-now"><span class="tpc-now-tag">NOW</span><span class="tpc-now-left">${nightsLeft}d left</span></div>`:''}
+      ${isNow?`<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0"><span style="font-size:8px;font-weight:800;padding:2px 5px;border-radius:10px;background:rgba(0,0,0,.28);color:#fff;white-space:nowrap">NOW</span><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,.85);white-space:nowrap">${nightsLeft}d left</span></div>`:''}
     </div>`;
   };
   const propGrid=properties.map(p=>{
