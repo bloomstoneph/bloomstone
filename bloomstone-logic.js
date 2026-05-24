@@ -3897,7 +3897,7 @@ function renderProperties(){
 let _guestSearchQ='';
 let _guestSort='revenue';
 let _guestTagFilter='all';
-let _guestView='cards';
+let _guestView='table';
 
 // Avatar helpers
 function _guestInitials(name){
