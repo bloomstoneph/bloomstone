@@ -464,6 +464,23 @@ function loadAll(){
       });
       localStorage.setItem('bls_v3_svcfee','1');
     }
+    // Migration v4: catch older bookings where platformCommission was never stored (pre-tracking).
+    // Use calcTotals().platFee directly — only touches bookings that still have serviceFee=0
+    // but whose platform currently has commission configured.
+    if(!localStorage.getItem('bls_v4_svcfee')){
+      bookings=bookings.map(b=>{
+        if((+b.serviceFee||0)===0){
+          const t0=calcTotals(b);
+          if(t0.platFee>0){
+            const fixed={...b,serviceFee:t0.platFee,platformCommission:t0.platFee};
+            const t2=calcTotals(fixed);
+            return{...fixed,netRevenue:t2.netRevenue};
+          }
+        }
+        return b;
+      });
+      localStorage.setItem('bls_v4_svcfee','1');
+    }
     // Deduplicate platforms — merge by normalized name, prefer non-grey color
     const platMap={};
     platforms.forEach(p=>{
@@ -3058,15 +3075,22 @@ function _buildStatementData(propId,month,opts={}){
   const list=bookings.filter(b=>b.property===propId&&b.status!=='Cancelled'&&(b.checkin||'').startsWith(month));
   const rows=list.map(b=>{
     const t=calcTotals(b);
-    const gross=t.stayFee+(incExtras?t.extraFee:0)+(incAdj?t.adjTotal:0);
-    const svcFee=t.svcFee;
+    // Full rate × nights before any discounts — shown to owner for transparency
+    const rawRate=t.bkFee;                           // rate × nights (no deductions)
+    const promoDeduct=t.promoTotal;                  // direct booking promo discount
+    const specialDeduct=t.specialOffer;              // platform special offer (absorbed by host)
+    const gross=t.stayFee+(incExtras?t.extraFee:0)+(incAdj?t.adjTotal:0); // net accommodation
+    const svcFee=t.svcFee;                           // platform commission charged to host
     const cleaning=incCleaning?t.cleaningFee:0;
     const store=incStore?t.storeSales:0;
     const splitBase=Math.max(0,gross-svcFee-cleaning);
     const ownerAmt=splitBase*(ownerPct/100)+store;
-    return{b,t,gross,svcFee,cleaning,store,splitBase,ownerAmt,nights:t.nights};
+    return{b,t,rawRate,promoDeduct,specialDeduct,gross,svcFee,cleaning,store,splitBase,ownerAmt,nights:t.nights};
   });
   const totalGross=rows.reduce((s,r)=>s+r.gross,0);
+  const totalRawRate=rows.reduce((s,r)=>s+r.rawRate,0);
+  const totalPromo=rows.reduce((s,r)=>s+r.promoDeduct,0);
+  const totalSpecialOffer=rows.reduce((s,r)=>s+r.specialDeduct,0);
   const totalSvcFee=rows.reduce((s,r)=>s+r.svcFee,0);
   const totalCleaning=rows.reduce((s,r)=>s+r.cleaning,0);
   const totalStore=rows.reduce((s,r)=>s+r.store,0);
@@ -3077,7 +3101,7 @@ function _buildStatementData(propId,month,opts={}){
   const [y,mo]=month.split('-');
   const monthLabel=new Date(+y,+mo-1,1).toLocaleDateString('en-PH',{month:'long',year:'numeric'});
   const payoutDate=`${+mo===12?+y+1:+y}-${String(+mo===12?1:+mo+1).padStart(2,'0')}-05`;
-  return{prop,ownerPct,list,rows,totalGross,totalSvcFee,totalCleaning,totalStore,totalSplitBase,ownerAmount,bloomsAmount,totalNights,monthLabel,payoutDate,month,opts};
+  return{prop,ownerPct,list,rows,totalGross,totalRawRate,totalPromo,totalSpecialOffer,totalSvcFee,totalCleaning,totalStore,totalSplitBase,ownerAmount,bloomsAmount,totalNights,monthLabel,payoutDate,month,opts};
 }
 
 function _getOsOpts(){
@@ -3128,13 +3152,21 @@ function renderOwnerStatements(){
   if(!d){if(stmtEl)stmtEl.innerHTML='';return;}
   if(printBtn)printBtn.style.display='';
 
-  // ── Auto-save to ledger (base amounts, no opts override) ──
+  // ── Auto-save/update ledger (base amounts, no opts override) — always refresh so
+  // recalculated fees (after migration fixes) are reflected in the ledger ──
+  const base=_buildStatementData(propId,month,{});
   const existing=ownerPayouts.find(x=>x.propertyId===propId&&x.month===month);
   if(!existing){
-    const base=_buildStatementData(propId,month,{});
     ownerPayouts.push({id:genId(),propertyId:propId,month,bookingCount:base.list.length,grossRevenue:base.totalGross,platFees:base.totalSvcFee,netRevenue:base.totalSplitBase+base.totalStore,amountDue:base.ownerAmount,paid:false,datePaid:'',method:d.prop.payoutMethod||'',notes:''});
-    saveAll();
+  }else{
+    // Always refresh computed fields so fixed service fees propagate to ledger
+    existing.bookingCount=base.list.length;
+    existing.grossRevenue=base.totalGross;
+    existing.platFees=base.totalSvcFee;
+    existing.netRevenue=base.totalSplitBase+base.totalStore;
+    existing.amountDue=base.ownerAmount;
   }
+  saveAll();
 
   // ── Build booking rows ──
   const ledgerRec=ownerPayouts.find(x=>x.propertyId===propId&&x.month===month);
@@ -3145,10 +3177,14 @@ function renderOwnerStatements(){
     <td style="text-align:center">${r.nights}</td>
     <td><strong>${esc(r.b.guest)}</strong></td>
     <td>${platformPillHtml(r.b.platform)}</td>
-    <td style="text-align:right">${fmtMoney(r.gross)}</td>
-    <td style="text-align:right;color:var(--red)">${r.svcFee?`−${fmtMoney(r.svcFee)}`:''}</td>
-    <td style="text-align:right;color:var(--red)">${r.cleaning?`−${fmtMoney(r.cleaning)}`:''}</td>
-    ${r.store?`<td style="text-align:right;color:var(--green)">+${fmtMoney(r.store)}</td>`:`<td></td>`}
+    <td style="text-align:right;color:var(--text-2)">${fmtMoney(r.b.rate||0)}<span style="font-size:10px;color:var(--text-3)">/nt</span></td>
+    <td style="text-align:right">${fmtMoney(r.rawRate)}</td>
+    <td style="text-align:right;color:var(--purple)">${r.promoDeduct?`−${fmtMoney(r.promoDeduct)}`:'—'}</td>
+    <td style="text-align:right;color:var(--purple)">${r.specialDeduct?`−${fmtMoney(r.specialDeduct)}`:'—'}</td>
+    <td style="text-align:right;font-weight:600">${fmtMoney(r.gross)}</td>
+    <td style="text-align:right;color:var(--red)">${r.svcFee?`−${fmtMoney(r.svcFee)}`:'—'}</td>
+    <td style="text-align:right;color:var(--red)">${r.cleaning?`−${fmtMoney(r.cleaning)}`:'—'}</td>
+    <td style="text-align:right;color:var(--green)">${r.store?`+${fmtMoney(r.store)}`:'—'}</td>
     <td style="text-align:right;font-weight:700">${fmtMoney(r.splitBase)}</td>
     <td style="text-align:right;color:var(--blue);font-weight:700">${fmtMoney(r.ownerAmt)}</td>
   </tr>`).join('');
@@ -3193,7 +3229,8 @@ function renderOwnerStatements(){
     <div class="os-kpi-row">
       <div class="os-kpi"><div class="os-kpi-val">${d.list.length}</div><div class="os-kpi-lbl">Bookings</div></div>
       <div class="os-kpi"><div class="os-kpi-val">${d.totalNights}</div><div class="os-kpi-lbl">Nights</div></div>
-      <div class="os-kpi"><div class="os-kpi-val">${fmtMoney(d.totalGross)}</div><div class="os-kpi-lbl">Gross Revenue</div></div>
+      <div class="os-kpi"><div class="os-kpi-val">${fmtMoney(d.totalRawRate)}</div><div class="os-kpi-lbl">Gross Revenue</div></div>
+      ${(d.totalPromo+d.totalSpecialOffer)?`<div class="os-kpi"><div class="os-kpi-val" style="color:var(--purple)">−${fmtMoney(d.totalPromo+d.totalSpecialOffer)}</div><div class="os-kpi-lbl">Promos / Offers</div></div>`:''}
       <div class="os-kpi"><div class="os-kpi-val" style="color:var(--red)">−${fmtMoney(d.totalSvcFee+d.totalCleaning)}</div><div class="os-kpi-lbl">Fees &amp; Cleaning</div></div>
       <div class="os-kpi"><div class="os-kpi-val" style="color:var(--blue);font-size:16px">${fmtMoney(d.ownerAmount)}</div><div class="os-kpi-lbl">Owner Payout</div></div>
     </div>
@@ -3203,24 +3240,31 @@ function renderOwnerStatements(){
       <table class="data-table">
         <thead><tr>
           <th>Check-in</th><th>Check-out</th><th style="text-align:center">Nts</th><th>Guest</th><th>Platform</th>
-          <th style="text-align:right">Gross</th>
-          <th style="text-align:right">Svc Fee</th>
-          <th style="text-align:right">Cleaning</th>
-          <th style="text-align:right">Store</th>
+          <th style="text-align:right">Rate/Nt</th>
+          <th style="text-align:right">Full Rate</th>
+          <th style="text-align:right;color:var(--purple)">Promo</th>
+          <th style="text-align:right;color:var(--purple)">Spc Offer</th>
+          <th style="text-align:right">Accommodation</th>
+          <th style="text-align:right;color:var(--red)">Plat Fee</th>
+          <th style="text-align:right;color:var(--red)">Cleaning</th>
+          <th style="text-align:right;color:var(--green)">Store</th>
           <th style="text-align:right">Net Base</th>
-          <th style="text-align:right">Owner Share</th>
+          <th style="text-align:right;color:var(--blue)">Owner Share</th>
         </tr></thead>
-        <tbody>${bkRows||`<tr><td colspan="11" style="text-align:center;color:var(--text-3);padding:24px">No bookings for this month</td></tr>`}</tbody>
+        <tbody>${bkRows||`<tr><td colspan="15" style="text-align:center;color:var(--text-3);padding:24px">No bookings for this month</td></tr>`}</tbody>
       </table>
     </div>
 
     <div class="os-bottom-grid">
       <div class="os-summary-block">
         <div class="os-section-title">Revenue Summary</div>
-        <div class="os-sum-row"><span>Gross guest charges</span><span>${fmtMoney(d.totalGross)}</span></div>
-        ${d.totalSvcFee?`<div class="os-sum-row" style="color:var(--red)"><span>Service / platform fees</span><span>−${fmtMoney(d.totalSvcFee)}</span></div>`:''}
-        ${d.totalCleaning?`<div class="os-sum-row" style="color:var(--red)"><span>Cleaning fees ${!opts.incCleaning?'<span style="font-size:10px;color:var(--orange)">(excluded)</span>':''}</span><span>${opts.incCleaning?`−${fmtMoney(d.totalCleaning)}`:`<s style="opacity:.4">−${fmtMoney(d.totalCleaning)}</s>`}</span></div>`:''}
-        ${d.totalStore?`<div class="os-sum-row" style="color:var(--green)"><span>Store sales ${!opts.incStore?'<span style="font-size:10px;color:var(--orange)">(excluded)</span>':''}</span><span>${opts.incStore?`+${fmtMoney(d.totalStore)}`:`<s style="opacity:.4">+${fmtMoney(d.totalStore)}</s>`}</span></div>`:''}
+        <div class="os-sum-row"><span>Full Rate Revenue (rate × nights)</span><span>${fmtMoney(d.totalRawRate)}</span></div>
+        ${d.totalPromo?`<div class="os-sum-row" style="color:var(--purple)"><span>Less: Promo Discounts</span><span>−${fmtMoney(d.totalPromo)}</span></div>`:''}
+        ${d.totalSpecialOffer?`<div class="os-sum-row" style="color:var(--purple)"><span>Less: Special Offers (Platform)</span><span>−${fmtMoney(d.totalSpecialOffer)}</span></div>`:''}
+        ${(d.totalPromo||d.totalSpecialOffer)?`<div class="os-sum-row" style="font-weight:600;border-top:1px solid var(--border);padding-top:4px;margin-top:2px"><span>Accommodation Revenue</span><span>${fmtMoney(d.totalGross)}</span></div>`:''}
+        ${d.totalSvcFee?`<div class="os-sum-row" style="color:var(--red)"><span>Less: Platform / Service Fees</span><span>−${fmtMoney(d.totalSvcFee)}</span></div>`:`<div class="os-sum-row" style="color:var(--text-3)"><span>Platform / Service Fees</span><span>—</span></div>`}
+        ${d.totalCleaning?`<div class="os-sum-row" style="color:var(--red)"><span>Less: Cleaning ${!opts.incCleaning?'<span style="font-size:10px;color:var(--orange)">(excluded)</span>':''}</span><span>${opts.incCleaning?`−${fmtMoney(d.totalCleaning)}`:`<s style="opacity:.4">−${fmtMoney(d.totalCleaning)}</s>`}</span></div>`:''}
+        ${d.totalStore?`<div class="os-sum-row" style="color:var(--green)"><span>Add: Store / Add-on Sales ${!opts.incStore?'<span style="font-size:10px;color:var(--orange)">(excluded)</span>':''}</span><span>${opts.incStore?`+${fmtMoney(d.totalStore)}`:`<s style="opacity:.4">+${fmtMoney(d.totalStore)}</s>`}</span></div>`:''}
         <div class="os-sum-row os-sum-total"><span>Net Revenue (split base)</span><span>${fmtMoney(d.totalSplitBase)}</span></div>
       </div>
       <div class="os-payout-block">
@@ -3401,166 +3445,176 @@ function deleteOwnerPayout(id){
 function renderExpenses(){
   const mo=document.getElementById('exp-month')?.value||'all';
   const pr=document.getElementById('exp-prop')?.value||'all';
-  let list=[...expenses];
-  if(mo!=='all')list=list.filter(e=>(e.month||'').startsWith(mo));
-  if(pr!=='all')list=list.filter(e=>e.prop===pr);
 
-  // Stat card totals: promo by CHECKIN month, cleaning by checkout month
-  const bkForPromo=bookings.filter(b=>{
+  // All non-cancelled bookings filtered by property (month filter applied per-row below)
+  const allBks=bookings.filter(b=>{
     if(b.status==='Cancelled'||!b.checkin)return false;
-    if(mo!=='all'&&!b.checkin.startsWith(mo))return false;
     if(pr!=='all'&&b.property!==pr)return false;
     return true;
   });
-  const bkForCleaning=bookings.filter(b=>{
+
+  // Collect all months from bookings (checkin) and expense records
+  const monthSet=new Set();
+  allBks.forEach(b=>{const m=(b.checkin||'').substring(0,7);if(m)monthSet.add(m);});
+  expenses.filter(e=>pr==='all'||e.prop===pr||e.prop==='all').forEach(e=>{if(e.month)monthSet.add(e.month);});
+  let months=[...monthSet].sort((a,b)=>b.localeCompare(a)); // newest first
+  if(mo!=='all')months=months.filter(m=>m===mo||(mo.length===7&&m===mo));
+
+  // All platform names that appear in filtered bookings
+  const platNames=[...new Set(allBks.map(b=>b.platform||'Unknown'))].filter(Boolean).sort();
+
+  // Stat card totals (all months, filtered property)
+  const bkForStats=mo==='all'?allBks:allBks.filter(b=>(b.checkin||'').startsWith(mo));
+  const totalPlatFees=bkForStats.reduce((s,b)=>s+calcTotals(b).platFee,0);
+  const totalPromo=bkForStats.reduce((s,b)=>s+(+b.promo||0),0);
+  const bkCheckoutStats=bookings.filter(b=>{
     if(b.status==='Cancelled'||!b.checkout)return false;
-    if(mo!=='all'&&!b.checkout.startsWith(mo))return false;
     if(pr!=='all'&&b.property!==pr)return false;
+    if(mo!=='all'&&!(b.checkout||'').startsWith(mo))return false;
     return true;
   });
-  const totalPromo=bkForPromo.reduce((s,b)=>s+(+b.promo||0),0);
-  const totalPlatFees=bkForPromo.reduce((s,b)=>s+calcTotals(b).platFee,0);
-  const totalCleaningFromBks=bkForCleaning.reduce((s,b)=>s+(+b.cleaningFee||0),0);
-  const manualTotals={};EXP_CATS.filter(c=>c!=='cleaning').forEach(c=>manualTotals[c]=list.reduce((s,e)=>s+(e[c]||0),0));
-  const manualCleaning=list.reduce((s,e)=>s+(e.cleaning||0),0);
+  const totalCleaningFromBks=bkCheckoutStats.reduce((s,b)=>s+(+b.cleaningFee||0),0);
+  const expList=expenses.filter(e=>(pr==='all'||e.prop===pr||e.prop==='all')&&(mo==='all'||e.month===mo));
+  const manualCleaning=expList.reduce((s,e)=>s+(e.cleaning||0),0);
   const totalCleaning=totalCleaningFromBks||manualCleaning;
-  const grandTotal=totalPlatFees+totalPromo+totalCleaning+Object.values(manualTotals).reduce((s,v)=>s+v,0);
+  const manualOther=expList.reduce((s,e)=>s+(e.water||0)+(e.electricity||0)+(e.supplies||0)+(e.maintenance||0)+(e.other||0),0);
+  const grandTotal=totalPlatFees+totalPromo+totalCleaning+manualOther;
+
   document.getElementById('expStats').innerHTML=`
-    <div class="stat-card"><div class="stat-label">Total Expenses</div><div class="stat-value" style="color:var(--red)">${fmtMoney(grandTotal)}</div><div class="stat-sub">${list.length} entries</div></div>
+    <div class="stat-card"><div class="stat-label">Total Expenses</div><div class="stat-value" style="color:var(--red)">${fmtMoney(grandTotal)}</div><div class="stat-sub">${months.length} months</div></div>
     <div class="stat-card"><div class="stat-label">Platform Fees</div><div class="stat-value" style="color:var(--orange)">${fmtMoney(totalPlatFees)}</div><div class="stat-sub">paid to platforms</div></div>
     <div class="stat-card"><div class="stat-label">Promo Discounts</div><div class="stat-value" style="color:var(--purple)">${fmtMoney(totalPromo)}</div></div>
-    <div class="stat-card"><div class="stat-label">Cleaning Cost</div><div class="stat-value" style="color:var(--red)">${fmtMoney(totalCleaning)}</div></div>
-    <div class="stat-card"><div class="stat-label">Utilities</div><div class="stat-value" style="color:var(--red)">${fmtMoney(manualTotals.water+manualTotals.electricity)}</div></div>`;
+    <div class="stat-card"><div class="stat-label">Cleaning</div><div class="stat-value" style="color:var(--red)">${fmtMoney(totalCleaning)}</div></div>
+    <div class="stat-card"><div class="stat-label">Utilities</div><div class="stat-value" style="color:var(--red)">${fmtMoney(expList.reduce((s,e)=>s+(e.water||0)+(e.electricity||0),0))}</div></div>`;
 
-  // ── Platform Commission Breakdown ──────────────────────────
-  const platMap={};          // { name: {count,total} }
-  const monthPlatMap={};     // { 'YYYY-MM': { name: {count,total} } }
-  bkForPromo.forEach(b=>{
-    const pn=b.platform||'Unknown';
-    const m=(b.checkin||'').substring(0,7);
-    const fee=calcTotals(b).platFee;
-    if(!platMap[pn])platMap[pn]={count:0,total:0};
-    platMap[pn].count++;platMap[pn].total+=fee;
-    if(!monthPlatMap[m])monthPlatMap[m]={};
-    if(!monthPlatMap[m][pn])monthPlatMap[m][pn]={count:0,total:0};
-    monthPlatMap[m][pn].count++;monthPlatMap[m][pn].total+=fee;
-  });
-  const platNames=Object.keys(platMap).sort();
-  const breakdownEl=document.getElementById('platFeeBreakdown');
-  if(breakdownEl){
-    if(!platNames.length){breakdownEl.innerHTML='';}
-    else if(mo!=='all'){
-      // Single month: simple platform | bookings | commission table
-      const rows=platNames.map(pn=>{
-        const d=platMap[pn];
-        const plat=platforms.find(p=>p.name===pn);
-        const color=plat?.color||'#888';
-        return`<tr>
-          <td><span style="display:inline-flex;align-items:center;gap:6px">
-            <span style="width:10px;height:10px;border-radius:3px;background:${color};flex-shrink:0;display:inline-block"></span>
-            <strong>${esc(pn)}</strong>
-          </span></td>
-          <td style="text-align:center;color:var(--text-2)">${d.count}</td>
-          <td style="text-align:right;color:var(--orange);font-weight:700">${fmtMoney(d.total)}</td>
-        </tr>`;
-      }).join('');
-      const tCount=platNames.reduce((s,p)=>s+platMap[p].count,0);
-      const tAmt=platNames.reduce((s,p)=>s+platMap[p].total,0);
-      breakdownEl.innerHTML=`<div style="margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
-        <div style="padding:12px 16px;background:var(--surface-2);border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:var(--text)">📊 Platform Commission Breakdown — ${fmtMonthYear(mo+'-01')}</div>
-        <div class="table-wrap" style="margin:0;border:none">
-          <table class="data-table" style="margin:0">
-            <thead><tr><th>Platform</th><th style="text-align:center">Bookings</th><th style="text-align:right">Commission Paid</th></tr></thead>
-            <tbody>
-              ${rows}
-              <tr style="border-top:2px solid var(--border);background:var(--surface-2)">
-                <td><strong>Total</strong></td>
-                <td style="text-align:center"><strong>${tCount}</strong></td>
-                <td style="text-align:right"><strong style="color:var(--orange)">${fmtMoney(tAmt)}</strong></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>`;
-    }else{
-      // All months: pivot — rows=months, cols=platforms
-      const months=Object.keys(monthPlatMap).sort((a,b)=>b.localeCompare(a));
-      const hdrs=`<tr><th>Month</th>${platNames.map(pn=>{
-        const plat=platforms.find(p=>p.name===pn);
-        const color=plat?.color||'#888';
-        return`<th style="text-align:right"><span style="display:inline-flex;align-items:center;gap:4px;justify-content:flex-end"><span style="width:8px;height:8px;border-radius:2px;background:${color};flex-shrink:0;display:inline-block"></span>${esc(pn)}</span></th>`;
-      }).join('')}<th style="text-align:right">Total</th></tr>`;
-      const dataRows=months.map(m=>{
-        const mData=monthPlatMap[m]||{};
-        const rowTotal=platNames.reduce((s,pn)=>s+(mData[pn]?.total||0),0);
-        return`<tr>
-          <td><strong>${fmtMonthYear(m+'-01')}</strong></td>
-          ${platNames.map(pn=>{
-            const v=mData[pn]?.total||0;
-            const cnt=mData[pn]?.count||0;
-            return`<td style="text-align:right">${v?`<span style="color:var(--orange);font-weight:700">${fmtMoney(v)}</span><span style="font-size:10px;color:var(--text-3);margin-left:3px">${cnt} bk</span>`:`<span style="color:var(--border-2)">—</span>`}</td>`;
-          }).join('')}
-          <td style="text-align:right"><strong style="color:var(--orange)">${fmtMoney(rowTotal)}</strong></td>
-        </tr>`;
-      }).join('');
-      const totRow=`<tr style="border-top:2px solid var(--border);background:var(--surface-2)">
-        <td><strong>All Time</strong></td>
-        ${platNames.map(pn=>`<td style="text-align:right"><strong style="color:var(--orange)">${fmtMoney(platMap[pn].total)}</strong></td>`).join('')}
-        <td style="text-align:right"><strong style="color:var(--orange)">${fmtMoney(platNames.reduce((s,pn)=>s+platMap[pn].total,0))}</strong></td>
-      </tr>`;
-      breakdownEl.innerHTML=`<div style="margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
-        <div style="padding:12px 16px;background:var(--surface-2);border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:var(--text)">📊 Platform Commission by Month</div>
-        <div class="table-wrap" style="margin:0;border:none">
-          <table class="data-table" style="margin:0">
-            <thead>${hdrs}</thead>
-            <tbody>${dataRows}${totRow}</tbody>
-          </table>
-        </div>
-      </div>`;
-    }
+  // ── Build dynamic thead ────────────────────────────────────
+  const thead=document.getElementById('expenseThead');
+  if(thead){
+    const platCols=platNames.map(pn=>{
+      const plat=platforms.find(p=>p.name===pn);
+      const color=plat?.color||'#888';
+      return`<th style="text-align:right;white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:4px;justify-content:flex-end"><span style="width:9px;height:9px;border-radius:2px;background:${color};flex-shrink:0;display:inline-block"></span>${esc(pn)}</span></th>`;
+    }).join('');
+    thead.innerHTML=`<tr>
+      <th>Month</th>
+      ${platCols}
+      <th style="text-align:right;color:var(--orange)">Plat Total</th>
+      <th style="text-align:right;color:var(--purple)">Promo</th>
+      <th style="text-align:right">Cleaning</th>
+      <th style="text-align:right">Water</th>
+      <th style="text-align:right">Electricity</th>
+      <th style="text-align:right">Supplies</th>
+      <th style="text-align:right">Maintenance</th>
+      <th style="text-align:right">Other</th>
+      <th style="text-align:right">Total</th>
+      <th></th>
+    </tr>`;
   }
-  // ── End Platform Breakdown ──────────────────────────────────
 
   const tbody=document.getElementById('expenseTbody');
-  if(!list.length){tbody.innerHTML=`<tr><td colspan="12"><div class="empty"><div class="empty-text">No expenses recorded.</div></div></td></tr>`;return;}
+  if(!months.length){
+    tbody.innerHTML=`<tr><td colspan="${platNames.length+11}"><div class="empty"><div class="empty-text">No expenses recorded.</div></div></td></tr>`;
+    return;
+  }
 
-  const auto=(v,color='')=>`<span style="color:${color||'var(--text)'};font-weight:600">${fmtMoney(v)}</span><span style="font-size:10px;color:var(--text-3);margin-left:3px">(auto)</span>`;
-  const cell=(v,color='var(--text-2)')=>v?`<span style="color:${color};font-weight:600">${fmtMoney(v)}</span>`:`<span style="color:var(--border-2)">\u2014</span>`;
+  const auto=(v,color='')=>`<span style="color:${color||'var(--text)'};font-weight:600">${fmtMoney(v)}</span><span style="font-size:10px;color:var(--text-3);margin-left:3px">auto</span>`;
+  const cell=(v,color='var(--text-2)')=>v?`<span style="color:${color};font-weight:600">${fmtMoney(v)}</span>`:`<span style="color:var(--border-2)">—</span>`;
 
-  // Sort by month YYYY-MM descending \u2014 most recent first
-  tbody.innerHTML=list.slice().sort((a,b)=>{
-    const ma=a.month||'0000-00',mb=b.month||'0000-00';
-    return mb.localeCompare(ma);
-  }).map(e=>{
-    // Promo: checkin month (discount applied when stay begins)
-    // Cleaning: checkout month (done after guest leaves)
-    const bksCheckin=bookings.filter(b=>{
-      if(b.status==='Cancelled'||!b.checkin)return false;
-      if(!b.checkin.startsWith(e.month))return false;
-      if(e.prop!=='all'&&b.property!==e.prop)return false;
-      return true;
+  // Totals accumulators
+  const platTotals={};platNames.forEach(pn=>platTotals[pn]=0);
+  let grandPlatTotal=0,grandPromo=0,grandCleaning=0,grandWater=0,grandElec=0,grandSupplies=0,grandMaint=0,grandOtherRow=0,grandRowTotal=0;
+
+  const rows=months.map(m=>{
+    // Bookings checkin in this month
+    const bkCI=allBks.filter(b=>(b.checkin||'').startsWith(m));
+    // Bookings checkout in this month (for cleaning)
+    const bkCO=bookings.filter(b=>{
+      if(b.status==='Cancelled'||!b.checkout)return false;
+      if(pr!=='all'&&b.property!==pr)return false;
+      return (b.checkout||'').startsWith(m);
     });
-    const bksCheckout=expBookings(e.month,e.prop);
-    const platFeeCost=bksCheckin.reduce((s,b)=>s+calcTotals(b).platFee,0);
-    const promoCost=bksCheckin.reduce((s,b)=>s+(+b.promo||0),0);
-    const cleaningFromBks=bksCheckout.reduce((s,b)=>s+(+b.cleaningFee||0),0);
-    const cleaningCost=cleaningFromBks||e.cleaning||0;
-    const rowTotal=platFeeCost+promoCost+cleaningCost+(e.water||0)+(e.electricity||0)+(e.supplies||0)+(e.maintenance||0)+(e.other||0);
+    // Expense record for this month+prop
+    const expRec=expenses.find(e=>e.month===m&&(pr==='all'?e.prop==='all':e.prop===pr||e.prop==='all'))||{};
+
+    const platFeeByName={};
+    platNames.forEach(pn=>{
+      const fee=bkCI.filter(b=>b.platform===pn).reduce((s,b)=>s+calcTotals(b).platFee,0);
+      platFeeByName[pn]=fee;
+    });
+    const platFeeTotal=platNames.reduce((s,pn)=>s+platFeeByName[pn],0);
+    const promoCost=bkCI.reduce((s,b)=>s+(+b.promo||0),0);
+    const cleaningFromBks=bkCO.reduce((s,b)=>s+(+b.cleaningFee||0),0);
+    const cleaningCost=cleaningFromBks||(expRec.cleaning||0);
+    const water=expRec.water||0;
+    const elec=expRec.electricity||0;
+    const supplies=expRec.supplies||0;
+    const maint=expRec.maintenance||0;
+    const other=expRec.other||0;
+    const rowTotal=platFeeTotal+promoCost+cleaningCost+water+elec+supplies+maint+other;
+
+    // Accumulate
+    platNames.forEach(pn=>platTotals[pn]+=platFeeByName[pn]);
+    grandPlatTotal+=platFeeTotal;grandPromo+=promoCost;grandCleaning+=cleaningCost;
+    grandWater+=water;grandElec+=elec;grandSupplies+=supplies;grandMaint+=maint;grandOtherRow+=other;grandRowTotal+=rowTotal;
+
+    const platCells=platNames.map(pn=>{
+      const v=platFeeByName[pn];
+      const cnt=bkCI.filter(b=>b.platform===pn).length;
+      return`<td style="text-align:right">${v?`<span style="color:var(--orange);font-weight:600">${fmtMoney(v)}</span><span style="font-size:10px;color:var(--text-3);margin-left:2px">${cnt}bk</span>`:`<span style="color:var(--border-2)">—</span>`}</td>`;
+    }).join('');
+
+    const editBtn=expRec.id?`<button class="btn btn-ghost btn-sm" onclick="openExpenseModal('${expRec.id}')">&#x270e;</button>`:`<button class="btn btn-ghost btn-sm" onclick="openExpenseModalForMonth('${m}','${pr}')" title="Add expense record">+</button>`;
+
     return`<tr>
-    <td><strong>${e.month?fmtMonthYear(e.month+'-01'):fmtDate(e.date||'')}</strong></td>
-    <td>${e.prop==='all'?'All':esc(propName(e.prop))}</td>
-    <td>${platFeeCost?auto(platFeeCost,'var(--orange)'):`<span style="color:var(--border-2)">\u2014</span>`}</td>
-    <td>${promoCost?auto(promoCost,'var(--purple)'):`<span style="color:var(--border-2)">\u2014</span>`}</td>
-    <td>${cleaningFromBks?auto(cleaningCost,'var(--red)'):cleaningCost?cell(cleaningCost,'var(--red)'):`<span style="color:var(--border-2)">\u2014</span>`}</td>
-    <td>${cell(e.water||0,'var(--red)')}</td>
-    <td>${cell(e.electricity||0,'var(--red)')}</td>
-    <td>${cell(e.supplies||0,'var(--red)')}</td>
-    <td>${cell(e.maintenance||0,'var(--red)')}</td>
-    <td>${cell(e.other||0,'var(--red)')}</td>
-    <td><strong style="color:var(--red)">${fmtMoney(rowTotal)}</strong></td>
-    <td style="color:var(--text-3);font-size:12px">${esc(e.notes||'\u2014')}</td>
-    <td><button class="btn btn-ghost btn-sm" onclick="openExpenseModal('${e.id}')">&#x270e;</button> <button class="btn btn-ghost btn-sm" onclick="deleteExpense('${e.id}')">&#x2326;</button></td>
-  </tr>`;}).join('');
+      <td><strong>${fmtMonthYear(m+'-01')}</strong></td>
+      ${platCells}
+      <td style="text-align:right">${platFeeTotal?auto(platFeeTotal,'var(--orange)'):`<span style="color:var(--border-2)">—</span>`}</td>
+      <td style="text-align:right">${promoCost?auto(promoCost,'var(--purple)'):`<span style="color:var(--border-2)">—</span>`}</td>
+      <td style="text-align:right">${cleaningFromBks?auto(cleaningCost,'var(--red)'):cleaningCost?cell(cleaningCost,'var(--red)'):`<span style="color:var(--border-2)">—</span>`}</td>
+      <td style="text-align:right">${cell(water,'var(--red)')}</td>
+      <td style="text-align:right">${cell(elec,'var(--red)')}</td>
+      <td style="text-align:right">${cell(supplies,'var(--red)')}</td>
+      <td style="text-align:right">${cell(maint,'var(--red)')}</td>
+      <td style="text-align:right">${cell(other,'var(--red)')}</td>
+      <td style="text-align:right"><strong style="color:var(--red)">${fmtMoney(rowTotal)}</strong></td>
+      <td>${editBtn}</td>
+    </tr>`;
+  }).join('');
+
+  // All-time totals row
+  const platTotalCells=platNames.map(pn=>`<td style="text-align:right"><strong style="color:var(--orange)">${fmtMoney(platTotals[pn])}</strong></td>`).join('');
+  const totalsRow=`<tr style="border-top:2px solid var(--border);background:var(--surface-2);font-weight:700">
+    <td><strong>All Time</strong></td>
+    ${platTotalCells}
+    <td style="text-align:right"><strong style="color:var(--orange)">${fmtMoney(grandPlatTotal)}</strong></td>
+    <td style="text-align:right"><strong style="color:var(--purple)">${fmtMoney(grandPromo)}</strong></td>
+    <td style="text-align:right"><strong style="color:var(--red)">${fmtMoney(grandCleaning)}</strong></td>
+    <td style="text-align:right"><strong style="color:var(--red)">${fmtMoney(grandWater)}</strong></td>
+    <td style="text-align:right"><strong style="color:var(--red)">${fmtMoney(grandElec)}</strong></td>
+    <td style="text-align:right"><strong style="color:var(--red)">${fmtMoney(grandSupplies)}</strong></td>
+    <td style="text-align:right"><strong style="color:var(--red)">${fmtMoney(grandMaint)}</strong></td>
+    <td style="text-align:right"><strong style="color:var(--red)">${fmtMoney(grandOtherRow)}</strong></td>
+    <td style="text-align:right"><strong style="color:var(--red)">${fmtMoney(grandRowTotal)}</strong></td>
+    <td></td>
+  </tr>`;
+
+  tbody.innerHTML=rows+totalsRow;
+}
+
+function openExpenseModalForMonth(month,prop){
+  // Pre-fill the expense modal for a specific month (format: 'YYYY-MM')
+  openExpenseModal(null);
+  requestAnimationFrame(()=>{
+    if(month){
+      const[yr,mo]=month.split('-');
+      const yEl=document.getElementById('fe-year');
+      const mEl=document.getElementById('fe-month');
+      if(yEl)yEl.value=yr;
+      if(mEl)mEl.value=parseInt(mo,10);
+    }
+    const pEl=document.getElementById('fe-prop');
+    if(pEl&&prop&&prop!=='all')pEl.value=prop;
+  });
 }
 
 ['exp-month','exp-prop'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',renderExpenses);});

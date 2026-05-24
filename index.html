@@ -1437,10 +1437,9 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
           <button class="btn btn-primary btn-sm" onclick="openExpenseModal()">＋ Add Expenses</button>
         </div>
         <div class="stats-grid" id="expStats" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))"></div>
-        <div id="platFeeBreakdown"></div>
         <div class="table-wrap">
-          <table class="data-table">
-            <thead><tr><th>Month</th><th>Property</th><th>Platform Fees</th><th>Promo Cost</th><th>Cleaning Cost</th><th>Water</th><th>Electricity</th><th>Supplies</th><th>Maintenance</th><th>Other</th><th>Total</th><th>Notes</th><th style="width:70px"></th></tr></thead>
+          <table class="data-table" id="expenseTable">
+            <thead id="expenseThead"><tr><th>Month</th><th>Total</th></tr></thead>
             <tbody id="expenseTbody"></tbody>
           </table>
         </div>
