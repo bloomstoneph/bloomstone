@@ -1199,22 +1199,29 @@ function renderToday(){
   const mnth=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   const monthRev=bookings.filter(b=>b.status!=='Cancelled'&&(b.checkin||'').startsWith(mnth)).reduce((s,b)=>s+calcTotals(b).netRevenue,0);
 
-  // \u2500\u2500 STAT PILLS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-  // ADR & RevPAR — hospitality KPIs (Year-to-date)
+  // ── STAT PILLS (revenue-only) ─────────────────────────────────────────────────
+  // ADR & RevPAR (YTD)
   const ytdBks=bookings.filter(b=>b.status!=='Cancelled'&&(b.checkin||'').startsWith(String(now.getFullYear())));
   const ytdNights=ytdBks.reduce((s,b)=>s+calcTotals(b).nights,0);
   const ytdRev=ytdBks.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
   const adr=ytdNights?ytdRev/ytdNights:0;
   const daysElapsed=Math.max(1,Math.floor((now-new Date(now.getFullYear(),0,1))/86400000));
   const revpar=properties.length?ytdRev/(properties.length*daysElapsed):0;
+  // Occupancy: booked nights this month / (props × days in month)
+  const daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const mStart=new Date(mnth+'-01');const mEnd=new Date(now.getFullYear(),now.getMonth()+1,0);
+  let bookedNightsMonth=0;
+  bookings.filter(b=>b.status!=='Cancelled').forEach(b=>{
+    const ci=new Date(b.checkin+'T12:00:00'),co=new Date(b.checkout+'T12:00:00');
+    const s=ci<mStart?mStart:ci,e=co>mEnd?mEnd:co;
+    bookedNightsMonth+=Math.max(0,Math.ceil((e-s)/86400000));
+  });
+  const occupancy=Math.min(100,Math.round(bookedNightsMonth/(Math.max(1,properties.length)*daysInMonth)*100));
   document.getElementById('todayStats').innerHTML=`<div class="stats-scroll">
-    <div class="today-stat-pill" style="background:#10B981"><div class="today-stat-pill-val">${checkIns.length}</div><div class="today-stat-pill-lbl">Check-in</div></div>
-    <div class="today-stat-pill" style="background:#F59E0B"><div class="today-stat-pill-val">${checkOuts.length}</div><div class="today-stat-pill-lbl">Check-out</div></div>
-    <div class="today-stat-pill" style="background:#3B82F6"><div class="today-stat-pill-val">${active.length}</div><div class="today-stat-pill-lbl">Active</div></div>
-    <div class="today-stat-pill" style="background:#8B5CF6"><div class="today-stat-pill-val">${pending.length}</div><div class="today-stat-pill-lbl">Pending</div></div>
-    <div class="today-stat-pill" style="background:#1E293B;min-width:110px"><div class="today-stat-pill-val" style="font-size:17px">${fmtMoney(monthRev)}</div><div class="today-stat-pill-lbl">This month</div></div>
-    <div class="today-stat-pill" style="background:#0F766E;min-width:100px" title="Average Daily Rate — YTD net revenue ÷ booked nights"><div class="today-stat-pill-val" style="font-size:15px">${fmtMoney(adr)}</div><div class="today-stat-pill-lbl">ADR</div></div>
-    <div class="today-stat-pill" style="background:#4338CA;min-width:100px" title="RevPAR — YTD net revenue ÷ (properties × days elapsed)"><div class="today-stat-pill-val" style="font-size:15px">${fmtMoney(revpar)}</div><div class="today-stat-pill-lbl">RevPAR/day</div></div>
+    <div class="today-stat-pill" style="background:#1E293B;min-width:130px"><div class="today-stat-pill-val" style="font-size:16px">${fmtMoney(monthRev)}</div><div class="today-stat-pill-lbl">Month Revenue</div></div>
+    <div class="today-stat-pill" style="background:#0F766E;min-width:120px" title="Average Daily Rate (YTD net revenue ÷ booked nights)"><div class="today-stat-pill-val" style="font-size:16px">${fmtMoney(adr)}</div><div class="today-stat-pill-lbl">Avg Daily Rate</div></div>
+    <div class="today-stat-pill" style="background:#4338CA;min-width:110px" title="RevPAR (YTD net revenue ÷ properties × days elapsed)"><div class="today-stat-pill-val" style="font-size:16px">${fmtMoney(revpar)}</div><div class="today-stat-pill-lbl">RevPAR</div></div>
+    <div class="today-stat-pill" style="background:#0369A1;min-width:90px" title="% of available room-nights booked this month"><div class="today-stat-pill-val">${occupancy}%</div><div class="today-stat-pill-lbl">Occupancy</div></div>
   </div>`;
 
   // ── PROPERTY GRID ─────────────────────────────────────────────────────────────
@@ -1229,19 +1236,21 @@ function renderToday(){
     const coBadge=`<span class="cal-co-badge" style="font-size:8px;padding:1px 5px">CHECK OUT</span>`;
     const badge=isCI?ciBadge:isCO?coBadge:'';
     const nightsLeft=isNow?Math.ceil((new Date(b.checkout)-new Date(today2))/86400000):0;
-    return`<div style="background:${c};opacity:${isNow?1:.78};border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px;cursor:pointer" onclick="event.stopPropagation();openBookingDrawer('${b.id}')">
+    const sd=d=>{const dt=new Date(d+'T12:00:00');return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
+    const ciD=sd(b.checkin),coD=sd(b.checkout);
+    const shortRange=`${ciD} – ${coD}`;
+    return`<div style="background:${c};opacity:${isNow?1:.78};border-radius:9px;padding:9px 12px;display:flex;align-items:center;gap:8px;cursor:pointer" onclick="event.stopPropagation();openBookingDrawer('${b.id}')">
       <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
           <span style="font-size:12px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">${esc(b.guest)}</span>
           ${badge}
-          <span style="font-size:9px;font-weight:700;color:rgba(255,255,255,.8);white-space:nowrap;flex-shrink:0">${esc(b.platform)}</span>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
-          <span style="font-size:9px;color:rgba(255,255,255,.75)">${fmtDate(b.checkin)} → ${fmtDate(b.checkout)}</span>
-          <span style="font-size:10px;font-weight:800;color:#fff">${fmtMoney(t.guestTotal)}</span>
+          <span style="font-size:9px;color:rgba(255,255,255,.75)">${esc(b.platform)} · ${shortRange}</span>
+          <span style="font-size:10px;font-weight:800;color:#fff;flex-shrink:0">${fmtMoney(t.guestTotal)}</span>
         </div>
       </div>
-      ${isNow?`<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0"><span style="font-size:8px;font-weight:800;padding:2px 5px;border-radius:10px;background:rgba(0,0,0,.28);color:#fff;white-space:nowrap">NOW</span><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,.85);white-space:nowrap">${nightsLeft}d left</span></div>`:''}
+      ${isNow?`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;margin-left:4px"><span style="font-size:8px;font-weight:800;padding:2px 6px;border-radius:10px;background:rgba(0,0,0,.3);color:#fff;white-space:nowrap">NOW</span><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,.9);white-space:nowrap">${nightsLeft}d left</span></div>`:''}
     </div>`;
   };
   const propGrid=properties.map(p=>{
@@ -1268,8 +1277,8 @@ function renderToday(){
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">${statusPill}${availSub}</div>
       </div>
-      <div class="tpc-divider"></div>
-      <div class="tpc-pills">${pillsHtml}</div>
+      <div style="height:1px;background:rgba(0,0,0,.07);margin:0 0 10px"></div>
+      <div style="display:flex;flex-direction:column;gap:8px">${pillsHtml}</div>
     </div>`;
   }).join('');
 
