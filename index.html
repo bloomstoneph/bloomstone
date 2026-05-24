@@ -1184,17 +1184,22 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 /* Remove double-border on todayTimeline — today-active-wrap already has its own */
 #todayTimeline>.today-active-wrap{margin-bottom:0}
 
-/* Stats scroll on desktop — don't overflow the container, just flex-wrap */
+/* Stats scroll on desktop — wrap instead of scroll */
 @media(min-width:768px){
   .stats-scroll{flex-wrap:wrap;overflow-x:visible}
   .today-stat-pill{min-width:90px}
 }
 
-/* Property grid responsive */
-@media(min-width:1200px){
-  .today-prop-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .tpc-name{font-size:11px}
-  .today-prop-card{padding:10px 11px;gap:4px}
+/* Property grid — mobile: 1 col, tablet: 2 col, desktop: auto-fill */
+@media(max-width:480px){
+  .today-prop-grid{grid-template-columns:1fr!important}
+  .today-prop-card{padding:10px 11px}
+  .today-stat-pill-val{font-size:16px!important}
+  .today-stat-pill{min-width:70px!important;padding:7px 12px}
+  .stats-scroll{flex-wrap:nowrap;overflow-x:auto}
+}
+@media(min-width:481px) and (max-width:860px){
+  .today-prop-grid{grid-template-columns:repeat(2,1fr)!important}
 }
 
 /* Booking card footer layout fix */

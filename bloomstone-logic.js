@@ -1240,8 +1240,8 @@ function renderToday(){
     const ciD=sd(b.checkin),coD=sd(b.checkout);
     const shortRange=`${ciD} – ${coD}`;
     const pillStyle=isNow
-      ?`background:${c};border-radius:8px;padding:7px 10px;display:flex;align-items:center;gap:6px;cursor:pointer`
-      :`background:${c}18;border:1.5px solid ${c};border-radius:8px;padding:7px 10px;display:flex;align-items:center;gap:6px;cursor:pointer`;
+      ?`background:${c};border-radius:8px;padding:7px 10px;display:flex;align-items:center;gap:6px;cursor:pointer;flex-wrap:wrap`
+      :`background:${c}18;border:1.5px solid ${c};border-radius:8px;padding:7px 10px;display:flex;align-items:center;gap:6px;cursor:pointer;flex-wrap:wrap`;
     const guestClr=isNow?'#fff':c;
     const subClr=isNow?'rgba(255,255,255,.75)':'#64748b';
     const amtClr=isNow?'#fff':c;
@@ -1251,8 +1251,8 @@ function renderToday(){
           <span style="font-size:11px;font-weight:800;color:${guestClr};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">${esc(b.guest)}</span>
           ${badge}
         </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
-          <span style="font-size:10px;color:${subClr}">${esc(b.platform)} · ${shortRange}</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;flex-wrap:wrap">
+          <span style="font-size:10px;color:${subClr};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(b.platform)} · ${shortRange}</span>
           <span style="font-size:11px;font-weight:800;color:${amtClr};flex-shrink:0">${fmtMoney(t.guestTotal)}</span>
         </div>
       </div>
@@ -1279,7 +1279,7 @@ function renderToday(){
       +upcoming.map(b=>makeTpcPill(b,false)).join('')
       +(!curStay&&!upcoming.length?`<div style="font-size:10px;color:var(--text-3);font-style:italic;padding:2px 0">No upcoming bookings</div>`:'');
     return`<div class="today-prop-card" style="border-left-color:${borderColor}" onclick="navigateTo('properties')">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:8px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">
           <div class="tpc-icon">${propIconHtml(p,14)}</div>
           <div style="font-size:13px;font-weight:800;color:var(--text);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}</div>
@@ -1295,8 +1295,8 @@ function renderToday(){
   properties.forEach(p=>{const c=p.city||'Other';if(!citiesMap[c])citiesMap[c]=[];citiesMap[c].push(p);});
   const cityHtml=Object.entries(citiesMap).map(([city,props])=>{
     return`<div style="margin-bottom:20px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <span style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap">${esc(city)}</span>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:nowrap">
+        <span style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;flex-shrink:0">${esc(city)}</span>
         <div style="flex:1;height:1px;background:var(--border)"></div>
         <span style="font-size:10px;color:var(--text-3)">${props.length} ${props.length===1?'property':'properties'}</span>
       </div>
