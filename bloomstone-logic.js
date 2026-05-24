@@ -1316,16 +1316,24 @@ function renderToday(){
     const mnthCount=mnthBks.length;
     const mnthNights=mnthBks.reduce((s,b)=>s+(calcTotals(b).nights||0),0);
     const mnthGross=mnthBks.reduce((s,b)=>s+calcTotals(b).guestTotal,0);
+    const mnthLabel=new Date(mnth+'-02').toLocaleString('en-US',{month:'long',year:'numeric'});
     const kpiBox=(val,lbl)=>`<div style="flex:1;text-align:center;padding:7px 4px;background:var(--surface-2);border-radius:8px;min-width:0">
       <div style="font-size:15px;font-weight:800;color:var(--text);line-height:1.1">${val}</div>
       <div style="font-size:9px;font-weight:700;color:var(--text-3);letter-spacing:.5px;margin-top:2px;text-transform:uppercase">${lbl}</div>
     </div>`;
-    const kpiRow=`<div style="display:flex;gap:6px;margin-top:10px">
-      ${kpiBox(mnthCount,'Bookings')}
-      ${kpiBox(mnthNights,'Nights')}
-      ${kpiBox(mnthGross?fmtMoney(mnthGross):'—','Gross Rev')}
+    const kpiRow=`<div style="margin-top:auto;padding-top:10px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <div style="flex:1;height:1px;background:rgba(0,0,0,.07)"></div>
+        <span style="font-size:9px;font-weight:700;color:var(--text-3);letter-spacing:.6px;text-transform:uppercase;white-space:nowrap">${mnthLabel} only</span>
+        <div style="flex:1;height:1px;background:rgba(0,0,0,.07)"></div>
+      </div>
+      <div style="display:flex;gap:6px">
+        ${kpiBox(mnthCount,'Bookings')}
+        ${kpiBox(mnthNights,'Nights')}
+        ${kpiBox(mnthGross?fmtMoney(mnthGross):'—','Gross Rev')}
+      </div>
     </div>`;
-    return`<div class="today-prop-card" onclick="navigateTo('properties')">
+    return`<div class="today-prop-card" onclick="navigateTo('properties')" style="display:flex;flex-direction:column">
       <div style="margin-bottom:9px">
         <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
           <div class="tpc-icon">${propIconHtml(p,15)}</div>
