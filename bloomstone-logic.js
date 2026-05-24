@@ -2415,7 +2415,7 @@ function renderMonthCal(body,y,m,shown){
             ?`<span class="cal-ci-badge">${compact?'CI':'CHECK IN'}</span>`
             :isEnd
             ?`<span class="cal-co-badge">${compact?'CO':'CHECK OUT'}</span>`
-            :'';
+            :`<span class="cal-stay-badge">${compact?'●':'STAY'}</span>`;
           const t=calcTotals(b);
           const dayLabel=(!compact&&totalN>1)?`<span style="font-size:9px;opacity:.7;white-space:nowrap;flex-shrink:0">Day ${dayNum}/${totalN}</span>`:'';
           const rateLabel=!compact?`<span style="font-size:9px;opacity:.75;white-space:nowrap;flex-shrink:0">${fmtMoney(b.rate)}/n</span>`:'';
@@ -2455,7 +2455,7 @@ function renderMonthCal(body,y,m,shown){
             ?`<span class="cal-ci-badge">${compact?'CI':'CHECK IN'}</span>`
             :isEnd
             ?`<span class="cal-co-badge">${compact?'CO':'CHECK OUT'}</span>`
-            :'';
+            :`<span class="cal-stay-badge">${compact?'●':'STAY'}</span>`;
           const dayLabel=(!compact&&totalN>1)?`<span style="font-size:9px;opacity:.7;white-space:nowrap;flex-shrink:0">Day ${dayNum}/${totalN}</span>`:'';
           const rateLabel=!compact?`<span style="font-size:9px;opacity:.75;white-space:nowrap;flex-shrink:0">${fmtMoney(b.rate)}/n</span>`:'';
           const gStr=compact?b.guest.split(' ')[0].slice(0,6):b.guest;
@@ -2505,8 +2505,9 @@ function openDayModal(dateStr){
       // checkout is day after last night, so the day BEFORE checkout is last night
       const lastNight=new Date(b.checkout+'T12:00:00');lastNight.setDate(lastNight.getDate()-1);
       const isLastNight=dateToISO(lastNight)===dateStr;
-      const cioBadge=isCI?`<span style="font-size:10px;font-weight:800;background:#16a34a;color:#fff;border-radius:4px;padding:2px 7px;flex-shrink:0">CHECK IN</span>`
-        :isLastNight?`<span style="font-size:10px;font-weight:800;background:#dc2626;color:#fff;border-radius:4px;padding:2px 7px;flex-shrink:0">CHECK OUT</span>`:'';
+      const cioBadge=isCI?`<span class="cal-ci-badge" style="font-size:10px;padding:3px 9px">CHECK IN</span>`
+        :isLastNight?`<span class="cal-co-badge" style="font-size:10px;padding:3px 9px">CHECK OUT</span>`
+        :`<span class="cal-stay-badge" style="font-size:10px;padding:3px 9px;background:var(--accent-soft);color:var(--accent);border:none">STAY</span>`;
       const dayNum=nightsBetween(b.checkin,dateStr)+1;
       return`<div style="display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;cursor:pointer;background:var(--surface-2)" onclick="closeModal('dayModal');openBookingDrawer('${b.id}')">
         <div style="width:5px;min-height:50px;border-radius:3px;background:${platformColor(b.platform)};flex-shrink:0;margin-top:2px"></div>
@@ -2554,8 +2555,9 @@ function renderWeekCal(body,shown){
           const isStart=ds===b.checkin;
           const nextD=new Date(ds+'T12:00:00');nextD.setDate(nextD.getDate()+1);
           const isEnd=dateToISO(nextD)===b.checkout;
-          const tag=isStart?`<span style="font-size:10px;font-weight:800;background:rgba(0,0,0,.22);border-radius:3px;padding:1px 5px;margin-left:5px;opacity:.95">IN</span>`
-                   :isEnd?`<span style="font-size:10px;font-weight:800;background:rgba(0,0,0,.22);border-radius:3px;padding:1px 5px;margin-left:5px;opacity:.95">OUT</span>`:'';
+          const tag=isStart?`<span class="cal-ci-badge" style="font-size:8px;padding:1px 5px;margin-left:4px">IN</span>`
+                   :isEnd?`<span class="cal-co-badge" style="font-size:8px;padding:1px 5px;margin-left:4px">OUT</span>`
+                   :`<span class="cal-stay-badge" style="font-size:8px;padding:1px 5px;margin-left:4px">●</span>`;
           if(isAllProps){
             const _totalN=nightsBetween(b.checkin,b.checkout);
             const _dayNum=nightsBetween(b.checkin,ds)+1;
@@ -2568,10 +2570,10 @@ function renderWeekCal(body,shown){
               </div>`;
             }
             const _badge=isStart
-              ?`<span style="font-size:9px;font-weight:800;background:rgba(0,0,0,.25);border-radius:3px;padding:1px 4px;white-space:nowrap;letter-spacing:.3px">CHECK IN</span>`
+              ?`<span class="cal-ci-badge">CHECK IN</span>`
               :isEnd
-              ?`<span style="font-size:9px;font-weight:800;background:rgba(0,0,0,.25);border-radius:3px;padding:1px 4px;white-space:nowrap;letter-spacing:.3px">CHECK OUT</span>`
-              :'';
+              ?`<span class="cal-co-badge">CHECK OUT</span>`
+              :`<span class="cal-stay-badge">STAY</span>`;
             const _dayLbl=_totalN>1?`<span style="font-size:9px;opacity:.75;white-space:nowrap">Day ${_dayNum}/${_totalN}</span>`:'';
             return`<div style="display:flex;flex-direction:column;gap:2px;padding:5px 7px;border-radius:6px;margin-bottom:3px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;${_isToday?'box-shadow:0 0 0 2px #fff,0 0 0 3.5px '+platC+';':''}" onclick="openBookingDrawer('${b.id}')">
               <div style="display:flex;align-items:center;gap:4px;min-width:0">

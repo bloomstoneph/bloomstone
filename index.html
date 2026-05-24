@@ -733,8 +733,9 @@ a{color:inherit;text-decoration:none}
 .cal-event-bar.bar-end{border-top-left-radius:0;border-bottom-left-radius:0;justify-content:flex-end}
 .cal-event-bar.bar-end .bar-name{display:none}
 .cal-event-bar.bar-conflict{outline:2px solid var(--orange);outline-offset:-2px}
-.cal-ci-badge{font-size:9px;font-weight:800;background:#16a34a;border-radius:3px;padding:1px 5px;white-space:nowrap;color:#fff;flex-shrink:0}
-.cal-co-badge{font-size:9px;font-weight:800;background:#dc2626;border-radius:3px;padding:1px 5px;white-space:nowrap;color:#fff;flex-shrink:0}
+.cal-ci-badge{font-size:9px;font-weight:800;background:#16a34a;border-radius:20px;padding:2px 7px;white-space:nowrap;color:#fff;flex-shrink:0;letter-spacing:.3px}
+.cal-co-badge{font-size:9px;font-weight:800;background:#dc2626;border-radius:20px;padding:2px 7px;white-space:nowrap;color:#fff;flex-shrink:0;letter-spacing:.3px}
+.cal-stay-badge{font-size:9px;font-weight:800;background:rgba(255,255,255,.22);border-radius:20px;padding:2px 7px;white-space:nowrap;color:#fff;flex-shrink:0;letter-spacing:.3px;border:1px solid rgba(255,255,255,.35)}
 .month-cell-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
 .month-cell-dots{display:flex;gap:2px;align-items:center}
 .cal-more{font-size:10px;color:var(--text-3);font-weight:600;padding:1px 4px}
@@ -1146,7 +1147,7 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
   .month-cell.today .month-cell-num{width:18px;height:18px;font-size:9px}
   .month-cell-dots span{width:4px!important;height:4px!important}
   /* Compact CI/CO badges — minimum readable size */
-  .cal-ci-badge,.cal-co-badge{font-size:9px;padding:1px 3px}
+  .cal-ci-badge,.cal-co-badge,.cal-stay-badge{font-size:8px;padding:1px 4px}
   .cal-more{font-size:8px;color:var(--text-3);padding:1px 2px}
   /* Vertical scroll only — no left/right scroll */
   .cal-body{overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch}
