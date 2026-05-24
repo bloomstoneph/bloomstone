@@ -811,28 +811,7 @@ function printBooking(){
   setTimeout(()=>win.print(),400);
 }
 
-function showGuestHistory(){
-  const guest=(document.getElementById('f-guest')?.value||'').trim();
-  if(!guest){toast('Enter a guest name first.','warning');return;}
-  const gBks=bookings.filter(b=>(b.guest||'').toLowerCase().trim()===guest.toLowerCase().trim()).sort((a,b)=>b.checkin.localeCompare(a.checkin));
-  if(!gBks.length){toast(`No history found for "${guest}".`,'warning');return;}
-  const rows=gBks.map(b=>{const t=calcTotals(b);return`
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="closeModal('confirmModal');openBookingDrawer('${b.id}')">
-      <div style="width:3px;height:28px;border-radius:2px;background:${platformColor(b.platform)};flex-shrink:0"></div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:700">${esc(propName(b.property))}</div>
-        <div style="font-size:11px;color:var(--text-3)">${fmtDate(b.checkin)} → ${fmtDate(b.checkout)} · ${t.nights} nights</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:12px;font-weight:700;color:var(--green)">${fmtMoney(t.netRevenue)}</div>
-        ${statusBadgeHtml(b.status)}
-      </div>
-    </div>`}).join('');
-  const lifetime=gBks.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
-  confirmDialog(`${esc(guest)} — Booking History`,
-    `<div style="font-size:12px;color:var(--text-3);margin-bottom:10px">${gBks.length} booking${gBks.length!==1?'s':''} · ${fmtMoney(lifetime)} lifetime value</div>${rows}`,
-    '📋',()=>{},'Close',{html:true,wide:true,btnClass:'btn-secondary'});
-}
+// showGuestHistory() legacy stub — now handled by openGuestProfile above
 
 // ---- FINANCIALS
 function calcTotals(b){
@@ -3896,16 +3875,26 @@ function renderProperties(){
 }
 
 // ============================================================
-// GUEST EDIT
+// GUEST PROFILE MODAL (Edit + History combined)
 // ============================================================
 let _editingGuestName=null;
-function openGuestEdit(name){
+let _guestProfileTab='edit';
+
+function openGuestProfile(name,tab='edit'){
   _editingGuestName=name;
-  const key=name.toLowerCase().trim();
-  // Gather latest data from bookings
+  // Avatar + header
+  const avatarEl=document.getElementById('gpAvatar');
+  if(avatarEl){avatarEl.textContent=_guestInitials(name);avatarEl.style.background=_guestColor(name);}
+  const titleEl=document.getElementById('gpTitle');
+  if(titleEl)titleEl.textContent=name;
+  const gBks=bookings.filter(b=>(b.guest||'').toLowerCase().trim()===name.toLowerCase().trim()&&b.status!=='Cancelled');
+  const totalRev=gBks.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
+  const subtitleEl=document.getElementById('gpSubtitle');
+  if(subtitleEl)subtitleEl.textContent=`${gBks.length} booking${gBks.length!==1?'s':''} · ${fmtMoney(totalRev)} lifetime`;
+  // Fill edit fields
   let phone='',prefs='';
   bookings.forEach(b=>{
-    if((b.guest||'').toLowerCase().trim()!==key)return;
+    if((b.guest||'').toLowerCase().trim()!==name.toLowerCase().trim())return;
     if(b.guestPhone)phone=b.guestPhone;
     if(b.guestPrefs)prefs=b.guestPrefs;
   });
@@ -3915,8 +3904,46 @@ function openGuestEdit(name){
   if(nameEl)nameEl.value=name;
   if(phoneEl)phoneEl.value=phone;
   if(prefsEl)prefsEl.value=prefs;
-  openModal('guestEditModal');
+  switchGuestTab(tab);
+  openModal('guestProfileModal');
 }
+function switchGuestTab(tab){
+  _guestProfileTab=tab;
+  document.getElementById('gpEditPanel').style.display=tab==='edit'?'':'none';
+  document.getElementById('gpHistoryPanel').style.display=tab==='history'?'':'none';
+  document.getElementById('gpTabEdit').classList.toggle('active',tab==='edit');
+  document.getElementById('gpTabHistory').classList.toggle('active',tab==='history');
+  const saveBtn=document.getElementById('gpSaveBtn');
+  if(saveBtn)saveBtn.style.display=tab==='edit'?'':'none';
+  if(tab==='history')_renderGuestHistoryPanel(_editingGuestName);
+}
+function _renderGuestHistoryPanel(name){
+  const container=document.getElementById('gpHistoryContent');if(!container)return;
+  const gBks=bookings.filter(b=>(b.guest||'').toLowerCase().trim()===(name||'').toLowerCase().trim())
+    .sort((a,b)=>b.checkin.localeCompare(a.checkin));
+  if(!gBks.length){container.innerHTML='<div class="empty"><div class="empty-text">No bookings found.</div></div>';return;}
+  const lifetime=gBks.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
+  container.innerHTML=`<div style="font-size:12px;color:var(--text-3);margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">${gBks.length} booking${gBks.length!==1?'s':''} · ${fmtMoney(lifetime)} lifetime value</div>`+
+    gBks.map(b=>{const t=calcTotals(b);return`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="closeModal('guestProfileModal');openBookingDrawer('${b.id}')">
+      <div style="width:3px;height:38px;border-radius:2px;background:${platformColor(b.platform)};flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700">${esc(propName(b.property))}</div>
+        <div style="font-size:11px;color:var(--text-3)">${fmtDate(b.checkin)} → ${fmtDate(b.checkout)} · ${t.nights} nights · ${esc(b.platform||'')}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:13px;font-weight:700;color:var(--green)">${fmtMoney(t.netRevenue)}</div>
+        ${statusBadgeHtml(b.status)}
+      </div>
+    </div>`;}).join('');
+}
+// Keep backward-compatible: called from booking drawer (no arg) or guests list (with name)
+function showGuestHistory(name){
+  if(!name){name=(document.getElementById('f-guest')?.value||'').trim();if(!name){toast('Enter a guest name first.','warning');return;}}
+  openGuestProfile(name,'history');
+}
+// openGuestEdit → opens profile on edit tab
+function openGuestEdit(name){openGuestProfile(name,'edit');}
+
 function saveGuestEdit(){
   const newName=(document.getElementById('ge-name')?.value||'').trim();
   const phone=(document.getElementById('ge-phone')?.value||'').trim();
@@ -3926,14 +3953,10 @@ function saveGuestEdit(){
   let count=0;
   bookings.forEach(b=>{
     if((b.guest||'').toLowerCase().trim()!==oldKey)return;
-    b.guest=newName;
-    b.guestPhone=phone;
-    b.guestPrefs=prefs;
-    count++;
+    b.guest=newName;b.guestPhone=phone;b.guestPrefs=prefs;count++;
   });
-  saveAll();
-  closeModal('guestEditModal');
-  renderGuests();
+  _editingGuestName=newName;
+  saveAll();closeModal('guestProfileModal');renderGuests();
   toast(`Guest updated — ${count} booking${count!==1?'s':''} updated.`,'success');
 }
 
@@ -4015,7 +4038,7 @@ function renderGuests(){
     topEl.innerHTML=top3.length?`<div style="background:var(--surface-2);border-radius:12px;padding:12px 16px;margin-bottom:16px">
       <div style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:.5px;margin-bottom:10px">🏆 TOP GUESTS</div>
       <div class="top3-grid">${top3.map((g,i)=>`
-        <div class="top3-card" onclick="showGuestHistory('${esc(g.name)}')">
+        <div class="top3-card" onclick="openGuestProfile('${esc(g.name)}','history')">
           <span style="font-size:22px;flex-shrink:0">${medals[i]}</span>
           <div class="guest-avatar" style="background:${_guestColor(g.name)};width:32px;height:32px;font-size:12px;flex-shrink:0">${_guestInitials(g.name)}</div>
           <div style="min-width:0">
@@ -4100,7 +4123,7 @@ function renderGuests(){
           const initials=_guestInitials(g.name);
           const repeatBadge=g.active.length>1?`<span class="badge badge-purple" style="font-size:9px;margin-left:5px">×${g.active.length}</span>`:'';
           const phoneStr=g.bookings.find(b=>b.guestPhone)?.guestPhone||'';
-          return`<tr onclick="showGuestHistory('${esc(g.name)}')">
+          return`<tr onclick="openGuestProfile('${esc(g.name)}','history')">
             <td><div class="guest-avatar" style="background:${color};width:32px;height:32px;font-size:11px">${initials}</div></td>
             <td>
               <div style="font-weight:600;font-size:13px">
@@ -4116,7 +4139,7 @@ function renderGuests(){
             <td onclick="event.stopPropagation()" style="white-space:nowrap">
               <button class="btn btn-ghost btn-sm" title="Edit Guest" onclick="openGuestEdit('${esc(g.name)}')">✏</button>
               <button class="btn btn-ghost btn-sm" title="New Booking" onclick="openBookingDrawer();document.getElementById('f-guest').value='${esc(g.name)}';updateDrawerProfile('${esc(g.name)}')">＋</button>
-              <button class="btn btn-ghost btn-sm" title="History" onclick="showGuestHistory('${esc(g.name)}')">📋</button>
+              <button class="btn btn-ghost btn-sm" title="History" onclick="event.stopPropagation();openGuestProfile('${esc(g.name)}','history')">📋</button>
             </td>
           </tr>`;
         }).join('')}</tbody>
@@ -4156,7 +4179,7 @@ function renderGuests(){
       <div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
         <button class="btn btn-ghost btn-sm" style="flex:1" onclick="openBookingDrawer();document.getElementById('f-guest').value='${esc(g.name)}';updateDrawerProfile('${esc(g.name)}')">＋ Booking</button>
         <a class="btn btn-ghost btn-sm" href="${waHref}" target="_blank" title="WhatsApp">💬</a>
-        <button class="btn btn-ghost btn-sm" onclick="showGuestHistory('${esc(g.name)}')">👁 View</button>
+        <button class="btn btn-ghost btn-sm" onclick="openGuestProfile('${esc(g.name)}','history')">👁 View</button>
       </div>
     </div>`;
   }).join('')}</div>`;
