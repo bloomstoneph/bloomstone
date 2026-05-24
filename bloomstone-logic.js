@@ -1250,7 +1250,7 @@ function renderToday(){
           <span style="font-size:10px;font-weight:800;color:#fff;flex-shrink:0">${fmtMoney(t.guestTotal)}</span>
         </div>
       </div>
-      ${isNow?`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;margin-left:4px"><span style="font-size:8px;font-weight:800;padding:2px 6px;border-radius:10px;background:rgba(0,0,0,.3);color:#fff;white-space:nowrap">NOW</span><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,.9);white-space:nowrap">${nightsLeft}d left</span></div>`:''}
+      ${isNow?`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;margin-left:4px"><span style="font-size:8px;font-weight:800;padding:2px 6px;border-radius:10px;background:rgba(0,0,0,.3);color:#fff;white-space:nowrap">TODAY</span><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,.9);white-space:nowrap">${nightsLeft}d left</span></div>`:''}
     </div>`;
   };
   const propGrid=properties.map(p=>{
