@@ -1297,20 +1297,78 @@ function renderToday(){
   const makeCard=p=>{
     const curStay=bookings.find(b=>b.property===p.id&&b.status!=='Cancelled'&&b.checkin<=today2&&b.checkout>today2);
     const upcoming=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled'&&b.checkin>today2).sort((a,b2)=>a.checkin.localeCompare(b2.checkin)).slice(0,3);
+    const hasAnyBooking=!!(curStay||upcoming.length);
     const isOccupied=!!curStay;
-    const borderColor=curStay?platformColor(curStay.platform):(upcoming.length?platformColor(upcoming[0].platform):'#ccc');
+
+    // Status pill (top of card)
     const occPill=`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5;white-space:nowrap;flex-shrink:0"><span style="width:6px;height:6px;border-radius:50%;background:#dc2626;flex-shrink:0"></span>OCCUPIED</span>`;
-    let availPill;
-    if(!isOccupied&&upcoming.length){
-      const untilStr=sdShort(upcoming[0].checkin);
-      availPill=`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;background:#dcfce7;color:#16a34a;border:1.5px solid #86efac;white-space:nowrap;flex-shrink:0"><span style="width:6px;height:6px;border-radius:50%;background:#16a34a;flex-shrink:0"></span>AVAILABLE · until ${untilStr}</span>`;
-    }else if(!isOccupied){
-      availPill=`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;background:#dcfce7;color:#16a34a;border:1.5px solid #86efac;white-space:nowrap;flex-shrink:0"><span style="width:6px;height:6px;border-radius:50%;background:#16a34a;flex-shrink:0"></span>AVAILABLE TODAY</span>`;
-    }
+    const availPill=`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;background:#dcfce7;color:#16a34a;border:1.5px solid #86efac;white-space:nowrap;flex-shrink:0"><span style="width:6px;height:6px;border-radius:50%;background:#16a34a;flex-shrink:0"></span>AVAILABLE</span>`;
     const statusPill=isOccupied?occPill:availPill;
-    const pillsHtml=(curStay?makeTpcPill(curStay,true):'')
-      +upcoming.map(b=>makeTpcPill(b,false)).join('')
-      +(!curStay&&!upcoming.length?`<div style="font-size:10px;color:var(--text-3);font-style:italic;padding:2px 0">No upcoming bookings</div>`:'');
+
+    // ── Gap Days pill (green) ─────────────────────────────────
+    const gapPill=(fromDate,toDate)=>{
+      const days=Math.round((new Date(toDate+'T12:00:00')-new Date(fromDate+'T12:00:00'))/86400000);
+      if(days<=0)return'';
+      return`<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:9px;padding:8px 12px">
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#16a34a;flex-shrink:0;display:inline-block"></span>
+          <span style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:.3px">GAP DAYS</span>
+        </div>
+        <div style="font-size:10px;color:#16a34a;font-weight:600;padding-left:13px">${sdShort(fromDate)} → ${sdShort(toDate)} · ${days} day${days!==1?'s':''}</div>
+      </div>`;
+    };
+
+    // ── No Upcoming Bookings pill ─────────────────────────────
+    // RED: property has zero bookings at all
+    // GREY: has bookings but nothing after last one
+    const noUpcomingPill=(afterDate,isRed)=>{
+      if(isRed)return`<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:9px;padding:8px 12px">
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#dc2626;flex-shrink:0;display:inline-block"></span>
+          <span style="font-size:11px;font-weight:800;color:#dc2626;letter-spacing:.3px">NO UPCOMING BOOKINGS</span>
+        </div>
+        <div style="font-size:10px;color:#dc2626;font-weight:600;padding-left:13px">No reservations scheduled yet</div>
+      </div>`;
+      return`<div style="background:var(--surface-2);border:1.5px solid var(--border);border-radius:9px;padding:8px 12px">
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--text-3);flex-shrink:0;display:inline-block"></span>
+          <span style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:.3px">No upcoming bookings</span>
+        </div>
+        <div style="font-size:10px;color:var(--text-3);padding-left:13px">Unoccupied after ${sdShort(afterDate)}</div>
+      </div>`;
+    };
+
+    // ── Build chronological timeline ──────────────────────────
+    const timelinePills=[];
+    // If available now (not occupied), insert gap from today to first upcoming
+    if(!isOccupied){
+      if(upcoming.length){
+        timelinePills.push(gapPill(today2,upcoming[0].checkin));
+      }else{
+        timelinePills.push(noUpcomingPill(today2,!hasAnyBooking));
+      }
+    }
+    // Current stay
+    if(curStay)timelinePills.push(makeTpcPill(curStay,true));
+    // Upcoming bookings + gaps between them
+    upcoming.forEach((b,i)=>{
+      // Gap between previous checkout and this checkin
+      const prevCheckout=i===0?(curStay?curStay.checkout:null):upcoming[i-1].checkout;
+      if(prevCheckout&&prevCheckout<b.checkin){
+        timelinePills.push(gapPill(prevCheckout,b.checkin));
+      }
+      timelinePills.push(makeTpcPill(b,false));
+    });
+    // After last upcoming: grey "no upcoming" (only if there's something before it)
+    if(hasAnyBooking){
+      const lastCheckout=upcoming.length?upcoming[upcoming.length-1].checkout:(curStay?curStay.checkout:null);
+      if(lastCheckout){
+        timelinePills.push(noUpcomingPill(lastCheckout,false));
+      }
+    }
+
+    const pillsHtml=timelinePills.join('');
+
     // Monthly KPI stats for this property
     const mnthBks=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled'&&(b.checkin||'').startsWith(mnth));
     const mnthCount=mnthBks.length;
