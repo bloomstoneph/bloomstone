@@ -3743,48 +3743,96 @@ function contractStatusBadge(p){
 }
 function renderProperties(){
   const grid=document.getElementById('propGrid');
-  if(!properties.length){grid.innerHTML=`<div class="empty"><div class="empty-icon">\ud83c\udfe0</div><div class="empty-text">No properties yet</div><div class="empty-sub">Add your rental properties to start tracking bookings</div><button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="openPropertyModal()">\uff0b Add Property</button></div>`;return;}
-  grid.innerHTML=properties.map(p=>{
+  if(!properties.length){
+    grid.innerHTML=`<div class="empty"><div class="empty-icon">🏠</div><div class="empty-text">No properties yet</div><div class="empty-sub">Add your rental properties to start tracking bookings</div><button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="openPropertyModal()">＋ Add Property</button></div>`;
+    return;
+  }
+  const today=todayISO();
+  grid.innerHTML=properties.map((p,idx)=>{
+    const pc=_PROP_PALETTE[idx%_PROP_PALETTE.length];
     const bks=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled');
     const rev=bks.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
-    const nights=bks.reduce((s,b)=>s+nightsBetween(b.checkin,b.checkout),0);
-    // F2: Occupancy = booked nights in current year / days elapsed so far this year
     const now=new Date();
     const yearStart=new Date(now.getFullYear(),0,1);
     const daysElapsed=Math.ceil((now-yearStart)/86400000)+1;
     const thisYearNights=bks.filter(b=>b.checkin&&b.checkin.startsWith(String(now.getFullYear()))).reduce((s,b)=>s+nightsBetween(b.checkin,b.checkout),0);
     const occ=Math.min(100,Math.round(thisYearNights/Math.max(1,daysElapsed)*100));
-    const upcoming=bks.filter(b=>b.checkin>=todayISO()).length;
+    const upcoming=bks.filter(b=>b.checkin>today).length;
+    const currentGuest=bks.find(b=>b.checkin<=today&&b.checkout>today&&b.status!=='Cancelled');
     const photos=p.photos||[];
-    const hero=photos.length?`<img class="prop-photo-hero" src="${photos[0]}" alt="Property photo" onclick="viewPropPhotos('${p.id}')" title="View photos"/>`:
-      `<div style="width:100%;height:80px;background:var(--surface-2);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin-bottom:8px;cursor:pointer;border:1px dashed var(--border-2);color:var(--text-2)" onclick="openPropertyModal('${p.id}')">${propIconHtml(p,40)}</div>`;
-    const extraPhotos=photos.length>1?`<div class="prop-photo-strip">${photos.slice(1,5).map((src,i)=>`<img class="prop-photo-thumb" src="${src}" onclick="viewPropPhotos('${p.id}',${i+1})" title="View photos"/>`).join('')}${photos.length>5?`<div style="width:60px;height:50px;border-radius:6px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text-2);cursor:pointer;border:1px solid var(--border)" onclick="viewPropPhotos('${p.id}')">+${photos.length-5}</div>`:''}
-    </div>`:'';
-    return`<div class="prop-card">
-      ${hero}${extraPhotos}
-      <div class="prop-card-header" style="margin-bottom:10px"><div class="prop-icon" style="display:flex;align-items:center;color:var(--text-2)">${propIconHtml(p,22)}</div>
-        <div style="flex:1;min-width:0"><div class="prop-card-name">${esc(p.name)}${p.beds?` <span style="color:var(--text-3);font-size:11px">${p.beds}BR</span>`:''}</div><div class="prop-card-meta">${esc(p.city)}${p.address?` \u00b7 ${esc(p.address)}`:''}</div></div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openPropertyModal('${p.id}')" title="Edit property">&#x270e;</button>
-          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openBlockDatesModal('${p.id}')" title="Block dates">🔴</button>
-          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Delete property">&#x2326;</button>
-        </div>
-      </div>
-      <div class="prop-stats">
-        <div><div class="prop-stat-label">Net Revenue</div><div class="prop-stat-value">${fmtMoney(rev)}</div></div>
-        <div><div class="prop-stat-label">Occupancy</div><div class="prop-stat-value" style="color:${occ>70?'var(--green)':occ>40?'var(--orange)':'var(--red)'}">${occ}%</div></div>
-        <div><div class="prop-stat-label">Base Rate</div><div class="prop-stat-value">${p.baseRate?fmtMoney(p.baseRate):'\u2014'}</div></div>
-      </div>
-      ${(p.ownerPct??100)<100?`<div style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--text-2)">👤 ${esc(p.ownerName||'Owner')}</span>
-        <span class="badge" style="background:#eef4ff;color:#1a56db;font-size:10px">${p.ownerPct}% owner · ${100-p.ownerPct}% Bloomstone</span>
+
+    // ── Cover: photo or gradient ──
+    const cover=photos.length
+      ? `<div class="pcard-cover" onclick="viewPropPhotos('${p.id}')" style="cursor:pointer">
+           <img src="${photos[0]}" class="pcard-cover-img" alt=""/>
+           <div class="pcard-cover-grad"></div>
+           ${photos.length>1?`<div class="pcard-photo-count">📷 ${photos.length}</div>`:''}
+         </div>`
+      : `<div class="pcard-cover pcard-cover-gradient" style="background:linear-gradient(135deg,${pc}22 0%,${pc}44 100%)" onclick="openPropertyModal('${p.id}')">
+           <div class="pcard-cover-icon" style="color:${pc}">${propIconHtml(p,52)}</div>
+         </div>`;
+
+    // ── Status pill ──
+    const statusPill=currentGuest
+      ? `<div class="pcard-status occupied"><span class="pcard-status-dot"></span>Occupied · ${esc(currentGuest.guest)}</div>`
+      : `<div class="pcard-status available"><span class="pcard-status-dot"></span>Available</div>`;
+
+    // ── Occupancy bar color ──
+    const occColor=occ>=70?'var(--green)':occ>=40?'var(--orange)':'var(--red)';
+
+    // ── Owner / contract strip ──
+    const hasSplit=(p.ownerPct??100)<100;
+    const ownerStrip=hasSplit?`
+      <div class="pcard-owner-strip">
+        <span class="pcard-owner-name">👤 ${esc(p.ownerName||'Owner')}</span>
+        <span class="pcard-split-badge" style="background:${pc}18;color:${pc};border-color:${pc}44">${p.ownerPct}% · ${100-p.ownerPct}% BLS</span>
         ${contractStatusBadge(p)}
-      </div>`:''}
-      ${(p.blockedDates||[]).length?`<div style="font-size:11px;color:var(--red);margin-top:8px">🔴 ${p.blockedDates.length} date(s) blocked</div>`:''}
-      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
-        ${p.map?`<a href="${esc(p.map)}" target="_blank" class="btn btn-ghost btn-sm" style="justify-content:center;flex:1" onclick="event.stopPropagation()">📍 Map</a>`:''}
-        ${p.airbnbUrl?`<a href="${esc(p.airbnbUrl)}" target="_blank" class="btn btn-ghost btn-sm" style="justify-content:center;flex:1" onclick="event.stopPropagation()">🏡 Airbnb</a>`:''}
-        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="event.stopPropagation();openBlockDatesModal('${p.id}')">🔴 Block Dates${(p.blockedDates||[]).length?` (${p.blockedDates.length})`:''}</button>
+      </div>`:'';
+
+    return`<div class="pcard" onclick="openPropertyModal('${p.id}')">
+      ${cover}
+      <div class="pcard-body">
+        <div class="pcard-top">
+          <div class="pcard-title-wrap">
+            <div class="pcard-name">${esc(p.name)}${p.beds?`<span class="pcard-beds">${p.beds}BR</span>`:''}</div>
+            <div class="pcard-location">📍 ${esc(p.city)}${p.address?` · ${esc(p.address)}`:''}</div>
+          </div>
+          <div class="pcard-actions" onclick="event.stopPropagation()">
+            <button class="pcard-action-btn" onclick="openPropertyModal('${p.id}')" title="Edit">✏️</button>
+            <button class="pcard-action-btn" onclick="openBlockDatesModal('${p.id}')" title="Block dates">🔴</button>
+            <button class="pcard-action-btn danger" onclick="deleteProperty('${p.id}')" title="Delete">🗑</button>
+          </div>
+        </div>
+
+        ${statusPill}
+
+        <div class="pcard-kpis">
+          <div class="pcard-kpi">
+            <div class="pcard-kpi-val" style="color:var(--green)">${fmtMoney(rev)}</div>
+            <div class="pcard-kpi-lbl">Net Revenue</div>
+          </div>
+          <div class="pcard-kpi">
+            <div class="pcard-kpi-val" style="color:${occColor}">${occ}%</div>
+            <div class="pcard-kpi-lbl">Occupancy YTD</div>
+            <div class="pcard-occ-bar"><div class="pcard-occ-fill" style="width:${occ}%;background:${occColor}"></div></div>
+          </div>
+          <div class="pcard-kpi">
+            <div class="pcard-kpi-val">${p.baseRate?fmtMoney(p.baseRate):'—'}</div>
+            <div class="pcard-kpi-lbl">Base Rate/Night</div>
+          </div>
+          <div class="pcard-kpi">
+            <div class="pcard-kpi-val" style="color:var(--blue)">${upcoming}</div>
+            <div class="pcard-kpi-lbl">Upcoming</div>
+          </div>
+        </div>
+
+        ${ownerStrip}
+
+        <div class="pcard-footer" onclick="event.stopPropagation()">
+          ${p.map?`<a href="${esc(p.map)}" target="_blank" class="pcard-link-btn" onclick="event.stopPropagation()">📍 Map</a>`:''}
+          ${p.airbnbUrl?`<a href="${esc(p.airbnbUrl)}" target="_blank" class="pcard-link-btn" onclick="event.stopPropagation()">🏡 Listing</a>`:''}
+          <button class="pcard-link-btn" onclick="openBlockDatesModal('${p.id}')">🔴 Block Dates${(p.blockedDates||[]).length?` (${p.blockedDates.length})`:''}</button>
+        </div>
       </div>
     </div>`;
   }).join('');
