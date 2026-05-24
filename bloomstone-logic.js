@@ -1250,23 +1250,23 @@ function renderToday(){
     const isOccupied=!!curStay;
     const borderColor=curStay?platformColor(curStay.platform):(upcoming.length?platformColor(upcoming[0].platform):'#ccc');
     const statusPill=isOccupied
-      ?`<span class="tpc-occ-pill occupied"><span style="width:7px;height:7px;border-radius:50%;background:#dc2626;flex-shrink:0"></span>OCCUPIED</span>`
-      :`<span class="tpc-occ-pill available"><span style="width:7px;height:7px;border-radius:50%;background:#16a34a;flex-shrink:0"></span>AVAILABLE</span>`;
+      ?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:800;padding:3px 8px;border-radius:20px;background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5;white-space:nowrap;letter-spacing:.3px;flex-shrink:0"><span style="width:7px;height:7px;border-radius:50%;background:#dc2626;flex-shrink:0"></span>OCCUPIED</span>`
+      :`<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:800;padding:3px 8px;border-radius:20px;background:#dcfce7;color:#16a34a;border:1.5px solid #86efac;white-space:nowrap;letter-spacing:.3px;flex-shrink:0"><span style="width:7px;height:7px;border-radius:50%;background:#16a34a;flex-shrink:0"></span>AVAILABLE</span>`;
     let availSub='';
     if(!isOccupied&&upcoming.length){
       const dFree=Math.ceil((new Date(upcoming[0].checkin)-new Date(today2))/86400000);
-      availSub=`<span class="tpc-avail-sub">Free ${dFree}d · until ${fmtDate(upcoming[0].checkin)}</span>`;
+      availSub=`<div style="font-size:9px;font-weight:600;color:#16a34a;text-align:right;line-height:1.3;white-space:nowrap;margin-top:2px">Free ${dFree}d · until ${fmtDate(upcoming[0].checkin)}</div>`;
     }
     const pillsHtml=(curStay?makeTpcPill(curStay,true):'')
       +upcoming.map(b=>makeTpcPill(b,false)).join('')
       +(!curStay&&!upcoming.length?`<div class="tpc-no-bk">No upcoming bookings</div>`:'');
     return`<div class="today-prop-card" style="border-left-color:${borderColor}" onclick="navigateTo('properties')">
-      <div class="tpc-header">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px">
         <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
           <div class="tpc-icon">${propIconHtml(p,16)}</div>
           <div class="tpc-prop-name">${esc(p.name)}</div>
         </div>
-        <div class="tpc-right">${statusPill}${availSub}</div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">${statusPill}${availSub}</div>
       </div>
       <div class="tpc-divider"></div>
       <div class="tpc-pills">${pillsHtml}</div>
