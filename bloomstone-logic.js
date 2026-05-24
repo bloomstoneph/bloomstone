@@ -1217,89 +1217,67 @@ function renderToday(){
     <div class="today-stat-pill" style="background:#4338CA;min-width:100px" title="RevPAR — YTD net revenue ÷ (properties × days elapsed)"><div class="today-stat-pill-val" style="font-size:15px">${fmtMoney(revpar)}</div><div class="today-stat-pill-lbl">RevPAR/day</div></div>
   </div>`;
 
-  // \u2500\u2500 PROPERTY GRID \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ── PROPERTY GRID ─────────────────────────────────────────────────────────────
   const today2=todayISO();
-  const propGrid=properties.map(p=>{
-    const pc=propertyColor(p.id);
-    const curStay=bookings.find(b=>b.property===p.id&&b.status!=='Cancelled'&&b.checkin<=today2&&b.checkout>today2);
-    const ciToday=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled'&&b.checkin===today2);
-    const coToday=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled'&&b.checkout===today2);
-    const nextBk=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled'&&b.checkin>today2).sort((a,b2)=>a.checkin.localeCompare(b2.checkin))[0];
-    const hasCiToday=ciToday.length>0;
-    const hasCoToday=coToday.length>0;
-    let statusHtml='';
-    if(hasCiToday&&hasCoToday){
-      statusHtml=`<div class="tpc-status-row"><span class="tpc-badge tpc-badge-checkin">↑ Check-in</span><span class="tpc-badge tpc-badge-checkout">↓ Check-out</span></div>`;
-    }else if(hasCiToday){
-      statusHtml=`<div class="tpc-status-row"><span class="tpc-badge tpc-badge-checkin">↑ Check-in Today</span></div>`;
-    }else if(hasCoToday){
-      statusHtml=`<div class="tpc-status-row"><span class="tpc-badge tpc-badge-checkout">↓ Check-out Today</span></div>`;
-    }else if(curStay){
-      statusHtml=`<div class="tpc-status-row"><span class="tpc-badge tpc-badge-occ">● Occupied</span></div>`;
-    }else{
-      statusHtml=`<div class="tpc-status-row"><span class="tpc-badge tpc-badge-avail">○ Available</span></div>`;
-    }
-    let guestHtml='';
-    if(curStay){
-      const nightsLeft=Math.ceil((new Date(curStay.checkout)-new Date(today2))/86400000);
-      guestHtml=`<div class="tpc-guest">${esc(curStay.guest)}</div><div class="tpc-dates">${fmtDate(curStay.checkin)} → ${fmtDate(curStay.checkout)}<span class="tpc-nights-left">${nightsLeft}d left</span></div>`;
-    }else if(nextBk){
-      guestHtml=`<div class="tpc-next-lbl">Next arrival</div><div class="tpc-guest">${esc(nextBk.guest)}</div><div class="tpc-dates">${fmtDate(nextBk.checkin)} → ${fmtDate(nextBk.checkout)}</div>`;
-    }else{
-      guestHtml=`<div class="tpc-no-booking">No upcoming bookings</div>`;
-    }
-    return`<div class="today-prop-card" style="background:linear-gradient(140deg,${pc}f0 0%,${pc}a0 100%)" onclick="navigateTo('properties')">
-      <div class="tpc-top">
-        <div class="tpc-icon">${propIconHtml(p,18)}</div>
-        ${statusHtml}
+  const makeTpcPill=(b,isNow)=>{
+    const c=platformColor(b.platform);
+    const t=calcTotals(b);
+    const isCI=b.checkin===today2;
+    const lastNight=new Date(b.checkout+'T12:00:00');lastNight.setDate(lastNight.getDate()-1);
+    const isCO=dateToISO(lastNight)===today2;
+    const ciBadge=`<span class="cal-ci-badge" style="font-size:8px;padding:1px 5px">CHECK IN</span>`;
+    const coBadge=`<span class="cal-co-badge" style="font-size:8px;padding:1px 5px">CHECK OUT</span>`;
+    const badge=isCI?ciBadge:isCO?coBadge:'';
+    const nightsLeft=isNow?Math.ceil((new Date(b.checkout)-new Date(today2))/86400000):0;
+    return`<div class="tpc-bk-pill" style="background:${c};opacity:${isNow?1:.78}" onclick="event.stopPropagation();openBookingDrawer('${b.id}')">
+      <div class="tpc-pill-body">
+        <div class="tpc-pill-row1">
+          <span class="tpc-pill-guest">${esc(b.guest)}</span>
+          ${badge}
+          <span class="tpc-pill-plat">${esc(b.platform)}</span>
+        </div>
+        <div class="tpc-pill-row2">
+          <span class="tpc-pill-dates">${fmtDate(b.checkin)} → ${fmtDate(b.checkout)}</span>
+          <span class="tpc-pill-amount">${fmtMoney(t.guestTotal)}</span>
+        </div>
       </div>
-      <div class="tpc-name">${esc(p.name)}</div>
-      <div class="tpc-detail">${guestHtml}</div>
+      ${isNow?`<div class="tpc-pill-now"><span class="tpc-now-tag">NOW</span><span class="tpc-now-left">${nightsLeft}d left</span></div>`:''}
+    </div>`;
+  };
+  const propGrid=properties.map(p=>{
+    const curStay=bookings.find(b=>b.property===p.id&&b.status!=='Cancelled'&&b.checkin<=today2&&b.checkout>today2);
+    const upcoming=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled'&&b.checkin>today2).sort((a,b2)=>a.checkin.localeCompare(b2.checkin)).slice(0,3);
+    const isOccupied=!!curStay;
+    const borderColor=curStay?platformColor(curStay.platform):(upcoming.length?platformColor(upcoming[0].platform):'#ccc');
+    const statusPill=isOccupied
+      ?`<span class="tpc-occ-pill occupied"><span style="width:7px;height:7px;border-radius:50%;background:#dc2626;flex-shrink:0"></span>OCCUPIED</span>`
+      :`<span class="tpc-occ-pill available"><span style="width:7px;height:7px;border-radius:50%;background:#16a34a;flex-shrink:0"></span>AVAILABLE</span>`;
+    let availSub='';
+    if(!isOccupied&&upcoming.length){
+      const dFree=Math.ceil((new Date(upcoming[0].checkin)-new Date(today2))/86400000);
+      availSub=`<span class="tpc-avail-sub">Free ${dFree}d · until ${fmtDate(upcoming[0].checkin)}</span>`;
+    }
+    const pillsHtml=(curStay?makeTpcPill(curStay,true):'')
+      +upcoming.map(b=>makeTpcPill(b,false)).join('')
+      +(!curStay&&!upcoming.length?`<div class="tpc-no-bk">No upcoming bookings</div>`:'');
+    return`<div class="today-prop-card" style="border-left-color:${borderColor}" onclick="navigateTo('properties')">
+      <div class="tpc-header">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+          <div class="tpc-icon">${propIconHtml(p,16)}</div>
+          <div class="tpc-prop-name">${esc(p.name)}</div>
+        </div>
+        <div class="tpc-right">${statusPill}${availSub}</div>
+      </div>
+      <div class="tpc-divider"></div>
+      <div class="tpc-pills">${pillsHtml}</div>
     </div>`;
   }).join('');
 
-  // \u2500\u2500 TODAY ACTIVITY (2-col) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-  const makeActItem=b=>`<div style="margin-bottom:7px;cursor:pointer" onclick="openBookingDrawer('${b.id}')">
-    <div class="today-act-guest">${esc(b.guest)}</div>
-    <div class="today-act-prop" style="color:${propertyColor(b.property)}">${esc(propName(b.property))}</div>
-    <div class="today-act-dates">${fmtDate(b.checkin)} \u2013 ${fmtDate(b.checkout)}</div>
-  </div>`;
-  const ciItems=checkIns.length?checkIns.map(makeActItem).join(''):`<div style="font-size:11px;color:var(--text-3)">None today</div>`;
-  const coItems=checkOuts.length?checkOuts.map(makeActItem).join(''):`<div style="font-size:11px;color:var(--text-3)">None today</div>`;
-
   document.getElementById('todaySections').innerHTML=`
     ${properties.length?`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font-size:13px;font-weight:700;color:var(--text)">Properties</span><span style="font-size:11px;color:var(--text-3)">${properties.length} total</span></div>
-    <div class="today-prop-grid">${propGrid}</div>`:''}
-    <div class="today-activity-grid">
-      <div class="today-activity-card">
-        <div class="today-act-label"><div class="today-act-dot" style="background:#10B981"></div>Arriving</div>
-        ${ciItems}
-      </div>
-      <div class="today-activity-card">
-        <div class="today-act-label"><div class="today-act-dot" style="background:#F59E0B"></div>Departing</div>
-        ${coItems}
-      </div>
-    </div>`;
+    <div class="today-prop-grid">${propGrid}</div>`:''}`;
 
-  // \u2500\u2500 ACTIVE NOW \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-  const tl=[...active.filter(b=>!checkIns.find(c=>c.id===b.id)&&!checkOuts.find(c=>c.id===b.id)),...checkIns,...checkOuts];
-  const activeRows=tl.length?tl.map(b=>{
-    const isIn=b.checkin===today,isOut=b.checkout===today;
-    const pc=propertyColor(b.property);
-    return`<div class="today-active-row" onclick="openBookingDrawer('${b.id}')">
-      <div style="width:10px;height:10px;border-radius:50%;background:${pc};flex-shrink:0"></div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:-.01em">${esc(b.guest)}${isRepeat(b.guest)?'<span class="badge badge-purple" style="margin-left:6px;font-size:9px">REPEAT</span>':''}</div>
-        <div style="font-size:10px;font-weight:600;color:${pc}">${esc(propName(b.property))} \u00b7 ${isIn?'Check-in Today':isOut?'Check-out Today':'Active stay'}</div>
-      </div>
-      <div style="text-align:right;flex-shrink:0">${statusBadgeHtml(b.status)}<div style="font-size:10px;color:var(--text-3);margin-top:3px">${fmtDate(b.checkin)}\u2192${fmtDate(b.checkout)}</div></div>
-    </div>`;
-  }).join(''):`<div style="padding:14px 14px;font-size:12px;color:var(--text-3)">No active stays today</div>`;
-
-  document.getElementById('todayTimeline').innerHTML=`<div class="today-active-wrap">
-    <div class="today-active-hdr">\ud83d\udd25 Today's Overview<span class="today-active-badge">${tl.length} STAY${tl.length!==1?'S':''}</span></div>
-    ${activeRows}
-  </div>`;
+  document.getElementById('todayTimeline').innerHTML='';
 
   // \u2500\u2500 Contract expiry alerts (P1-D) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   const expiring=properties.filter(p=>{
