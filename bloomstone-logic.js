@@ -1272,11 +1272,11 @@ function renderToday(){
     const pillsHtml=(curStay?makeTpcPill(curStay,true):'')
       +upcoming.map(b=>makeTpcPill(b,false)).join('')
       +(!curStay&&!upcoming.length?`<div style="font-size:10px;color:var(--text-3);font-style:italic;padding:2px 0">No upcoming bookings</div>`:'');
-    return`<div class="today-prop-card" style="border-left-color:${borderColor}" onclick="navigateTo('properties')">
+    return`<div class="today-prop-card" onclick="navigateTo('properties')">
       <div style="margin-bottom:9px">
         <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
           <div class="tpc-icon">${propIconHtml(p,15)}</div>
-          <div style="font-size:15px;font-weight:800;color:var(--text);line-height:1.25;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(p.name)}</div>
+          <div style="font-size:18px;font-weight:800;color:var(--text);line-height:1.25;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(p.name)}</div>
         </div>
         <div>${statusPill}</div>
       </div>
@@ -1288,11 +1288,16 @@ function renderToday(){
   const citiesMap={};
   properties.forEach(p=>{const c=p.city||'Other';if(!citiesMap[c])citiesMap[c]=[];citiesMap[c].push(p);});
   const cityHtml=Object.entries(citiesMap).map(([city,props])=>{
+    const propIds=props.map(p=>p.id);
+    const cityMnthRev=bookings.filter(b=>propIds.includes(b.property)&&b.status!=='Cancelled'&&(b.checkin||'').startsWith(mnth)).reduce((s,b)=>s+calcTotals(b).netRevenue,0);
+    const cityAllRev=bookings.filter(b=>propIds.includes(b.property)&&b.status!=='Cancelled').reduce((s,b)=>s+calcTotals(b).netRevenue,0);
     return`<div style="margin-bottom:20px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:nowrap">
-        <span style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;flex-shrink:0">${esc(city)}</span>
-        <div style="flex:1;height:1px;background:var(--border)"></div>
-        <span style="font-size:10px;color:var(--text-3)">${props.length} ${props.length===1?'property':'properties'}</span>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-size:18px;font-weight:800;color:var(--text);white-space:nowrap;flex-shrink:0">${esc(city)}</span>
+        <span style="font-size:12px;font-weight:700;color:var(--green);white-space:nowrap;flex-shrink:0">${fmtMoney(cityMnthRev)} this month</span>
+        <span style="font-size:12px;color:var(--text-3);white-space:nowrap;flex-shrink:0">· ${fmtMoney(cityAllRev)} all-time</span>
+        <div style="flex:1;height:1px;background:var(--border);min-width:12px"></div>
+        <span style="font-size:11px;color:var(--text-3)">${props.length} ${props.length===1?'property':'properties'}</span>
       </div>
       <div class="today-prop-grid">${props.map(makeCard).join('')}</div>
     </div>`;
