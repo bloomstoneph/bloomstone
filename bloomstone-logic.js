@@ -1218,14 +1218,43 @@ function renderToday(){
   </div>`;
 
   // \u2500\u2500 PROPERTY GRID \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  const today2=todayISO();
   const propGrid=properties.map(p=>{
-    const isOcc=active.some(b=>b.property===p.id);
     const pc=propertyColor(p.id);
-    return`<div class="today-prop-card" style="background:linear-gradient(135deg,${pc},${pc}bb)" onclick="showView('properties')">
-      <div class="today-prop-dot${isOcc?' occupied':''}"></div>
-      <div class="today-prop-card-icon">${propIconHtml(p,14)}</div>
-      <div class="today-prop-card-name">${esc(p.name)}</div>
-      <div class="today-prop-card-status">${isOcc?'Occupied':'Available'}</div>
+    const curStay=bookings.find(b=>b.property===p.id&&b.status!=='Cancelled'&&b.checkin<=today2&&b.checkout>today2);
+    const ciToday=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled'&&b.checkin===today2);
+    const coToday=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled'&&b.checkout===today2);
+    const nextBk=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled'&&b.checkin>today2).sort((a,b2)=>a.checkin.localeCompare(b2.checkin))[0];
+    const hasCiToday=ciToday.length>0;
+    const hasCoToday=coToday.length>0;
+    let statusHtml='';
+    if(hasCiToday&&hasCoToday){
+      statusHtml=`<div class="tpc-status-row"><span class="tpc-badge tpc-badge-checkin">↑ Check-in</span><span class="tpc-badge tpc-badge-checkout">↓ Check-out</span></div>`;
+    }else if(hasCiToday){
+      statusHtml=`<div class="tpc-status-row"><span class="tpc-badge tpc-badge-checkin">↑ Check-in Today</span></div>`;
+    }else if(hasCoToday){
+      statusHtml=`<div class="tpc-status-row"><span class="tpc-badge tpc-badge-checkout">↓ Check-out Today</span></div>`;
+    }else if(curStay){
+      statusHtml=`<div class="tpc-status-row"><span class="tpc-badge tpc-badge-occ">● Occupied</span></div>`;
+    }else{
+      statusHtml=`<div class="tpc-status-row"><span class="tpc-badge tpc-badge-avail">○ Available</span></div>`;
+    }
+    let guestHtml='';
+    if(curStay){
+      const nightsLeft=Math.ceil((new Date(curStay.checkout)-new Date(today2))/86400000);
+      guestHtml=`<div class="tpc-guest">${esc(curStay.guest)}</div><div class="tpc-dates">${fmtDate(curStay.checkin)} → ${fmtDate(curStay.checkout)}<span class="tpc-nights-left">${nightsLeft}d left</span></div>`;
+    }else if(nextBk){
+      guestHtml=`<div class="tpc-next-lbl">Next arrival</div><div class="tpc-guest">${esc(nextBk.guest)}</div><div class="tpc-dates">${fmtDate(nextBk.checkin)} → ${fmtDate(nextBk.checkout)}</div>`;
+    }else{
+      guestHtml=`<div class="tpc-no-booking">No upcoming bookings</div>`;
+    }
+    return`<div class="today-prop-card" style="background:linear-gradient(140deg,${pc}f0 0%,${pc}a0 100%)" onclick="navigateTo('properties')">
+      <div class="tpc-top">
+        <div class="tpc-icon">${propIconHtml(p,18)}</div>
+        ${statusHtml}
+      </div>
+      <div class="tpc-name">${esc(p.name)}</div>
+      <div class="tpc-detail">${guestHtml}</div>
     </div>`;
   }).join('');
 
