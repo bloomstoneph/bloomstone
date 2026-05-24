@@ -55,7 +55,7 @@ const HEADERS = {
   ],
   Platforms: ['ID','Name','Commission %','VAT %','Guest Fee %','Color'],
   Expenses: [
-    'ID','Month','Property','Promo Cost','Cleaning Cost','Cleaning',
+    'ID','Month','Property','Platform Fees','Promo Cost','Cleaning Cost','Cleaning',
     'Water','Electricity','Supplies','Maintenance','Other Expenses','Total','Notes'
   ],
   Settings: ['Key','Value','Updated At'],
@@ -211,6 +211,7 @@ function expenseRow(e) {
     e.ID    || e.id    || '',
     e.Month || e.month || '',
     e.Property || e.prop || 'all',
+    num(e['Platform Fees'] || e.platformFees || 0),
     num(e['Promo Cost']    || e.promoCost),
     num(e['Cleaning Cost'] || e.cleaningCost),
     num(e.Cleaning         || e.cleaning),

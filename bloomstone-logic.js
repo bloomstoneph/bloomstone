@@ -3399,13 +3399,15 @@ function renderExpenses(){
     return true;
   });
   const totalPromo=bkForPromo.reduce((s,b)=>s+(+b.promo||0),0);
+  const totalPlatFees=bkForPromo.reduce((s,b)=>s+calcTotals(b).platFee,0);
   const totalCleaningFromBks=bkForCleaning.reduce((s,b)=>s+(+b.cleaningFee||0),0);
   const manualTotals={};EXP_CATS.filter(c=>c!=='cleaning').forEach(c=>manualTotals[c]=list.reduce((s,e)=>s+(e[c]||0),0));
   const manualCleaning=list.reduce((s,e)=>s+(e.cleaning||0),0);
   const totalCleaning=totalCleaningFromBks||manualCleaning;
-  const grandTotal=totalPromo+totalCleaning+Object.values(manualTotals).reduce((s,v)=>s+v,0);
+  const grandTotal=totalPlatFees+totalPromo+totalCleaning+Object.values(manualTotals).reduce((s,v)=>s+v,0);
   document.getElementById('expStats').innerHTML=`
     <div class="stat-card"><div class="stat-label">Total Expenses</div><div class="stat-value" style="color:var(--red)">${fmtMoney(grandTotal)}</div><div class="stat-sub">${list.length} entries</div></div>
+    <div class="stat-card"><div class="stat-label">Platform Fees</div><div class="stat-value" style="color:var(--orange)">${fmtMoney(totalPlatFees)}</div><div class="stat-sub">paid to platforms</div></div>
     <div class="stat-card"><div class="stat-label">Promo Discounts</div><div class="stat-value" style="color:var(--purple)">${fmtMoney(totalPromo)}</div></div>
     <div class="stat-card"><div class="stat-label">Cleaning Cost</div><div class="stat-value" style="color:var(--red)">${fmtMoney(totalCleaning)}</div></div>
     <div class="stat-card"><div class="stat-label">Utilities</div><div class="stat-value" style="color:var(--red)">${fmtMoney(manualTotals.water+manualTotals.electricity)}</div></div>`;
@@ -3430,13 +3432,15 @@ function renderExpenses(){
       return true;
     });
     const bksCheckout=expBookings(e.month,e.prop);
+    const platFeeCost=bksCheckin.reduce((s,b)=>s+calcTotals(b).platFee,0);
     const promoCost=bksCheckin.reduce((s,b)=>s+(+b.promo||0),0);
     const cleaningFromBks=bksCheckout.reduce((s,b)=>s+(+b.cleaningFee||0),0);
     const cleaningCost=cleaningFromBks||e.cleaning||0;
-    const rowTotal=promoCost+cleaningCost+(e.water||0)+(e.electricity||0)+(e.supplies||0)+(e.maintenance||0)+(e.other||0);
+    const rowTotal=platFeeCost+promoCost+cleaningCost+(e.water||0)+(e.electricity||0)+(e.supplies||0)+(e.maintenance||0)+(e.other||0);
     return`<tr>
     <td><strong>${e.month?fmtMonthYear(e.month+'-01'):fmtDate(e.date||'')}</strong></td>
     <td>${e.prop==='all'?'All':esc(propName(e.prop))}</td>
+    <td>${platFeeCost?auto(platFeeCost,'var(--orange)'):`<span style="color:var(--border-2)">\u2014</span>`}</td>
     <td>${promoCost?auto(promoCost,'var(--purple)'):`<span style="color:var(--border-2)">\u2014</span>`}</td>
     <td>${cleaningFromBks?auto(cleaningCost,'var(--red)'):cleaningCost?cell(cleaningCost,'var(--red)'):`<span style="color:var(--border-2)">\u2014</span>`}</td>
     <td>${cell(e.water||0,'var(--red)')}</td>
@@ -5304,16 +5308,18 @@ async function sheetsPush(silent=false){
       expenses: expenses.map(e=>{
         const bksCI=bookings.filter(b=>b.status!=='Cancelled'&&b.checkin&&b.checkin.startsWith(e.month)&&(e.prop==='all'||b.property===e.prop));
         const bksCO=expBookings(e.month,e.prop);
+        const platFeeCost=bksCI.reduce((s,b)=>s+calcTotals(b).platFee,0);
         const promoCost=bksCI.reduce((s,b)=>s+(+b.promo||0),0);
         const cleaningFromBks=bksCO.reduce((s,b)=>s+(+b.cleaningFee||0),0);
         const cleaningCost=cleaningFromBks||e.cleaning||0;
-        const rowTotal=promoCost+cleaningCost+(e.water||0)+(e.electricity||0)+(e.supplies||0)+(e.maintenance||0)+(e.other||0);
+        const rowTotal=platFeeCost+promoCost+cleaningCost+(e.water||0)+(e.electricity||0)+(e.supplies||0)+(e.maintenance||0)+(e.other||0);
         return{
           ID:e.id,Month:e.month,Property:e.prop==='all'?'All':propName(e.prop),
+          'Platform Fees':+platFeeCost.toFixed(2),
           'Promo Cost':promoCost,'Cleaning Cost':cleaningCost,Cleaning:e.cleaning||0,
           Water:e.water||0,Electricity:e.electricity||0,Supplies:e.supplies||0,
           Maintenance:e.maintenance||0,'Other Expenses':e.other||0,
-          Total:rowTotal,Notes:e.notes||''
+          Total:+rowTotal.toFixed(2),Notes:e.notes||''
         };
       }),
     };
