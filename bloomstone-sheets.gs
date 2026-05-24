@@ -58,6 +58,7 @@ const HEADERS = {
     'ID','Month','Property','Platform Fees','Promo Cost','Cleaning Cost','Cleaning',
     'Water','Electricity','Supplies','Maintenance','Other Expenses','Total','Notes'
   ],
+  PlatformFees: ['Month','Platform','Property','Bookings','Commission'],
   Settings: ['Key','Value','Updated At'],
   SyncLog: ['Timestamp','Direction','Records','User','Status']
 };
@@ -109,6 +110,10 @@ function doPost(e) {
     if (Array.isArray(payload.settings)) {
       writeSheet(ss, 'Settings', payload.settings, HEADERS.Settings, settingRow);
       total += payload.settings.length;
+    }
+    if (Array.isArray(payload.platformFees)) {
+      writeSheet(ss, 'PlatformFees', payload.platformFees, HEADERS.PlatformFees, platformFeeRow);
+      total += payload.platformFees.length;
     }
 
     logSync(ss, 'PUSH', total, payload.user || 'app', 'OK');
@@ -222,6 +227,16 @@ function expenseRow(e) {
     num(e['Other Expenses'] || e.Other || e.other),
     num(e.Total        || e.amount),
     e.Notes || e.notes || ''
+  ];
+}
+
+function platformFeeRow(r) {
+  return [
+    r.Month      || '',
+    r.Platform   || '',
+    r.Property   || '',
+    num(r.Bookings   || 0),
+    num(r.Commission || 0)
   ];
 }
 

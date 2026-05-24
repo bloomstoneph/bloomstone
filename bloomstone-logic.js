@@ -3396,6 +3396,95 @@ function renderExpenses(){
     <div class="stat-card"><div class="stat-label">Cleaning Cost</div><div class="stat-value" style="color:var(--red)">${fmtMoney(totalCleaning)}</div></div>
     <div class="stat-card"><div class="stat-label">Utilities</div><div class="stat-value" style="color:var(--red)">${fmtMoney(manualTotals.water+manualTotals.electricity)}</div></div>`;
 
+  // ── Platform Commission Breakdown ──────────────────────────
+  const platMap={};          // { name: {count,total} }
+  const monthPlatMap={};     // { 'YYYY-MM': { name: {count,total} } }
+  bkForPromo.forEach(b=>{
+    const pn=b.platform||'Unknown';
+    const m=(b.checkin||'').substring(0,7);
+    const fee=calcTotals(b).platFee;
+    if(!platMap[pn])platMap[pn]={count:0,total:0};
+    platMap[pn].count++;platMap[pn].total+=fee;
+    if(!monthPlatMap[m])monthPlatMap[m]={};
+    if(!monthPlatMap[m][pn])monthPlatMap[m][pn]={count:0,total:0};
+    monthPlatMap[m][pn].count++;monthPlatMap[m][pn].total+=fee;
+  });
+  const platNames=Object.keys(platMap).sort();
+  const breakdownEl=document.getElementById('platFeeBreakdown');
+  if(breakdownEl){
+    if(!platNames.length){breakdownEl.innerHTML='';}
+    else if(mo!=='all'){
+      // Single month: simple platform | bookings | commission table
+      const rows=platNames.map(pn=>{
+        const d=platMap[pn];
+        const plat=platforms.find(p=>p.name===pn);
+        const color=plat?.color||'#888';
+        return`<tr>
+          <td><span style="display:inline-flex;align-items:center;gap:6px">
+            <span style="width:10px;height:10px;border-radius:3px;background:${color};flex-shrink:0;display:inline-block"></span>
+            <strong>${esc(pn)}</strong>
+          </span></td>
+          <td style="text-align:center;color:var(--text-2)">${d.count}</td>
+          <td style="text-align:right;color:var(--orange);font-weight:700">${fmtMoney(d.total)}</td>
+        </tr>`;
+      }).join('');
+      const tCount=platNames.reduce((s,p)=>s+platMap[p].count,0);
+      const tAmt=platNames.reduce((s,p)=>s+platMap[p].total,0);
+      breakdownEl.innerHTML=`<div style="margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+        <div style="padding:12px 16px;background:var(--surface-2);border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:var(--text)">📊 Platform Commission Breakdown — ${fmtMonthYear(mo+'-01')}</div>
+        <div class="table-wrap" style="margin:0;border:none">
+          <table class="data-table" style="margin:0">
+            <thead><tr><th>Platform</th><th style="text-align:center">Bookings</th><th style="text-align:right">Commission Paid</th></tr></thead>
+            <tbody>
+              ${rows}
+              <tr style="border-top:2px solid var(--border);background:var(--surface-2)">
+                <td><strong>Total</strong></td>
+                <td style="text-align:center"><strong>${tCount}</strong></td>
+                <td style="text-align:right"><strong style="color:var(--orange)">${fmtMoney(tAmt)}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    }else{
+      // All months: pivot — rows=months, cols=platforms
+      const months=Object.keys(monthPlatMap).sort((a,b)=>b.localeCompare(a));
+      const hdrs=`<tr><th>Month</th>${platNames.map(pn=>{
+        const plat=platforms.find(p=>p.name===pn);
+        const color=plat?.color||'#888';
+        return`<th style="text-align:right"><span style="display:inline-flex;align-items:center;gap:4px;justify-content:flex-end"><span style="width:8px;height:8px;border-radius:2px;background:${color};flex-shrink:0;display:inline-block"></span>${esc(pn)}</span></th>`;
+      }).join('')}<th style="text-align:right">Total</th></tr>`;
+      const dataRows=months.map(m=>{
+        const mData=monthPlatMap[m]||{};
+        const rowTotal=platNames.reduce((s,pn)=>s+(mData[pn]?.total||0),0);
+        return`<tr>
+          <td><strong>${fmtMonthYear(m+'-01')}</strong></td>
+          ${platNames.map(pn=>{
+            const v=mData[pn]?.total||0;
+            const cnt=mData[pn]?.count||0;
+            return`<td style="text-align:right">${v?`<span style="color:var(--orange);font-weight:700">${fmtMoney(v)}</span><span style="font-size:10px;color:var(--text-3);margin-left:3px">${cnt} bk</span>`:`<span style="color:var(--border-2)">—</span>`}</td>`;
+          }).join('')}
+          <td style="text-align:right"><strong style="color:var(--orange)">${fmtMoney(rowTotal)}</strong></td>
+        </tr>`;
+      }).join('');
+      const totRow=`<tr style="border-top:2px solid var(--border);background:var(--surface-2)">
+        <td><strong>All Time</strong></td>
+        ${platNames.map(pn=>`<td style="text-align:right"><strong style="color:var(--orange)">${fmtMoney(platMap[pn].total)}</strong></td>`).join('')}
+        <td style="text-align:right"><strong style="color:var(--orange)">${fmtMoney(platNames.reduce((s,pn)=>s+platMap[pn].total,0))}</strong></td>
+      </tr>`;
+      breakdownEl.innerHTML=`<div style="margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+        <div style="padding:12px 16px;background:var(--surface-2);border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:var(--text)">📊 Platform Commission by Month</div>
+        <div class="table-wrap" style="margin:0;border:none">
+          <table class="data-table" style="margin:0">
+            <thead>${hdrs}</thead>
+            <tbody>${dataRows}${totRow}</tbody>
+          </table>
+        </div>
+      </div>`;
+    }
+  }
+  // ── End Platform Breakdown ──────────────────────────────────
+
   const tbody=document.getElementById('expenseTbody');
   if(!list.length){tbody.innerHTML=`<tr><td colspan="12"><div class="empty"><div class="empty-text">No expenses recorded.</div></div></td></tr>`;return;}
 
@@ -5350,6 +5439,19 @@ async function sheetsPush(silent=false){
           Total:+rowTotal.toFixed(2),Notes:e.notes||''
         };
       }),
+      // Platform commission breakdown: month × platform (full data, no UI filter)
+      platformFees:(()=>{
+        const pmap={};
+        bookings.filter(b=>b.status!=='Cancelled'&&b.checkin).forEach(b=>{
+          const key=b.checkin.substring(0,7)+'|'+(b.platform||'Unknown')+'|'+(b.property||'');
+          if(!pmap[key])pmap[key]={Month:b.checkin.substring(0,7),Platform:b.platform||'Unknown',Property:propName(b.property),Bookings:0,Commission:0};
+          pmap[key].Bookings++;
+          pmap[key].Commission+=calcTotals(b).platFee;
+        });
+        return Object.values(pmap)
+          .sort((a,b)=>b.Month.localeCompare(a.Month)||a.Platform.localeCompare(b.Platform))
+          .map(r=>({...r,Commission:+r.Commission.toFixed(2)}));
+      })(),
     };
     if(!silent)setSheetsProgress(true,'Uploading to Google Sheets…',45);
     const resp=await fetch(sheetsConfig.url,{
