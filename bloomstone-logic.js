@@ -156,8 +156,8 @@ function saveAsExcel(){
   try{
     const wb=XLSX.utils.book_new();
     // Bookings sheet
-    const bkHeaders=['ID','Guest','Check-in','Check-out','Nights','Platform','Property','Rate','Promo','Special Offer','Service Fee','Booking Fee','Extra Guests','Guest Count','Cleaning Fee','Store Sales','Deposit','Deposit Refunded','Dep Collected','Dep Refunded','Adjustments','Net Revenue','Payment','Status','Notes','Guest Prefs','Created At'];
-    const bkRows=bookings.map(b=>{const t=calcTotals(b);return[b.id,b.guest,b.checkin,b.checkout,t.nights,b.platform,propName(b.property),b.rate||0,b.promo||0,b.specialOffer||0,b.serviceFee||0,t.bkFee,b.extraGuests||0,b.guestCount||1,b.cleaningFee||0,b.storeSales||0,b.deposit||0,b.depositRefundedAmt||0,b.depositCollected?'Yes':'No',b.depositRefunded?'Yes':'No',JSON.stringify(b.adjustments||[]),t.netRevenue,b.payment||'',b.status||'',b.notes||'',b.guestPrefs||'',b.createdAt||''];});
+    const bkHeaders=['ID','Guest','Check-in','Check-out','Nights','Platform','Property','Rate','Promo','Special Offer','Service Fee','Booking Fee','Extra Guests','Guest Count','Cleaning Fee','Store Sales','Deposit','Deposit Refunded','Dep Collected','Dep Refunded','Adjustments','Net Revenue','Payment','Status','Notes','Guest Phone','Guest Prefs','Created At'];
+    const bkRows=bookings.map(b=>{const t=calcTotals(b);return[b.id,b.guest,b.checkin,b.checkout,t.nights,b.platform,propName(b.property),b.rate||0,b.promo||0,b.specialOffer||0,b.serviceFee||0,t.bkFee,b.extraGuests||0,b.guestCount||1,b.cleaningFee||0,b.storeSales||0,b.deposit||0,b.depositRefundedAmt||0,b.depositCollected?'Yes':'No',b.depositRefunded?'Yes':'No',JSON.stringify(b.adjustments||[]),t.netRevenue,b.payment||'',b.status||'',b.notes||'',b.guestPhone||'',b.guestPrefs||'',b.createdAt||''];});
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([bkHeaders,...bkRows]),'Bookings');
     // Properties sheet
     const prHeaders=['ID','Name','City','Address','Beds','Base Guests','Max Guests','Base Rate','Extra Guest Fee','Blocked Dates','Map URL','Notes','Airbnb URL','Icon','Owner Name','Owner Phone','Owner Email','Owner Address','Owner Pct','Payout Method','Payout Account','Contract Start','Contract End'];
@@ -3892,6 +3892,48 @@ function renderProperties(){
 }
 
 // ============================================================
+// GUEST EDIT
+// ============================================================
+let _editingGuestName=null;
+function openGuestEdit(name){
+  _editingGuestName=name;
+  const key=name.toLowerCase().trim();
+  // Gather latest data from bookings
+  let phone='',prefs='';
+  bookings.forEach(b=>{
+    if((b.guest||'').toLowerCase().trim()!==key)return;
+    if(b.guestPhone)phone=b.guestPhone;
+    if(b.guestPrefs)prefs=b.guestPrefs;
+  });
+  const nameEl=document.getElementById('ge-name');
+  const phoneEl=document.getElementById('ge-phone');
+  const prefsEl=document.getElementById('ge-prefs');
+  if(nameEl)nameEl.value=name;
+  if(phoneEl)phoneEl.value=phone;
+  if(prefsEl)prefsEl.value=prefs;
+  openModal('guestEditModal');
+}
+function saveGuestEdit(){
+  const newName=(document.getElementById('ge-name')?.value||'').trim();
+  const phone=(document.getElementById('ge-phone')?.value||'').trim();
+  const prefs=(document.getElementById('ge-prefs')?.value||'').trim();
+  if(!newName){toast('Name is required.','error');return;}
+  const oldKey=(_editingGuestName||'').toLowerCase().trim();
+  let count=0;
+  bookings.forEach(b=>{
+    if((b.guest||'').toLowerCase().trim()!==oldKey)return;
+    b.guest=newName;
+    b.guestPhone=phone;
+    b.guestPrefs=prefs;
+    count++;
+  });
+  saveAll();
+  closeModal('guestEditModal');
+  renderGuests();
+  toast(`Guest updated — ${count} booking${count!==1?'s':''} updated.`,'success');
+}
+
+// ============================================================
 // GUESTS CRM VIEW (F5)
 // ============================================================
 let _guestSearchQ='';
@@ -4053,10 +4095,14 @@ function renderGuests(){
           const color=_guestColor(g.name);
           const initials=_guestInitials(g.name);
           const repeatBadge=g.active.length>1?`<span class="badge badge-purple" style="font-size:9px;margin-left:5px">×${g.active.length}</span>`:'';
+          const phoneStr=g.bookings.find(b=>b.guestPhone)?.guestPhone||'';
           return`<tr onclick="showGuestHistory('${esc(g.name)}')">
             <td><div class="guest-avatar" style="background:${color};width:32px;height:32px;font-size:11px">${initials}</div></td>
             <td>
-              <div style="font-weight:600;font-size:13px">${esc(g.name)}${repeatBadge}</div>
+              <div style="font-weight:600;font-size:13px">
+                <span class="guest-name-link" onclick="event.stopPropagation();openGuestEdit('${esc(g.name)}')">${esc(g.name)}</span>${repeatBadge}
+              </div>
+              ${phoneStr?`<div style="font-size:11px;color:var(--text-3)">📞 ${esc(phoneStr)}</div>`:''}
               ${g.nextBk?`<div style="font-size:10px;color:var(--blue)">↓ Next: ${fmtDate(g.nextBk.checkin)}</div>`:''}
             </td>
             <td style="text-align:center;color:var(--text-2)">${g.active.length}</td>
@@ -4064,6 +4110,7 @@ function renderGuests(){
             <td style="text-align:center;color:var(--text-2)">${g.totalNights}</td>
             <td style="font-weight:700;color:var(--green)">${fmtMoney(g.totalRev)}</td>
             <td onclick="event.stopPropagation()" style="white-space:nowrap">
+              <button class="btn btn-ghost btn-sm" title="Edit Guest" onclick="openGuestEdit('${esc(g.name)}')">✏</button>
               <button class="btn btn-ghost btn-sm" title="New Booking" onclick="openBookingDrawer();document.getElementById('f-guest').value='${esc(g.name)}';updateDrawerProfile('${esc(g.name)}')">＋</button>
               <button class="btn btn-ghost btn-sm" title="History" onclick="showGuestHistory('${esc(g.name)}')">📋</button>
             </td>
@@ -4082,14 +4129,17 @@ function renderGuests(){
     const nextStr=g.nextBk?`<div style="font-size:11px;color:var(--blue);margin-top:1px">↓ Next: ${fmtDate(g.nextBk.checkin)}</div>`:'';
     const prefsStr=g.prefs?`<div style="font-size:11px;color:var(--text-2);margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📋 ${esc(g.prefs)}</div>`:'';
     // WhatsApp link — works with or without a stored number
+    const storedPhone=g.bookings.find(b=>b.guestPhone)?.guestPhone||'';
     const waMsg=encodeURIComponent(`Hi ${g.name}! This is Bloomstone. `);
-    const phoneMatch=(g.prefs||'').match(/0\d{9,}/);
-    const waHref=phoneMatch?`https://wa.me/63${phoneMatch[0].slice(1)}?text=${waMsg}`:`https://wa.me/?text=${waMsg}`;
+    const waHref=storedPhone?`https://wa.me/63${storedPhone.replace(/^0/,'').replace(/\D/g,'')}?text=${waMsg}`:`https://wa.me/?text=${waMsg}`;
     return`<div class="prop-card guest-card">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
         <div class="guest-avatar" style="background:${color}">${initials}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">${esc(g.name)}${repeatBadge}</div>
+          <div style="font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span class="guest-name-link" onclick="openGuestEdit('${esc(g.name)}')">${esc(g.name)}</span>${repeatBadge}
+          </div>
+          ${storedPhone?`<div style="font-size:11px;color:var(--text-3)">📞 ${esc(storedPhone)}</div>`:''}
           <div style="font-size:11px;color:var(--text-3)">${g.lastBk?`Last: ${fmtDate(g.lastBk.checkin)}`:''}</div>
           ${nextStr}
         </div>
@@ -5230,6 +5280,7 @@ async function sheetsPush(silent=false){
           'Dep Refunded':b.depositRefunded?'Yes':'No',
           Payment:b.payment||'',Status:b.status||'Confirmed',
           'Guest Count':b.guestCount||1,Notes:b.notes||'',
+          'Guest Phone':b.guestPhone||'',
           'Guest Prefs':b.guestPrefs||'',
           'Created At':b.createdAt||'','Updated At':b.updatedAt||''
         };
@@ -5433,6 +5484,7 @@ function applySheetsPullData(data){
         status:r.Status||(bookings.find(bk=>bk.id===r.ID)?.status)||'Confirmed',
         guestCount:pNum(r['Guest Count'])||1,
         notes:r.Notes||(bookings.find(bk=>bk.id===r.ID)?.notes)||'',
+        guestPhone:r['Guest Phone']||(bookings.find(bk=>bk.id===r.ID)?.guestPhone)||'',
         guestPrefs:r['Guest Prefs']||(bookings.find(bk=>bk.id===r.ID)?.guestPrefs)||'',
         createdAt:r['Created At']||'',updatedAt:r['Updated At']||'',
         tasks:{},

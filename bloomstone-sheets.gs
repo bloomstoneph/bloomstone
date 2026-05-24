@@ -42,7 +42,7 @@ const HEADERS = {
     'Total Guest Paid to Platform','Net Revenue',
     'Store Sales','Cleaning Fee',
     'Deposit','Deposit Refunded','Dep Collected','Dep Refunded',
-    'Payment','Status','Guest Count','Notes','Guest Prefs',
+    'Payment','Status','Guest Count','Notes','Guest Phone','Guest Prefs',
     'Created At','Updated At'
   ],
   Properties: [
@@ -158,6 +158,7 @@ function bookingRow(b) {
     b.Status      || b.status   || 'Confirmed',
     num(b['Guest Count'] || b.guestCount || 1),
     b.Notes       || b.notes    || '',
+    b['Guest Phone'] || b.guestPhone || '',
     b['Guest Prefs'] || b.guestPrefs || '',
     b['Created At']  || b.createdAt  || '',
     b['Updated At']  || b.updatedAt  || ''

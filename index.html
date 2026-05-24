@@ -1217,6 +1217,8 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 .bk-card-footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
 
 /* ── Guests CRM ──────────────────────────────────────────── */
+.guest-name-link{cursor:pointer;color:inherit;border-bottom:1.5px dotted var(--text-3);transition:color .15s}
+.guest-name-link:hover{color:var(--accent);border-bottom-color:var(--accent)}
 .guest-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;flex-shrink:0;letter-spacing:.5px}
 .guest-chip{padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);font-size:12px;cursor:pointer;background:var(--surface);color:var(--text-1);transition:all .15s;white-space:nowrap}
 .guest-chip:hover{border-color:var(--accent);color:var(--accent)}
@@ -2484,6 +2486,26 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('userModal')">Cancel</button>
       <button class="btn btn-primary" onclick="saveUser()">✓ Save User</button>
+    </div>
+  </div>
+</div>
+
+<!-- GUEST EDIT MODAL -->
+<div class="modal-overlay" id="guestEditModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">Edit Guest</div>
+      <button class="btn-icon btn-sm" onclick="closeModal('guestEditModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label class="label">Full Name <span class="req">*</span></label><input class="input" id="ge-name" placeholder="Guest full name"/></div>
+      <div class="field"><label class="label">Phone Number</label><input class="input" id="ge-phone" type="tel" placeholder="e.g. 09171234567"/></div>
+      <div class="field"><label class="label">Notes / Preferences</label><textarea class="input" id="ge-prefs" rows="3" placeholder="e.g. Prefers early check-in, extra blankets…" style="resize:vertical"></textarea></div>
+      <div style="font-size:12px;color:var(--text-3);background:var(--surface-2);padding:8px 10px;border-radius:7px;margin-top:4px">⚠ Changes apply to <strong>all bookings</strong> for this guest and will sync to Sheets on next push.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('guestEditModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveGuestEdit()">✓ Save Changes</button>
     </div>
   </div>
 </div>
