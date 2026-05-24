@@ -1239,15 +1239,21 @@ function renderToday(){
     const sd=d=>{const dt=new Date(d+'T12:00:00');return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
     const ciD=sd(b.checkin),coD=sd(b.checkout);
     const shortRange=`${ciD} – ${coD}`;
-    return`<div style="background:${c};opacity:${isNow?1:.78};border-radius:9px;padding:9px 12px;display:flex;align-items:center;gap:8px;cursor:pointer" onclick="event.stopPropagation();openBookingDrawer('${b.id}')">
+    const pillStyle=isNow
+      ?`background:${c};border-radius:9px;padding:9px 12px;display:flex;align-items:center;gap:8px;cursor:pointer`
+      :`background:${c}18;border:1.5px solid ${c};border-radius:9px;padding:9px 12px;display:flex;align-items:center;gap:8px;cursor:pointer`;
+    const guestClr=isNow?'#fff':c;
+    const subClr=isNow?'rgba(255,255,255,.75)':'#64748b';
+    const amtClr=isNow?'#fff':c;
+    return`<div style="${pillStyle}" onclick="event.stopPropagation();openBookingDrawer('${b.id}')">
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
-          <span style="font-size:12px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">${esc(b.guest)}</span>
+          <span style="font-size:12px;font-weight:800;color:${guestClr};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">${esc(b.guest)}</span>
           ${badge}
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
-          <span style="font-size:10px;color:rgba(255,255,255,.75)">${esc(b.platform)} · ${shortRange}</span>
-          <span style="font-size:11px;font-weight:800;color:#fff;flex-shrink:0">${fmtMoney(t.guestTotal)}</span>
+          <span style="font-size:10px;color:${subClr}">${esc(b.platform)} · ${shortRange}</span>
+          <span style="font-size:11px;font-weight:800;color:${amtClr};flex-shrink:0">${fmtMoney(t.guestTotal)}</span>
         </div>
       </div>
       ${isNow?`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;margin-left:4px"><span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:10px;background:rgba(0,0,0,.3);color:#fff;white-space:nowrap">TODAY</span><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.9);white-space:nowrap">${nightsLeft}d left</span></div>`:''}
