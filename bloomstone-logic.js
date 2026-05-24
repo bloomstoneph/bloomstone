@@ -1272,7 +1272,6 @@ function renderToday(){
     const sd=d=>{const dt=new Date(d+'T12:00:00');return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
     const shortRange=`${sd(b.checkin)} – ${sd(b.checkout)}`;
     const bg=isNow?c:`${c}18`;
-    const border=isNow?'none':`1.5px solid ${c}`;
     const guestClr=isNow?'#fff':c;
     const subClr=isNow?'rgba(255,255,255,.78)':'#64748b';
     const amtClr=isNow?'#fff':c;
@@ -1281,7 +1280,7 @@ function renderToday(){
                  :isCO?`<span class="cal-co-badge" style="font-size:9px;padding:1px 5px;flex-shrink:0;white-space:nowrap">CO</span>`:'';
     // TODAY/Xd left shown inline in row 2 (right side) so guest name owns row 1 entirely
     const todayTag=isNow?`<span style="margin-left:auto;display:inline-flex;flex-direction:column;align-items:flex-end;gap:1px;flex-shrink:0"><span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:8px;background:rgba(0,0,0,.28);color:#fff;white-space:nowrap">TODAY</span><span style="font-size:9px;font-weight:700;color:${subClr};white-space:nowrap">${nightsLeft}d left</span></span>`:'';
-    return`<div style="background:${bg};border:${border};border-radius:9px;padding:9px 12px;cursor:pointer;transition:filter .12s" onclick="event.stopPropagation();openBookingDrawer('${b.id}')">
+    return`<div style="background:${bg};border-radius:9px;padding:9px 12px;cursor:pointer;transition:filter .12s" onclick="event.stopPropagation();openBookingDrawer('${b.id}')">
       <div style="font-size:13px;font-weight:800;color:${guestClr};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px">${esc(b.guest)}</div>
       <div style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap">
         ${cicoTag}
@@ -1309,7 +1308,7 @@ function renderToday(){
     const gapPill=(fromDate,toDate)=>{
       const days=Math.round((new Date(toDate+'T12:00:00')-new Date(fromDate+'T12:00:00'))/86400000);
       if(days<=0)return'';
-      return`<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:9px;padding:8px 12px">
+      return`<div style="background:#f0fdf4;border-radius:9px;padding:8px 12px">
         <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
           <span style="width:8px;height:8px;border-radius:50%;background:#16a34a;flex-shrink:0;display:inline-block"></span>
           <span style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:.3px">GAP DAYS</span>
@@ -1322,14 +1321,14 @@ function renderToday(){
     // RED: property has zero bookings at all
     // GREY: has bookings but nothing after last one
     const noUpcomingPill=(afterDate,isRed)=>{
-      if(isRed)return`<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:9px;padding:8px 12px">
+      if(isRed)return`<div style="background:#fef2f2;border-radius:9px;padding:8px 12px">
         <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
           <span style="width:8px;height:8px;border-radius:50%;background:#dc2626;flex-shrink:0;display:inline-block"></span>
           <span style="font-size:11px;font-weight:800;color:#dc2626;letter-spacing:.3px">NO UPCOMING BOOKINGS</span>
         </div>
         <div style="font-size:10px;color:#dc2626;font-weight:600;padding-left:13px">No reservations scheduled yet</div>
       </div>`;
-      return`<div style="background:var(--surface-2);border:1.5px solid var(--border);border-radius:9px;padding:8px 12px">
+      return`<div style="background:var(--surface-2);border-radius:9px;padding:8px 12px">
         <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
           <span style="width:8px;height:8px;border-radius:50%;background:var(--text-3);flex-shrink:0;display:inline-block"></span>
           <span style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:.3px">No upcoming bookings</span>
