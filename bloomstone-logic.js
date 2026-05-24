@@ -1260,7 +1260,7 @@ function renderToday(){
     const borderColor=curStay?platformColor(curStay.platform):(upcoming.length?platformColor(upcoming[0].platform):'#ccc');
     const statusPill=isOccupied
       ?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:800;padding:3px 8px;border-radius:20px;background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5;white-space:nowrap;letter-spacing:.3px;flex-shrink:0"><span style="width:7px;height:7px;border-radius:50%;background:#dc2626;flex-shrink:0"></span>OCCUPIED</span>`
-      :`<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:800;padding:3px 8px;border-radius:20px;background:#dcfce7;color:#16a34a;border:1.5px solid #86efac;white-space:nowrap;letter-spacing:.3px;flex-shrink:0"><span style="width:7px;height:7px;border-radius:50%;background:#16a34a;flex-shrink:0"></span>AVAILABLE</span>`;
+      :`<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:800;padding:3px 8px;border-radius:20px;background:#dcfce7;color:#16a34a;border:1.5px solid #86efac;white-space:nowrap;letter-spacing:.3px;flex-shrink:0"><span style="width:7px;height:7px;border-radius:50%;background:#16a34a;flex-shrink:0"></span>AVAILABLE TODAY</span>`;
     let availSub='';
     if(!isOccupied&&upcoming.length){
       const dFree=Math.ceil((new Date(upcoming[0].checkin)-new Date(today2))/86400000);
