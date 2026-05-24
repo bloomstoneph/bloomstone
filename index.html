@@ -690,13 +690,17 @@ a{color:inherit;text-decoration:none}
    CALENDAR
 ============================================================ */
 .cal-container{display:flex;flex-direction:column;height:calc(100vh - var(--topbar-h) - 40px)}
-.cal-toolbar{display:flex;align-items:center;gap:8px;padding:0 0 14px;flex-wrap:wrap}
-.cal-view-tabs{display:flex;gap:2px;background:var(--surface-3);border-radius:var(--radius);padding:3px}
-.cal-view-tab{padding:5px 12px;border-radius:var(--radius-sm);border:none;background:transparent;color:var(--text-2);font-size:12px;font-weight:600;cursor:pointer;transition:all var(--transition)}
-.cal-view-tab.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
-.cal-nav-btn{width:30px;height:30px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all var(--transition)}
-.cal-nav-btn:hover{border-color:var(--text);color:var(--text)}
-.cal-period-label{font-size:15px;font-weight:700;min-width:180px}
+.cal-toolbar{display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);margin-bottom:12px;flex-wrap:wrap}
+.cal-nav-group{display:flex;align-items:center;gap:4px}
+.cal-nav-btn{width:36px;height:36px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;transition:all var(--transition);line-height:1}
+.cal-nav-btn:hover{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+#calToday{font-size:12px;font-weight:700;width:auto;padding:0 14px;background:var(--surface-3);border-color:var(--border-2);color:var(--text);letter-spacing:.01em}
+#calToday:hover{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.cal-period-label{font-size:22px;font-weight:900;letter-spacing:-.03em;color:var(--text);line-height:1;padding-left:4px}
+.cal-view-tabs{display:flex;gap:3px;background:var(--surface-3);border-radius:var(--radius);padding:4px;border:1px solid var(--border)}
+.cal-view-tab{padding:7px 13px;border-radius:var(--radius-sm);border:none;background:transparent;color:var(--text-3);font-size:12px;font-weight:700;cursor:pointer;transition:all var(--transition);display:flex;align-items:center;gap:5px;white-space:nowrap;letter-spacing:.01em}
+.cal-view-tab:hover{color:var(--text);background:var(--surface-2)}
+.cal-view-tab.active{background:var(--accent);color:var(--bg);box-shadow:var(--shadow-sm)}
 .cal-body{flex:1;overflow:auto;position:relative}
 
 /* Month grid */
@@ -1113,7 +1117,9 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
   .avail-grid{grid-template-columns:1fr}
   /* ── Calendar mobile fixes ── */
   .cal-container{height:calc(100vh - var(--topbar-h) - calc(60px + env(safe-area-inset-bottom)) - 16px);overflow-x:visible}
-  .cal-toolbar{padding-bottom:8px;gap:6px;flex-wrap:wrap}
+  .cal-toolbar{padding:10px 12px;gap:8px;flex-wrap:wrap}
+  .cal-period-label{font-size:18px}
+  .cal-view-tab{padding:6px 9px;font-size:11px;gap:3px}
   .cal-period-label{font-size:12px;min-width:80px}
   /* Tabs scroll horizontally on mobile */
   .cal-view-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;gap:1px;max-width:100%}
@@ -1331,18 +1337,20 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
       <div class="view" id="view-calendar">
         <div class="cal-container">
           <div class="cal-toolbar" id="calToolbar">
-            <button class="cal-nav-btn" id="calPrev">‹</button>
-            <button class="cal-nav-btn" id="calToday" style="font-size:12px;font-weight:600;width:auto;padding:0 10px">Today</button>
-            <button class="cal-nav-btn" id="calNext">›</button>
+            <div class="cal-nav-group">
+              <button class="cal-nav-btn" id="calPrev" title="Previous">‹</button>
+              <button class="cal-nav-btn" id="calToday">Today</button>
+              <button class="cal-nav-btn" id="calNext" title="Next">›</button>
+            </div>
             <span class="cal-period-label" id="calPeriodLabel"></span>
             <div class="filter-spacer"></div>
             <div class="cal-view-tabs" id="calViewTabs">
-              <button class="cal-view-tab active" data-view="month">Month</button>
-              <button class="cal-view-tab" data-view="week">Week</button>
-              <button class="cal-view-tab" data-view="day">Day</button>
-              <button class="cal-view-tab" data-view="timeline">Timeline</button>
-              <button class="cal-view-tab" data-view="availability">Availability</button>
-              <button class="cal-view-tab" data-view="occupancy">Occupancy</button>
+              <button class="cal-view-tab active" data-view="month">📅 Month</button>
+              <button class="cal-view-tab" data-view="week">📆 Week</button>
+              <button class="cal-view-tab" data-view="day">🗓 Day</button>
+              <button class="cal-view-tab" data-view="timeline">▶ Timeline</button>
+              <button class="cal-view-tab" data-view="availability">✓ Availability</button>
+              <button class="cal-view-tab" data-view="occupancy">% Occupancy</button>
             </div>
           </div>
           <div class="filter-bar" id="calFilter" style="margin-bottom:6px">
