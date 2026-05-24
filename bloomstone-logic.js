@@ -73,7 +73,10 @@ function renderUsers(){
       <div style="font-size:13px;font-weight:700">${esc(u.name)}</div>
       <div style="font-size:11px;color:var(--text-3)">@${esc(u.username)} · <span class="badge ${u.role==='admin'?'badge-purple':'badge-blue'}">${u.role}</span></div>
     </div>
-    ${u.id!=='u_admin'?`<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">✕</button>`:'<span style="font-size:11px;color:var(--text-3)">protected</span>'}
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="btn btn-secondary btn-sm" onclick="openUserModal('${u.id}')">✏ Edit</button>
+      ${u.id!=='u_admin'?`<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">✕</button>`:'<span style="font-size:11px;color:var(--text-3)">protected</span>'}
+    </div>
   </div>`).join('');
 }
 
@@ -83,6 +86,11 @@ function openUserModal(id=null){
   document.getElementById('userModalTitle').textContent=id?'Edit User':'Add User';
   ['um-name','um-username','um-password'].forEach(k=>{const el=document.getElementById(k);if(el)el.value='';});
   document.getElementById('um-role').value='staff';
+  // Update password label: optional when editing, required when adding
+  const pwLabel=document.getElementById('um-password-label');
+  if(pwLabel)pwLabel.innerHTML=id?'Password <span style="font-size:11px;color:var(--text-3);font-weight:400">(leave blank to keep current)</span>':'Password <span class="req">*</span>';
+  const pwInput=document.getElementById('um-password');
+  if(pwInput)pwInput.placeholder=id?'Leave blank to keep current password':'Minimum 6 characters';
   if(id){const u=loadUsers().find(x=>x.id===id);if(u){document.getElementById('um-name').value=u.name;document.getElementById('um-username').value=u.username;document.getElementById('um-role').value=u.role;}}
   openModal('userModal');
 }
