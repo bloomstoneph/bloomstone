@@ -152,8 +152,8 @@ function saveAsExcel(){
     const bkRows=bookings.map(b=>{const t=calcTotals(b);return[b.id,b.guest,b.checkin,b.checkout,t.nights,b.platform,propName(b.property),b.rate||0,b.promo||0,b.bookingFee||0,t.netRevenue,b.storeSales||0,b.deposit||0,b.depositCollected?'Yes':'No',b.depositRefunded?'Yes':'No',b.payment||'',b.status||'',b.notes||'',b.guestPrefs||'',b.createdAt||''];});
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([bkHeaders,...bkRows]),'Bookings');
     // Properties sheet
-    const prHeaders=['ID','Name','City','Address','Beds','Base Guests','Max Guests','Base Rate','Extra Guest Fee','Blocked Dates','Notes','Airbnb URL','Icon'];
-    const prRows=properties.map(p=>[p.id,p.name,p.city,p.address||'',p.beds||0,p.baseGuests||2,p.maxGuests||4,p.baseRate||0,p.extraGuestFee||0,(p.blockedDates||[]).join(','),p.notes||'',p.airbnbUrl||'',p.iconId||'house']);
+    const prHeaders=['ID','Name','City','Address','Beds','Base Guests','Max Guests','Base Rate','Extra Guest Fee','Blocked Dates','Notes','Airbnb URL','Icon','Owner Name','Owner Phone','Owner Email','Owner Address','Owner Pct','Payout Method','Payout Account','Contract Start','Contract End'];
+    const prRows=properties.map(p=>[p.id,p.name,p.city,p.address||'',p.beds||0,p.baseGuests||2,p.maxGuests||4,p.baseRate||0,p.extraGuestFee||0,(p.blockedDates||[]).join(','),p.notes||'',p.airbnbUrl||'',p.iconId||'house',p.ownerName||'',p.ownerPhone||'',p.ownerEmail||'',p.ownerAddress||'',p.ownerPct??100,p.payoutMethod||'',p.payoutAccount||'',p.contractStart||'',p.contractEnd||'']);
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([prHeaders,...prRows]),'Properties');
     // Platforms sheet
     const plHeaders=['ID','Name','Commission %','VAT %','Guest Fee %','Color'];
@@ -215,6 +215,11 @@ function loadFromExcel(){
               baseRate:+r['Base Rate']||0,extraGuestFee:+r['Extra Guest Fee']||300,
               blockedDates:r['Blocked Dates']?String(r['Blocked Dates']).split(',').filter(Boolean):[],
               notes:r.Notes||'',airbnbUrl:r['Airbnb URL']||'',iconId:r.Icon||'house',
+              ownerName:r['Owner Name']||'',ownerPhone:r['Owner Phone']||'',
+              ownerEmail:r['Owner Email']||'',ownerAddress:r['Owner Address']||'',
+              ownerPct:r['Owner Pct']!=null?+r['Owner Pct']:100,
+              payoutMethod:r['Payout Method']||'',payoutAccount:r['Payout Account']||'',
+              contractStart:r['Contract Start']||'',contractEnd:r['Contract End']||'',
             }));
             imported.properties=properties.length;
           }
@@ -2102,8 +2107,8 @@ function _commitBooking(bk,isNew){
   if(!isNew){const i=bookings.findIndex(b=>b.id===editingBookingId);if(i>=0)bookings[i]=bk;toast('Booking updated.');}
   else{bookings.unshift(bk);toast('Booking added.');}
   if(_currentDraftId){deleteDraft(_currentDraftId);} // remove draft on confirmed save
-  // Save locally first
-  try{localStorage.setItem(LS_KEY,JSON.stringify({bookings,properties,platforms,expenses,trash}));}catch(e){console.error('save failed',e);}
+  // Save locally first (use saveAll so ownerPayouts is preserved)
+  saveAll();
   // Block quiet pull for 60 s so the immediate push below is not overwritten by stale Sheets data
   _pullCooldownUntil=Date.now()+60000;
   clearTimeout(_autoPushTimer);_autoPushTimer=null;
@@ -3655,6 +3660,9 @@ function openPropertyModal(id=null){
       if(_fp('fp-contract-end'))_fp('fp-contract-end').value=p.contractEnd||'';
     }
   }
+  // Always expand the owner section so fields are visible and editable
+  const ownerSec=document.getElementById('fp-owner-section');
+  if(ownerSec)ownerSec.style.display='';
   renderPropIconGrid(document.getElementById('fp-icon-id').value);
   _updatePropIconPreview();
   openModal('propertyModal');
@@ -4967,7 +4975,12 @@ async function sheetsPush(silent=false){
         'Base Rate':p.baseRate||0,'Extra Guest Fee':p.extraGuestFee||0,
         'Blocked Dates':(p.blockedDates||[]).join(','),
         'Map URL':p.map||'',Notes:p.notes||'',
-        'Airbnb URL':p.airbnbUrl||'',Icon:p.iconId||'house'
+        'Airbnb URL':p.airbnbUrl||'',Icon:p.iconId||'house',
+        'Owner Name':p.ownerName||'','Owner Phone':p.ownerPhone||'',
+        'Owner Email':p.ownerEmail||'','Owner Address':p.ownerAddress||'',
+        'Owner Pct':p.ownerPct??100,
+        'Payout Method':p.payoutMethod||'','Payout Account':p.payoutAccount||'',
+        'Contract Start':p.contractStart||'','Contract End':p.contractEnd||''
       })),
       platforms: platforms.map(p=>({
         ID:p.id,Name:p.name,'Commission %':p.commission,'VAT %':p.vat,'Guest Fee %':p.guestFee||0,Color:p.color||'#888'
@@ -5087,6 +5100,11 @@ function applySheetsPullData(data){
       blockedDates:r['Blocked Dates']?String(r['Blocked Dates']).split(',').filter(Boolean):[],
       map:r['Map URL']||'',notes:r.Notes||'',
       airbnbUrl:r['Airbnb URL']||'',iconId:r.Icon||'house',
+      ownerName:r['Owner Name']||'',ownerPhone:r['Owner Phone']||'',
+      ownerEmail:r['Owner Email']||'',ownerAddress:r['Owner Address']||'',
+      ownerPct:r['Owner Pct']!=null?+r['Owner Pct']:100,
+      payoutMethod:r['Payout Method']||'',payoutAccount:r['Payout Account']||'',
+      contractStart:r['Contract Start']||'',contractEnd:r['Contract End']||'',
     }));
   }
   if(Array.isArray(data.platforms)&&data.platforms.length){

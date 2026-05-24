@@ -2287,7 +2287,7 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
         <div class="field"><label class="label">Extra Guest Fee (₱/night)</label><input class="input" id="fp-extrafee" type="number" min="0" value="300"/></div>
       </div>
       <div class="field"><label class="label">Notes / House Rules</label><textarea class="input" id="fp-notes" rows="2" style="resize:vertical"></textarea></div>
-      <div class="field-divider" style="cursor:pointer;user-select:none" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">Owner &amp; Contract ▾</div>
+      <div class="field-divider" style="cursor:pointer;user-select:none" onclick="const s=this.nextElementSibling;const open=s.style.display!=='none';s.style.display=open?'none':'';this.textContent=(open?'Owner & Contract ►':'Owner & Contract ▾')">Owner &amp; Contract ▾</div>
       <div id="fp-owner-section">
         <div class="field-row">
           <div class="field"><label class="label">Owner Name</label><input class="input" id="fp-owner-name" placeholder="Juan dela Cruz"/></div>
