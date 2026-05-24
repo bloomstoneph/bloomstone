@@ -448,6 +448,22 @@ function loadAll(){
       });
       localStorage.setItem('bls_v2_sanitized','1');
     }
+    // Migration v3: fix bookings where serviceFee was stored as 0 but platform has commission.
+    // Root cause: drawer loading code unconditionally set dataset.manual='loaded' even when
+    // serviceFee=0, blocking auto-populate. Use saved platformCommission as reference.
+    if(!localStorage.getItem('bls_v3_svcfee')){
+      bookings=bookings.map(b=>{
+        const storedSvc=+b.serviceFee||0;
+        const storedComm=+b.platformCommission||0;
+        if(storedSvc===0&&storedComm>0){
+          const fixed={...b,serviceFee:storedComm};
+          const t2=calcTotals(fixed);
+          return{...fixed,netRevenue:t2.netRevenue};
+        }
+        return b;
+      });
+      localStorage.setItem('bls_v3_svcfee','1');
+    }
     // Deduplicate platforms — merge by normalized name, prefer non-grey color
     const platMap={};
     platforms.forEach(p=>{
@@ -681,10 +697,16 @@ function openDraftInDrawer(draftId){
     const dSO=document.getElementById('f-specialoffer');
     if(dSO&&draft.specialOffer!=null){dSO.value=draft.specialOffer;}
     const dSvc=document.getElementById('f-servicefee');
-    if(dSvc&&draft.serviceFee!=null){dSvc.value=draft.serviceFee;dSvc.dataset.manual='loaded';}
+    if(dSvc&&draft.serviceFee!=null){
+      dSvc.value=draft.serviceFee;
+      if((+draft.serviceFee||0)>0){dSvc.dataset.manual='loaded';}else{delete dSvc.dataset.manual;}
+    }
     if(draft.guestServiceFee!=null){
       const el=document.getElementById('f-guestservicefee');
-      if(el){el.value=draft.guestServiceFee;el.dataset.manual='loaded';}
+      if(el){
+        el.value=draft.guestServiceFee;
+        if((+draft.guestServiceFee||0)>0){el.dataset.manual='loaded';}else{delete el.dataset.manual;}
+      }
     }
     if(draft.depRefundedAmt!=null){const el=document.getElementById('f-dep-refunded-amt');if(el)el.value=draft.depRefundedAmt;}
     if(draft.storeSales!=null)document.getElementById('f-store').value=draft.storeSales;
@@ -1675,13 +1697,21 @@ function openBookingDrawer(id=null){
         if(promoEl){promoEl.value=b.promo??0;promoEl.classList.remove('error');}
         const soEl=document.getElementById('f-specialoffer');
         if(soEl){soEl.value=b.specialOffer??0;soEl.classList.remove('error');}
-        // bookingFee auto-calculated; mark fees so calcFinancials() does not auto-overwrite
+        // bookingFee auto-calculated; mark fees as manual ONLY when non-zero so
+        // calcFinancials() can auto-populate from platform commission when the stored
+        // value is 0 (avoids "Host Service Fee shows dash despite platform having commission" bug)
         const svcEl=document.getElementById('f-servicefee');
-        if(svcEl){svcEl.value=b.serviceFee??0;svcEl.classList.remove('error');svcEl.dataset.manual='loaded';svcEl.style.borderColor='';}
+        if(svcEl){
+          svcEl.value=b.serviceFee??0;svcEl.classList.remove('error');svcEl.style.borderColor='';
+          if((+b.serviceFee||0)>0){svcEl.dataset.manual='loaded';}else{delete svcEl.dataset.manual;}
+        }
         const svcRstBtn=document.getElementById('f-servicefee-reset');
         if(svcRstBtn)svcRstBtn.style.display='none';
         const gsfEl=document.getElementById('f-guestservicefee');
-        if(gsfEl){gsfEl.value=b.guestServiceFee??0;gsfEl.dataset.manual='loaded';}
+        if(gsfEl){
+          gsfEl.value=b.guestServiceFee??0;
+          if((+b.guestServiceFee||0)>0){gsfEl.dataset.manual='loaded';}else{delete gsfEl.dataset.manual;}
+        }
         document.getElementById('f-extraguests').value=b.extraGuests??0;
         document.getElementById('f-store').value=b.storeSales??0;
         document.getElementById('f-cleaning').value=b.cleaningFee??0;
@@ -1762,9 +1792,15 @@ function cloneBooking(id,ev){
     const promoEl=document.getElementById('f-promo');if(promoEl)promoEl.value=src.promo??0;
     const soEl=document.getElementById('f-specialoffer');if(soEl)soEl.value=src.specialOffer??0;
     const svcEl=document.getElementById('f-servicefee');
-    if(svcEl){svcEl.value=src.serviceFee??0;svcEl.dataset.manual='loaded';}
+    if(svcEl){
+      svcEl.value=src.serviceFee??0;
+      if((+src.serviceFee||0)>0){svcEl.dataset.manual='loaded';}else{delete svcEl.dataset.manual;}
+    }
     const gsfEl=document.getElementById('f-guestservicefee');
-    if(gsfEl){gsfEl.value=src.guestServiceFee??0;gsfEl.dataset.manual='loaded';}
+    if(gsfEl){
+      gsfEl.value=src.guestServiceFee??0;
+      if((+src.guestServiceFee||0)>0){gsfEl.dataset.manual='loaded';}else{delete gsfEl.dataset.manual;}
+    }
     document.getElementById('f-extraguests').value=src.extraGuests??0;
     document.getElementById('f-cleaning').value=src.cleaningFee??0;
     const gcEl=document.getElementById('f-guestcount');if(gcEl)gcEl.value=src.guestCount??1;
