@@ -208,7 +208,7 @@ function loadFromExcel(){
               depositRefundedAmt:+r['Deposit Refunded']||0,
               depositCollected:r['Dep Collected']==='Yes',
               depositRefunded:r['Dep Refunded']==='Yes',
-              adjustments:(()=>{try{const a=JSON.parse(r['Adjustments']||'[]');return Array.isArray(a)?a:[];}catch(e){return[];}}()),
+              adjustments:(()=>{try{const a=JSON.parse(r['Adjustments']||'[]');return Array.isArray(a)?a:[];}catch(e){return[];}})(),
               payment:r.Payment||'',status:r.Status||'Confirmed',notes:r.Notes||'',guestPrefs:r['Guest Prefs']||'',
               tasks:{},createdAt:r['Created At']||new Date().toISOString(),
             };
