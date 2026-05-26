@@ -1324,14 +1324,14 @@ function renderToday(){
       if(isRed)return`<div style="background:#fef2f2;border-radius:9px;padding:8px 12px">
         <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
           <span style="width:8px;height:8px;border-radius:50%;background:#dc2626;flex-shrink:0;display:inline-block"></span>
-          <span style="font-size:11px;font-weight:800;color:#dc2626;letter-spacing:.3px">NO UPCOMING BOOKINGS</span>
+          <span style="font-size:11px;font-weight:800;color:#dc2626;letter-spacing:.3px">⚠️NO UPCOMING BOOKINGS</span>
         </div>
         <div style="font-size:10px;color:#dc2626;font-weight:600;padding-left:13px">No reservations scheduled yet</div>
       </div>`;
       return`<div style="background:var(--surface-2);border-radius:9px;padding:8px 12px">
         <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
           <span style="width:8px;height:8px;border-radius:50%;background:var(--text-3);flex-shrink:0;display:inline-block"></span>
-          <span style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:.3px">No upcoming bookings</span>
+          <span style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:.3px">⚠️No upcoming bookings</span>
         </div>
         <div style="font-size:10px;color:var(--text-3);padding-left:13px">Unoccupied after ${sdShort(afterDate)}</div>
       </div>`;
