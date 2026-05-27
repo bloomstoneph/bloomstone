@@ -1321,12 +1321,12 @@ function renderToday(){
     // RED: property has zero bookings at all
     // GREY: has bookings but nothing after last one
     const noUpcomingPill=(afterDate,isRed)=>{
-      if(isRed)return`<div style="background:#ef4444;border-radius:9px;padding:10px 13px">
+      if(isRed)return`<div style="background:#cc0000;border-radius:9px;padding:10px 13px;border:2px solid #a30000">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
           <span style="width:9px;height:9px;border-radius:50%;background:#fff;flex-shrink:0;display:inline-block;box-shadow:0 0 0 3px rgba(255,255,255,.35);animation:pulse-dot 1.4s ease-in-out infinite"></span>
-          <span style="font-size:12px;font-weight:900;color:#fff;letter-spacing:.4px;text-transform:uppercase">⚠️ No Bookings Yet</span>
+          <span style="font-size:12px;font-weight:900;color:#fff;letter-spacing:.5px;text-transform:uppercase;text-shadow:0 1px 2px rgba(0,0,0,.3)">⚠️ No Bookings Yet</span>
         </div>
-        <div style="font-size:10px;color:rgba(255,255,255,.85);font-weight:600;padding-left:17px">No reservations scheduled — add one now</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.9);font-weight:700;padding-left:17px;text-shadow:0 1px 1px rgba(0,0,0,.2)">No reservations scheduled — add one now</div>
       </div>`;
       return`<div style="background:var(--surface-2);border-radius:9px;padding:8px 12px">
         <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
