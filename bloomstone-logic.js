@@ -1296,21 +1296,21 @@ function renderToday(){
     const guestClr=isNow?'#fff':c;
     const subClr=isNow?'rgba(255,255,255,.78)':'#64748b';
     const amtClr=isNow?'#fff':c;
-    // Row 2 prefix: CI / CO badge if applicable
-    const cicoTag=isCI?`<span class="cal-ci-badge" style="font-size:9px;padding:1px 5px;flex-shrink:0;white-space:nowrap">CI</span>`
-                 :isCO?`<span class="cal-co-badge" style="font-size:9px;padding:1px 5px;flex-shrink:0;white-space:nowrap">CO</span>`:'';
-    // Active Stay tag: Check In (green) / Check Out (red) / Active Stay (dark)
+    // Active Stay tag: Check In (green) / Last Night (red) / Active Stay (dark) — row 1, right of guest name
     const todayLabel=isCI?'Check In':isCO?'Last Night':'Active Stay';
     const todayLabelBg=isCI?'#16a34a':isCO?'#dc2626':'rgba(0,0,0,.28)';
-    const todayTag=isNow?`<span style="margin-left:auto;display:inline-flex;flex-direction:column;align-items:flex-end;gap:1px;flex-shrink:0"><span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:8px;background:${todayLabelBg};color:#fff;white-space:nowrap">${todayLabel}</span><span style="font-size:9px;font-weight:700;color:${subClr};white-space:nowrap">${nightsLeft}d left</span></span>`:'';
+    const statusBadge=isNow?`<span style="font-size:9px;font-weight:800;padding:2px 6px;border-radius:8px;background:${todayLabelBg};color:#fff;white-space:nowrap;flex-shrink:0">${todayLabel}</span>`:'';
+    const daysLeftTag=isNow?`<span style="font-size:9px;font-weight:700;color:${subClr};white-space:nowrap;flex-shrink:0">${nightsLeft}d left</span>`:'';
     return`<div style="background:${bg};border-radius:9px;padding:9px 12px;cursor:pointer;transition:filter .12s" onclick="event.stopPropagation();openBookingDrawer('${b.id}')">
-      <div style="font-size:13px;font-weight:800;color:${guestClr};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px">${esc(b.guest)}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="font-size:13px;font-weight:800;color:${guestClr};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0">${esc(b.guest)}</span>
+        ${statusBadge}
+      </div>
       <div style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap">
-        ${cicoTag}
         <span style="font-size:10px;font-weight:700;color:${subClr};white-space:nowrap;flex-shrink:0">${esc(b.platform)}</span>
         <span style="font-size:10px;color:${subClr};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0">· ${shortRange}</span>
         <span style="font-size:12px;font-weight:800;color:${amtClr};white-space:nowrap;flex-shrink:0">${fmtMoney(t.guestTotal)}</span>
-        ${todayTag}
+        ${daysLeftTag}
       </div>
     </div>`;
   };
