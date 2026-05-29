@@ -1335,10 +1335,14 @@ function renderToday(){
       :[];
     const sibCurStay=sibBookings.find(b=>b.checkin<=today2&&b.checkout>today2)||null;
 
-    // Sibling-aware gap pill: suppress gap if sibling is booked during that window
+    // Sibling-aware gap pill: only 4BR (combined unit) replaces gaps with linked pills
+    // Aurora/Bliss are independent — always show plain gap pills in their own timelines
+    const isCombinedUnit=p.name.toLowerCase().includes('twin town');
     const gapPillSib=(fromDate,toDate)=>{
-      const sibOverlap=sibBookings.find(b=>b.checkin<toDate&&b.checkout>fromDate);
-      if(sibOverlap)return linkedPill(sibOverlap);
+      if(isCombinedUnit){
+        const sibOverlap=sibBookings.find(b=>b.checkin<toDate&&b.checkout>fromDate);
+        if(sibOverlap)return linkedPill(sibOverlap);
+      }
       return gapPill(fromDate,toDate);
     };
     const isOccupied=!!curStay;
