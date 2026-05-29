@@ -1337,7 +1337,7 @@ function renderToday(){
   // ── Linked booking pill (shown on sibling properties) ────────
   const linkedPill=(sibBk)=>{
     const sn=propName(sibBk.property);
-    return`<div style="background:var(--surface-2);border:1.5px dashed var(--border);border-radius:9px;padding:9px 12px;cursor:pointer;transition:filter .12s" onclick="event.stopPropagation();openBookingDrawer('${sibBk.id}')">
+    return`<div style="background:var(--surface-2);border:1.5px dashed var(--border);border-radius:9px;padding:9px 12px">
       <div style="font-size:12px;font-weight:800;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px">🔗 Occupied via ${esc(sn)}</div>
       <div style="font-size:10px;font-weight:700;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(sibBk.guest)} · ${sdShort(sibBk.checkin)} – ${sdShort(sibBk.checkout)}</div>
     </div>`;
@@ -1468,9 +1468,9 @@ function renderToday(){
         ${kpiBox(mnthGross?fmtMoney(mnthGross):'—','Gross Rev')}
       </div>
     </div>`;
-    return`<div class="today-prop-card" onclick="navigateTo('properties')" style="display:flex;flex-direction:column">
+    return`<div class="today-prop-card" style="display:flex;flex-direction:column">
       <div style="margin-bottom:9px">
-        <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;cursor:pointer" onclick="navigateTo('properties')">
           <div class="tpc-icon">${propIconHtml(p,15)}</div>
           <div style="font-size:18px;font-weight:800;color:var(--text);line-height:1.25;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(p.name)}</div>
         </div>
