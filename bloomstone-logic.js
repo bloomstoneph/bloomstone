@@ -1337,7 +1337,7 @@ function renderToday(){
   // ── Linked booking pill (shown on sibling properties) ────────
   const linkedPill=(sibBk)=>{
     const sn=propName(sibBk.property);
-    return`<div style="background:var(--surface-2);border:1.5px dashed var(--border);border-radius:9px;padding:9px 12px">
+    return`<div style="background:var(--surface-2);border:1.5px dashed var(--border);border-radius:9px;padding:9px 12px;cursor:pointer;transition:filter .12s" onclick="event.stopPropagation();openBookingDrawer('${sibBk.id}')">
       <div style="font-size:12px;font-weight:800;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px">🔗 Occupied via ${esc(sn)}</div>
       <div style="font-size:10px;font-weight:700;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(sibBk.guest)} · ${sdShort(sibBk.checkin)} – ${sdShort(sibBk.checkout)}</div>
     </div>`;
