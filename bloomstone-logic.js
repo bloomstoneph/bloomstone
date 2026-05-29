@@ -2630,8 +2630,8 @@ function renderMonthCal(body,y,m,shown){
           const badge=isStart
             ?`<span class="cal-ci-badge">${compact?'CI':'CHECK IN'}</span>`
             :isEnd
-            ?`<span class="cal-co-badge">${compact?'CO':'CHECK OUT'}</span>`
-            :`<span class="cal-stay-badge">${compact?'●':'STAY'}</span>`;
+            ?`<span class="cal-co-badge">${compact?'LN':'LAST NIGHT'}</span>`
+            :`<span class="cal-stay-badge">${compact?'●':'ACTIVE STAY'}</span>`;
           const t=calcTotals(b);
           const dayLabel=(!compact&&totalN>1)?`<span style="font-size:9px;opacity:.7;white-space:nowrap;flex-shrink:0">Day ${dayNum}/${totalN}</span>`:'';
           const rateLabel=!compact?`<span style="font-size:9px;opacity:.75;white-space:nowrap;flex-shrink:0">${fmtMoney(b.rate)}/n</span>`:'';
@@ -2670,8 +2670,8 @@ function renderMonthCal(body,y,m,shown){
           const badge=isStart
             ?`<span class="cal-ci-badge">${compact?'CI':'CHECK IN'}</span>`
             :isEnd
-            ?`<span class="cal-co-badge">${compact?'CO':'CHECK OUT'}</span>`
-            :`<span class="cal-stay-badge">${compact?'●':'STAY'}</span>`;
+            ?`<span class="cal-co-badge">${compact?'LN':'LAST NIGHT'}</span>`
+            :`<span class="cal-stay-badge">${compact?'●':'ACTIVE STAY'}</span>`;
           const dayLabel=(!compact&&totalN>1)?`<span style="font-size:9px;opacity:.7;white-space:nowrap;flex-shrink:0">Day ${dayNum}/${totalN}</span>`:'';
           const rateLabel=!compact?`<span style="font-size:9px;opacity:.75;white-space:nowrap;flex-shrink:0">${fmtMoney(b.rate)}/n</span>`:'';
           const gStr=compact?b.guest.split(' ')[0].slice(0,6):b.guest;
@@ -2788,7 +2788,7 @@ function renderWeekCal(body,shown){
             const _badge=isStart
               ?`<span class="cal-ci-badge">CHECK IN</span>`
               :isEnd
-              ?`<span class="cal-co-badge">CHECK OUT</span>`
+              ?`<span class="cal-co-badge">LAST NIGHT</span>`
               :`<span class="cal-stay-badge">ACTIVE STAY</span>`;
             const _dayLbl=_totalN>1?`<span style="font-size:9px;opacity:.75;white-space:nowrap">Day ${_dayNum}/${_totalN}</span>`:'';
             return`<div style="display:flex;flex-direction:column;gap:2px;padding:5px 7px;border-radius:6px;margin-bottom:3px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;${_isToday?'box-shadow:0 0 0 2px #fff,0 0 0 3.5px '+platC+';':''}" onclick="openBookingDrawer('${b.id}')">
