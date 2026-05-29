@@ -1380,10 +1380,7 @@ function renderToday(){
     const timelinePills=[];
     // If not directly occupied, show sibling current stay OR gap/noUpcoming
     if(!isOccupied){
-      if(sibCurStay){
-        // Sibling is currently occupying this unit — show linked pill
-        timelinePills.push(linkedPill(sibCurStay));
-      }else if(upcoming.length){
+      if(upcoming.length){
         timelinePills.push(gapPillSib(today2,upcoming[0].checkin));
       }else{
         timelinePills.push(noUpcomingPill(today2,!hasAnyBooking));
