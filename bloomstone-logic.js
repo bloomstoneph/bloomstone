@@ -1304,16 +1304,21 @@ function renderToday(){
     const availPill=`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;background:#dcfce7;color:#16a34a;border:1.5px solid #86efac;white-space:nowrap;flex-shrink:0"><span style="width:6px;height:6px;border-radius:50%;background:#16a34a;flex-shrink:0"></span>AVAILABLE</span>`;
     const statusPill=isOccupied?occPill:availPill;
 
-    // ── Gap Days pill (green) ─────────────────────────────────
+    // ── Gap Days pill ─────────────────────────────────────────
     const gapPill=(fromDate,toDate)=>{
       const days=Math.round((new Date(toDate+'T12:00:00')-new Date(fromDate+'T12:00:00'))/86400000);
       if(days<=0)return'';
-      return`<div style="background:#f0fdf4;border-radius:9px;padding:8px 12px">
-        <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
-          <span style="width:8px;height:8px;border-radius:50%;background:#16a34a;flex-shrink:0;display:inline-block"></span>
-          <span style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:.3px">GAP DAYS</span>
+      const tight=days<5;
+      const bg=tight?'#fffbeb':'#f0fdf4';
+      const clr=tight?'#b45309':'#16a34a';
+      const dot=tight?'#f59e0b':'#16a34a';
+      const tip=tight?`<span style="font-size:10px;color:${clr};font-weight:700;white-space:nowrap;flex-shrink:0">💡 Offer 20% off on Airbnb</span>`:'';
+      return`<div style="background:${bg};border-radius:9px;padding:9px 12px">
+        <div style="font-size:13px;font-weight:800;color:${clr};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px">🟡 GAP · ${days} day${days!==1?'s':''}</div>
+        <div style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap">
+          <span style="font-size:10px;font-weight:700;color:${clr};white-space:nowrap;flex-shrink:0">${sdShort(fromDate)} → ${sdShort(toDate)}</span>
+          ${tip?`<span style="font-size:10px;color:${clr};flex-shrink:0">·</span>${tip}`:''}
         </div>
-        <div style="font-size:10px;color:#16a34a;font-weight:600;padding-left:13px">${sdShort(fromDate)} → ${sdShort(toDate)} · ${days} day${days!==1?'s':''}</div>
       </div>`;
     };
 
