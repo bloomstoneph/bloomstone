@@ -316,6 +316,7 @@ let _pullCooldownUntil=0;  // timestamp — no auto-push before this time
 function saveAll(){
   try{ localStorage.setItem(LS_KEY,JSON.stringify({bookings,properties,platforms,expenses,trash,ownerPayouts})); }
   catch(e){ console.error('save failed',e); }
+  rebuildLookupMaps();
   if(!_isPulling)scheduleSheetsAutoPush();
 }
 
@@ -438,7 +439,7 @@ function loadAll(){
     // Runs independently of v1 — catches devices that had v1 flag already set with bad data.
     if(!localStorage.getItem('bls_v2_sanitized')){
       bookings=bookings.map(b=>{
-        const prop=properties.find(p=>p.id===b.property);
+        const prop=_propMap[b.property]||null;
         const maxExtra=prop?(+prop.maxGuests||8)-(+prop.baseGuests||2):20;
         const eg=+b.extraGuests||0;
         return{...b,
@@ -501,6 +502,7 @@ function loadAll(){
     properties=DEFAULT_PROPERTIES.map(p=>({...p}));
     platforms=DEFAULT_PLATFORMS.map(p=>({...p}));
   }
+  rebuildLookupMaps();
 }
 function loadSettings(){
   try{const s=localStorage.getItem(LS_SETTINGS);if(s)settings={...settings,...JSON.parse(s)};}catch(e){}
@@ -616,17 +618,23 @@ function normPlatform(name){
   if(lo==='direct booking'||lo==='direct'||lo==='directbooking')return'Direct Booking';
   return n||'Direct Booking';
 }
-function getPlatform(name){const norm=normPlatform(name);return platforms.find(p=>normPlatform(p.name)===norm)||null;}
+// \u2500\u2500 Lookup maps: O(1) property/platform access \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+let _propMap={},_platMap={};
+function rebuildLookupMaps(){
+  _propMap=Object.fromEntries(properties.map(p=>[p.id,p]));
+  _platMap=Object.fromEntries(platforms.map(p=>[normPlatform(p.name),p]));
+}
+function getPlatform(name){return _platMap[normPlatform(name)]||null;}
 function platformColor(name){return(getPlatform(name)||{color:'#888'}).color;}
 function platformPillHtml(name){const c=platformColor(name);return`<span class="platform-pill" style="background:${c}22;color:${c}"><span style="width:5px;height:5px;border-radius:50%;background:${c};display:inline-block"></span> ${esc(name||'\u2014')}</span>`;}
-function propName(id){return(properties.find(p=>p.id===id)||{name:'\u2014'}).name;}
+function propName(id){return(_propMap[id]||{name:'\u2014'}).name;}
 // Assigns a stable distinct color per property from a curated palette
 const _PROP_PALETTE=['#0ea5e9','#10b981','#8b5cf6','#f59e0b','#ef4444','#06b6d4','#ec4899','#84cc16','#f97316','#6366f1','#14b8a6','#e879f9'];
 function propertyColor(propId){
   const idx=properties.findIndex(p=>p.id===propId);
   return _PROP_PALETTE[Math.max(0,idx)%_PROP_PALETTE.length];
 }
-function propCity(id){return(properties.find(p=>p.id===id)||{city:''}).city;}
+function propCity(id){return(_propMap[id]||{city:''}).city;}
 function statusBadgeHtml(s){const m={'Confirmed':'badge-green','Pending':'badge-orange','Checked-In':'badge-blue','Checked-Out':'badge-neutral','Cancelled':'badge-red'};return`<span class="badge ${m[s]||'badge-neutral'}">${esc(s||'Pending')}</span>`;}
 function statusColorStyle(s){
   const m={'Confirmed':{bg:'var(--green-bg)',color:'var(--green)',border:'rgba(45,106,31,.3)'},
@@ -870,8 +878,18 @@ function printBooking(){
 
 // showGuestHistory() legacy stub — now handled by openGuestProfile above
 
+// ── Render-scoped memoization for calcTotals ─────────────────
+// _totalsCache is set to a Map() at the start of heavy renders,
+// null outside renders — so drawer live-calcs never get stale results.
+let _totalsCache=null;
+// ── Debounced calcFinancials for oninput handlers ─────────────
+let _calcFinTimer=null;
+function calcFinancialsLazy(){clearTimeout(_calcFinTimer);_calcFinTimer=setTimeout(calcFinancials,150);}
+
 // ---- FINANCIALS
 function calcTotals(b){
+  if(_totalsCache&&b.id){const cached=_totalsCache.get(b.id);if(cached)return cached;}
+
   const nights=nightsBetween(b.checkin,b.checkout);
   const rate=+b.rate||0;
   const promo=+b.promo||0;
@@ -879,7 +897,7 @@ function calcTotals(b){
   const promoTotal=promo*nights;                   // direct booking promo discount (per night × nights)
   const specialOffer=+b.specialOffer||0;           // platform special offer: owner-side cost (platform deducts from remittance)
   const stayFee=Math.max(0,bkFee-promoTotal-specialOffer); // accommodation after direct promo & platform special offer
-  const prop=properties.find(p=>p.id===b.property);
+  const prop=_propMap[b.property]||null;
   const feePerG=prop?(+prop.extraGuestFee??300):300;
   const baseG=prop?(+prop.baseGuests||2):2;
   const maxG=prop?(+prop.maxGuests||8):8;
@@ -907,11 +925,13 @@ function calcTotals(b){
   const splitBase=guestTotal-svcFee-cleaningFee;     // net before store sales
   const ownerShare=splitBase*(ownerPct/100)+storeSales;  // owner's share + all store sales
   const bloomsShare=splitBase*((100-ownerPct)/100);  // Bloomstone's management cut
-  return{nights,rate,promo,promoTotal,specialOffer,stayFee,bkFee,extraFee,svcFee,platFee,
+  const result={nights,rate,promo,promoTotal,specialOffer,stayFee,bkFee,extraFee,svcFee,platFee,
          guestTotal,totalWithout,cleaningFee,storeSales,netRevenue,
          guestFeeRate,guestServiceFee,totalGuestPaid,
          extraG,comm,vat,feePerG,baseG,maxG,adjTotal,
          ownerPct,ownerShare,bloomsShare,splitBase};
+  if(_totalsCache&&b.id)_totalsCache.set(b.id,result);
+  return result;
 }
 
 function bookingsOverlap(a,b){
@@ -1265,6 +1285,7 @@ function getLinkedSiblings(propId){
 // TODAY VIEW
 // ============================================================
 function renderToday(){
+  _totalsCache=new Map();
   const today=todayISO();
   const now=new Date();
   const checkIns=bookings.filter(b=>b.checkin===today&&b.status!=='Cancelled');
@@ -1550,6 +1571,7 @@ function getFilteredBookings(){
   }).sort((a,b)=>b.checkin.localeCompare(a.checkin));
 }
 function renderBookings(){
+  _totalsCache=new Map();
   const list=getFilteredBookings();
   const cnt=document.getElementById('bkCount');
   if(cnt)cnt.textContent=`${list.length} booking${list.length!==1?'s':''}`;
@@ -3066,6 +3088,7 @@ function getFinanceList(){
 }
 
 function renderFinanceOverview(){
+  _totalsCache=new Map();
   const list=getFinanceList();
   const totalRev=list.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
   const totalRoom=list.reduce((s,b)=>s+calcTotals(b).stayFee,0);
@@ -4349,6 +4372,7 @@ function setGuestView(v){
 }
 
 function renderGuests(){
+  _totalsCache=new Map();
   const container=document.getElementById('guestCrmList');if(!container)return;
   const q=(_guestSearchQ||'').toLowerCase().trim();
 
@@ -4672,6 +4696,7 @@ function getReportData(){
   return{groups,list,group};
 }
 function renderReports(){
+  _totalsCache=new Map();
   const{groups,list,group}=getReportData();
   const keys=Object.keys(groups).sort();
   const totalRev=list.reduce((s,b)=>s+calcTotals(b).netRevenue,0);

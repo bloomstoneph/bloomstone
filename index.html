@@ -1992,7 +1992,7 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
         </div>
         <div class="field" style="margin-bottom:0">
           <label class="label">Nightly Rate (₱) <span class="req">*</span></label>
-          <input class="input input-req" id="f-rate" type="number" placeholder="0" oninput="calcFinancials()" style="font-size:15px;font-weight:700"/>
+          <input class="input input-req" id="f-rate" type="number" placeholder="0" oninput="calcFinancialsLazy()" style="font-size:15px;font-weight:700"/>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px">
@@ -2049,7 +2049,7 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
         </div>
         <div class="field">
           <label class="label">Special Offer <span style="color:var(--text-3);font-size:10px">(₱ total)</span></label>
-          <input class="input" id="f-specialoffer" type="number" placeholder="0" oninput="calcFinancials()"/>
+          <input class="input" id="f-specialoffer" type="number" placeholder="0" oninput="calcFinancialsLazy()"/>
         </div>
       </div>
 
@@ -2070,21 +2070,21 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
         <div class="field" style="margin-bottom:0">
           <label class="label">Promo / Discount <span class="req">*</span> <span style="color:var(--text-3);font-size:10px">(₱/night · direct)</span></label>
           <input class="input input-req" id="f-promo" type="number" placeholder="0"
-                 oninput="this.classList.remove('error');calcFinancials()"/>
+                 oninput="this.classList.remove('error');calcFinancialsLazy()"/>
         </div>
         <div class="field" style="margin-bottom:0">
           <label class="label">Host Service Fee <span style="color:var(--text-3);font-size:10px">(auto)</span>
             <button type="button" id="f-servicefee-reset" onclick="resetServiceFee()" style="display:none;background:none;border:none;cursor:pointer;color:var(--accent);font-size:10px;padding:0 4px" title="Reset to computed">↺</button>
           </label>
           <input class="input" id="f-servicefee" type="number" placeholder="0"
-                 oninput="this.dataset.manual='1';document.getElementById('f-servicefee-reset').style.display='inline';this.classList.remove('error');calcFinancials()"/>
+                 oninput="this.dataset.manual='1';document.getElementById('f-servicefee-reset').style.display='inline';this.classList.remove('error');calcFinancialsLazy()"/>
           <div id="f-servicefee-hint" style="font-size:10px;color:var(--text-3);margin-top:3px"></div>
         </div>
       </div>
       <div class="field" style="margin-top:10px;margin-bottom:0">
         <label class="label">Extra Guests <span style="color:var(--text-3);font-size:10px">(above base, fee applied per night)</span></label>
         <input class="input" id="f-extraguests" type="number" min="0" step="1" value="0" placeholder="0"
-               oninput="this.value=this.value.replace(/[^0-9]/g,'');calcFinancials()"/>
+               oninput="this.value=this.value.replace(/[^0-9]/g,'');calcFinancialsLazy()"/>
       </div>
     </div>
 
@@ -2236,7 +2236,7 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
       <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--green,#10b981);margin-bottom:10px;display:flex;align-items:center;gap:6px">📥 Check-In</div>
       <div class="field" style="margin-bottom:0">
         <label class="label">Security Deposit Collected (₱) <span style="color:var(--text-3);font-size:10px">entering amount = collected</span></label>
-        <input class="input" id="f-deposit" type="number" value="0" style="font-weight:700" oninput="calcFinancials()"/>
+        <input class="input" id="f-deposit" type="number" value="0" style="font-weight:700" oninput="calcFinancialsLazy()"/>
       </div>
     </div>
 
@@ -2247,19 +2247,19 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
         <div class="field" style="margin-bottom:0">
           <label class="label" id="f-cleaning-label">Cleaning Fee (₱)</label>
           <input class="input" id="f-cleaning" type="number" min="0" step="1" value="0"
-                 oninput="this.value=this.value.replace(/[^0-9.]/g,'');calcFinancials();" placeholder="0"/>
+                 oninput="this.value=this.value.replace(/[^0-9.]/g,'');calcFinancialsLazy();" placeholder="0"/>
           <div id="f-cleaning-hint" style="font-size:10px;color:var(--text-3);margin-top:4px;display:none">🔒 Unlocks after checkout</div>
         </div>
         <div class="field" style="margin-bottom:0">
           <label class="label" id="f-store-label">Store / Add-ons (₱)</label>
           <input class="input" id="f-store" type="number" min="0" step="1" value="0"
-                 oninput="this.value=this.value.replace(/[^0-9.]/g,'');calcFinancials();" placeholder="0"/>
+                 oninput="this.value=this.value.replace(/[^0-9.]/g,'');calcFinancialsLazy();" placeholder="0"/>
           <div id="f-store-hint" style="font-size:10px;color:var(--text-3);margin-top:4px;display:none">🔒 Unlocks after checkout</div>
         </div>
       </div>
       <div class="field" style="margin-bottom:0">
         <label class="label">Deposit Refunded (₱) <span style="color:var(--text-3);font-size:10px">entering amount = refunded</span></label>
-        <input class="input" id="f-dep-refunded-amt" type="number" value="0" style="font-weight:700" oninput="calcFinancials()"/>
+        <input class="input" id="f-dep-refunded-amt" type="number" value="0" style="font-weight:700" oninput="calcFinancialsLazy()"/>
       </div>
     </div>
 
