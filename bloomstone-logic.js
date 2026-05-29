@@ -1792,7 +1792,7 @@ function updateDrawerSummary(){
     const lastNightD=co?(()=>{const d=new Date(co+'T12:00:00');d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})():'';
     if(status==='Cancelled')badge='<span class="badge badge-red">Cancelled</span>';
     else if(co&&co<today)badge='<span class="badge badge-neutral">✓ Checked Out</span>';
-    else if(co&&co===today)badge='<span class="badge badge-orange">Departing Today</span>';
+    else if(co&&co===today)badge='<span class="badge badge-orange">Checking Out Today</span>';
     else if(ci&&ci===today&&co&&co>today)badge='<span class="badge badge-green">↓ Check In</span>';
     else if(ci&&ci<today&&co&&co>today&&lastNightD===today)badge='<span class="badge badge-red">Last Night</span>';
     else if(ci&&ci<=today&&co&&co>today)badge='<span class="badge badge-blue">Active Stay</span>';
