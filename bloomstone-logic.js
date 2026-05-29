@@ -1300,7 +1300,7 @@ function renderToday(){
     const cicoTag=isCI?`<span class="cal-ci-badge" style="font-size:9px;padding:1px 5px;flex-shrink:0;white-space:nowrap">CI</span>`
                  :isCO?`<span class="cal-co-badge" style="font-size:9px;padding:1px 5px;flex-shrink:0;white-space:nowrap">CO</span>`:'';
     // Active Stay tag: Check In (green) / Check Out (red) / Active Stay (dark)
-    const todayLabel=isCI?'Check In':isCO?'Check Out':'Active Stay';
+    const todayLabel=isCI?'Check In':isCO?'Last Night':'Active Stay';
     const todayLabelBg=isCI?'#16a34a':isCO?'#dc2626':'rgba(0,0,0,.28)';
     const todayTag=isNow?`<span style="margin-left:auto;display:inline-flex;flex-direction:column;align-items:flex-end;gap:1px;flex-shrink:0"><span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:8px;background:${todayLabelBg};color:#fff;white-space:nowrap">${todayLabel}</span><span style="font-size:9px;font-weight:700;color:${subClr};white-space:nowrap">${nightsLeft}d left</span></span>`:'';
     return`<div style="background:${bg};border-radius:9px;padding:9px 12px;cursor:pointer;transition:filter .12s" onclick="event.stopPropagation();openBookingDrawer('${b.id}')">
@@ -2722,7 +2722,7 @@ function openDayModal(dateStr){
       const lastNight=new Date(b.checkout+'T12:00:00');lastNight.setDate(lastNight.getDate()-1);
       const isLastNight=dateToISO(lastNight)===dateStr;
       const cioBadge=isCI?`<span class="cal-ci-badge" style="font-size:10px;padding:3px 9px">CHECK IN</span>`
-        :isLastNight?`<span class="cal-co-badge" style="font-size:10px;padding:3px 9px">CHECK OUT</span>`
+        :isLastNight?`<span class="cal-co-badge" style="font-size:10px;padding:3px 9px">LAST NIGHT</span>`
         :`<span class="cal-stay-badge" style="font-size:10px;padding:3px 9px;background:var(--accent-soft);color:var(--accent);border:none">ACTIVE STAY</span>`;
       const dayNum=nightsBetween(b.checkin,dateStr)+1;
       return`<div style="display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;cursor:pointer;background:var(--surface-2)" onclick="closeModal('dayModal');openBookingDrawer('${b.id}')">
@@ -2789,7 +2789,7 @@ function renderWeekCal(body,shown){
               ?`<span class="cal-ci-badge">CHECK IN</span>`
               :isEnd
               ?`<span class="cal-co-badge">CHECK OUT</span>`
-              :`<span class="cal-stay-badge">STAY</span>`;
+              :`<span class="cal-stay-badge">ACTIVE STAY</span>`;
             const _dayLbl=_totalN>1?`<span style="font-size:9px;opacity:.75;white-space:nowrap">Day ${_dayNum}/${_totalN}</span>`:'';
             return`<div style="display:flex;flex-direction:column;gap:2px;padding:5px 7px;border-radius:6px;margin-bottom:3px;cursor:pointer;overflow:hidden;background:${platC};color:#fff;${_isToday?'box-shadow:0 0 0 2px #fff,0 0 0 3.5px '+platC+';':''}" onclick="openBookingDrawer('${b.id}')">
               <div style="display:flex;align-items:center;gap:4px;min-width:0">
@@ -2832,7 +2832,7 @@ function renderDayCal(body,shown){
         :isCheckoutDay
         ?`<span style="background:var(--orange-bg);color:var(--orange);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap">\u2191 Checking Out Today</span>`
         :isLastNight
-        ?`<span style="background:var(--orange-bg);color:var(--orange);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap">\u2191 Check-out Tomorrow</span>`
+        ?`<span style="background:var(--orange-bg);color:var(--orange);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap">Last Night</span>`
         :`<span style="background:var(--accent-soft);color:var(--accent);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap">Active Stay</span>`;
       return`<div style="background:var(--surface);border:1px solid var(--border);border-left:4px solid ${platformColor(b.platform)};border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:10px;cursor:pointer;opacity:${isPast?'0.7':'1'}" onclick="openBookingDrawer('${b.id}')">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">${statusBadge}</div>
