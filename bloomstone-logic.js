@@ -1231,11 +1231,16 @@ function getLinkedSiblings(propId){
   const p=properties.find(x=>x.id===propId);
   if(!p)return[];
   const n=p.name.toLowerCase();
-  const isLinked=n.includes('aurora')||n.includes('bliss')||n.includes('twin town');
-  if(!isLinked)return[];
-  return properties
-    .filter(x=>x.id!==propId&&(x.name.toLowerCase().includes('aurora')||x.name.toLowerCase().includes('bliss')||x.name.toLowerCase().includes('twin town')))
-    .map(x=>x.id);
+  const isTwin=n.includes('twin town');
+  const isAurora=n.includes('aurora');
+  const isBliss=n.includes('bliss');
+  if(!isTwin&&!isAurora&&!isBliss)return[];
+  if(isTwin){
+    // 4BR links to both Aurora and Bliss
+    return properties.filter(x=>x.id!==propId&&(x.name.toLowerCase().includes('aurora')||x.name.toLowerCase().includes('bliss'))).map(x=>x.id);
+  }
+  // Aurora or Bliss only links to 4BR — not to each other
+  return properties.filter(x=>x.id!==propId&&x.name.toLowerCase().includes('twin town')).map(x=>x.id);
 }
 
 // ============================================================
