@@ -1299,8 +1299,10 @@ function renderToday(){
     // Row 2 prefix: CI / CO badge if applicable
     const cicoTag=isCI?`<span class="cal-ci-badge" style="font-size:9px;padding:1px 5px;flex-shrink:0;white-space:nowrap">CI</span>`
                  :isCO?`<span class="cal-co-badge" style="font-size:9px;padding:1px 5px;flex-shrink:0;white-space:nowrap">CO</span>`:'';
-    // TODAY/Xd left shown inline in row 2 (right side) so guest name owns row 1 entirely
-    const todayTag=isNow?`<span style="margin-left:auto;display:inline-flex;flex-direction:column;align-items:flex-end;gap:1px;flex-shrink:0"><span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:8px;background:rgba(0,0,0,.28);color:#fff;white-space:nowrap">TODAY</span><span style="font-size:9px;font-weight:700;color:${subClr};white-space:nowrap">${nightsLeft}d left</span></span>`:'';
+    // Active Stay tag: Check In (green) / Check Out (red) / Active Stay (dark)
+    const todayLabel=isCI?'Check In':isCO?'Check Out':'Active Stay';
+    const todayLabelBg=isCI?'#16a34a':isCO?'#dc2626':'rgba(0,0,0,.28)';
+    const todayTag=isNow?`<span style="margin-left:auto;display:inline-flex;flex-direction:column;align-items:flex-end;gap:1px;flex-shrink:0"><span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:8px;background:${todayLabelBg};color:#fff;white-space:nowrap">${todayLabel}</span><span style="font-size:9px;font-weight:700;color:${subClr};white-space:nowrap">${nightsLeft}d left</span></span>`:'';
     return`<div style="background:${bg};border-radius:9px;padding:9px 12px;cursor:pointer;transition:filter .12s" onclick="event.stopPropagation();openBookingDrawer('${b.id}')">
       <div style="font-size:13px;font-weight:800;color:${guestClr};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px">${esc(b.guest)}</div>
       <div style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap">
@@ -2721,7 +2723,7 @@ function openDayModal(dateStr){
       const isLastNight=dateToISO(lastNight)===dateStr;
       const cioBadge=isCI?`<span class="cal-ci-badge" style="font-size:10px;padding:3px 9px">CHECK IN</span>`
         :isLastNight?`<span class="cal-co-badge" style="font-size:10px;padding:3px 9px">CHECK OUT</span>`
-        :`<span class="cal-stay-badge" style="font-size:10px;padding:3px 9px;background:var(--accent-soft);color:var(--accent);border:none">STAY</span>`;
+        :`<span class="cal-stay-badge" style="font-size:10px;padding:3px 9px;background:var(--accent-soft);color:var(--accent);border:none">ACTIVE STAY</span>`;
       const dayNum=nightsBetween(b.checkin,dateStr)+1;
       return`<div style="display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;cursor:pointer;background:var(--surface-2)" onclick="closeModal('dayModal');openBookingDrawer('${b.id}')">
         <div style="width:5px;min-height:50px;border-radius:3px;background:${platformColor(b.platform)};flex-shrink:0;margin-top:2px"></div>
