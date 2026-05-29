@@ -1341,7 +1341,8 @@ function renderToday(){
     // Status pill (top of card)
     const occPill=`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5;white-space:nowrap;flex-shrink:0"><span style="width:6px;height:6px;border-radius:50%;background:#dc2626;flex-shrink:0"></span>OCCUPIED</span>`;
     const availPill=`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;background:#dcfce7;color:#16a34a;border:1.5px solid #86efac;white-space:nowrap;flex-shrink:0"><span style="width:6px;height:6px;border-radius:50%;background:#16a34a;flex-shrink:0"></span>AVAILABLE</span>`;
-    const statusPill=isOccupied?occPill:availPill;
+    const linkedOccPill=sibCurStay?`<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5;white-space:nowrap;flex-shrink:0">🔗 OCCUPIED · via ${esc(propName(sibCurStay.property))}</span>`:null;
+    const statusPill=isOccupied?occPill:(linkedOccPill||availPill);
 
     // ── Gap Days pill ─────────────────────────────────────────
     const gapPill=(fromDate,toDate)=>{
