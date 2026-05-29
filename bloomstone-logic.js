@@ -1335,15 +1335,26 @@ function renderToday(){
       :[];
     const sibCurStay=sibBookings.find(b=>b.checkin<=today2&&b.checkout>today2)||null;
 
-    // Sibling-aware gap pill: only 4BR (combined unit) replaces gaps with linked pills
-    // Aurora/Bliss are independent — always show plain gap pills in their own timelines
+    // Sibling-aware gap pill: splits the window around sibling bookings
+    // 4BR: blocked sub-periods → linked pill; free sub-periods → gap pill
+    // Aurora/Bliss: blocked sub-periods → nothing; free sub-periods → gap pill
     const isCombinedUnit=p.name.toLowerCase().includes('twin town');
     const gapPillSib=(fromDate,toDate)=>{
-      if(isCombinedUnit){
-        const sibOverlap=sibBookings.find(b=>b.checkin<toDate&&b.checkout>fromDate);
-        if(sibOverlap)return linkedPill(sibOverlap);
+      if(!sibBookings.length) return gapPill(fromDate,toDate);
+      const overlapping=sibBookings
+        .filter(b=>b.checkin<toDate&&b.checkout>fromDate)
+        .sort((a,b)=>a.checkin.localeCompare(b.checkin));
+      if(!overlapping.length) return gapPill(fromDate,toDate);
+      const parts=[];
+      let cursor=fromDate;
+      for(const sib of overlapping){
+        const freeEnd=sib.checkin>cursor?sib.checkin:cursor;
+        if(cursor<freeEnd) parts.push(gapPill(cursor,freeEnd));
+        if(isCombinedUnit) parts.push(linkedPill(sib));
+        if(sib.checkout>cursor) cursor=sib.checkout;
       }
-      return gapPill(fromDate,toDate);
+      if(cursor<toDate) parts.push(gapPill(cursor,toDate));
+      return parts.join('');
     };
     const isOccupied=!!curStay;
 
