@@ -1949,9 +1949,13 @@ function openBookingDrawer(id=null){
       calcFinancials();
       updateDrawerSummary();
       renderDrawerHistory(b);updateDrawerProfile(b.guest);
+      const _guestBkCount=bookings.filter(x=>x.id!==b.id&&(x.guest||'').toLowerCase().trim()===(b.guest||'').toLowerCase().trim()).length;
+      const _hc=document.getElementById('drawerHistoryCount');
+      if(_hc){if(_guestBkCount>0){_hc.textContent=_guestBkCount+' booking'+(_guestBkCount!==1?'s':'');_hc.style.display='inline';}else{_hc.style.display='none';}}
       renderAdjustments();
     }
   }else{
+    const _hc2=document.getElementById('drawerHistoryCount');if(_hc2)_hc2.style.display='none';
     const recent=bookings.slice().sort((a,b)=>(b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||'')).slice(0,4);
     document.getElementById('drawerHistory').innerHTML=recent.length?
       '<div style="font-size:11px;font-weight:700;color:var(--text-3);margin-bottom:6px">Recent bookings:</div>'+
