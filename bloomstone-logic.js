@@ -1223,6 +1223,22 @@ function populateSelects(){
 }
 
 // ============================================================
+// LINKED PROPERTY GROUP — 2BR Aurora + 2BR Bliss + 4BR Twin Town Houses
+// ISOLATED: only used in Today module rendering and booking drawer overlap warning.
+// Does NOT affect finance, reports, calendar, booking save, or Sheets sync.
+// ============================================================
+function getLinkedSiblings(propId){
+  const p=properties.find(x=>x.id===propId);
+  if(!p)return[];
+  const n=p.name.toLowerCase();
+  const isLinked=n.includes('aurora')||n.includes('bliss')||n.includes('twin town');
+  if(!isLinked)return[];
+  return properties
+    .filter(x=>x.id!==propId&&(x.name.toLowerCase().includes('aurora')||x.name.toLowerCase().includes('bliss')||x.name.toLowerCase().includes('twin town')))
+    .map(x=>x.id);
+}
+
+// ============================================================
 // TODAY VIEW
 // ============================================================
 function renderToday(){
@@ -1293,10 +1309,33 @@ function renderToday(){
   };
   // ── PROPERTY GRID — grouped by city ────────────────────────────────────────
   const sdShort=d=>{const dt=new Date(d+'T12:00:00');return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
+  // ── Linked booking pill (shown on sibling properties) ────────
+  const linkedPill=(sibBk)=>{
+    const sn=propName(sibBk.property);
+    return`<div style="background:var(--surface-2);border:1.5px dashed var(--border);border-radius:9px;padding:9px 12px">
+      <div style="font-size:12px;font-weight:800;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px">🔗 Occupied via ${esc(sn)}</div>
+      <div style="font-size:10px;font-weight:700;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(sibBk.guest)} · ${sdShort(sibBk.checkin)} – ${sdShort(sibBk.checkout)}</div>
+    </div>`;
+  };
+
   const makeCard=p=>{
     const curStay=bookings.find(b=>b.property===p.id&&b.status!=='Cancelled'&&b.checkin<=today2&&b.checkout>today2);
     const upcoming=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled'&&b.checkin>today2).sort((a,b2)=>a.checkin.localeCompare(b2.checkin)).slice(0,3);
-    const hasAnyBooking=!!(curStay||upcoming.length);
+    const hasAnyBooking=!!(curStay||upcoming.length||bookings.some(b=>b.property===p.id&&b.status!=='Cancelled'));
+
+    // ── Sibling (linked group) data ───────────────────────────
+    const siblingIds=getLinkedSiblings(p.id);
+    const sibBookings=siblingIds.length
+      ?bookings.filter(b=>siblingIds.includes(b.property)&&b.status!=='Cancelled'&&b.checkout>today2)
+      :[];
+    const sibCurStay=sibBookings.find(b=>b.checkin<=today2&&b.checkout>today2)||null;
+
+    // Sibling-aware gap pill: suppress gap if sibling is booked during that window
+    const gapPillSib=(fromDate,toDate)=>{
+      const sibOverlap=sibBookings.find(b=>b.checkin<toDate&&b.checkout>fromDate);
+      if(sibOverlap)return linkedPill(sibOverlap);
+      return gapPill(fromDate,toDate);
+    };
     const isOccupied=!!curStay;
 
     // Status pill (top of card)
@@ -1338,10 +1377,13 @@ function renderToday(){
 
     // ── Build chronological timeline ──────────────────────────
     const timelinePills=[];
-    // If available now (not occupied), insert gap from today to first upcoming
+    // If not directly occupied, show sibling current stay OR gap/noUpcoming
     if(!isOccupied){
-      if(upcoming.length){
-        timelinePills.push(gapPill(today2,upcoming[0].checkin));
+      if(sibCurStay){
+        // Sibling is currently occupying this unit — show linked pill
+        timelinePills.push(linkedPill(sibCurStay));
+      }else if(upcoming.length){
+        timelinePills.push(gapPillSib(today2,upcoming[0].checkin));
       }else{
         timelinePills.push(noUpcomingPill(today2,!hasAnyBooking));
       }
@@ -1350,10 +1392,9 @@ function renderToday(){
     if(curStay)timelinePills.push(makeTpcPill(curStay,true));
     // Upcoming bookings + gaps between them
     upcoming.forEach((b,i)=>{
-      // Gap between previous checkout and this checkin
       const prevCheckout=i===0?(curStay?curStay.checkout:null):upcoming[i-1].checkout;
       if(prevCheckout&&prevCheckout<b.checkin){
-        timelinePills.push(gapPill(prevCheckout,b.checkin));
+        timelinePills.push(gapPillSib(prevCheckout,b.checkin));
       }
       timelinePills.push(makeTpcPill(b,false));
     });
@@ -2224,12 +2265,29 @@ function checkOverlap(){
   const alertEl=document.getElementById('overlapAlert');
   if(!ci||!co||!pr){alertEl.classList.remove('show');return;}
   const cand={id:editingBookingId||'',checkin:ci,checkout:co,property:pr,status:'Confirmed'};
+  // Direct same-property conflicts
   const ov=bookings.filter(o=>o.id!==editingBookingId&&o.property===pr&&o.status!=='Cancelled'&&bookingsOverlap(cand,o));
-  if(!ov.length){alertEl.classList.remove('show');alertEl.onclick=null;alertEl.style.cursor='';return;}
-  alertEl.classList.add('show','danger');
-  document.getElementById('overlapText').textContent=`Conflict with ${ov.map(o=>o.guest).join(', ')} — tap to view`;
-  alertEl.style.cursor='pointer';
-  alertEl.onclick=()=>{closeDrawer();setTimeout(()=>openBookingDrawer(ov[0].id),180);};
+  if(ov.length){
+    alertEl.classList.add('show','danger');
+    document.getElementById('overlapText').textContent=`Conflict with ${ov.map(o=>o.guest).join(', ')} — tap to view`;
+    alertEl.style.cursor='pointer';
+    alertEl.onclick=()=>{closeDrawer();setTimeout(()=>openBookingDrawer(ov[0].id),180);};
+    return;
+  }
+  // Linked group conflict (2BR Aurora / Bliss / 4BR Twin) — soft warning only
+  const siblings=getLinkedSiblings(pr);
+  if(siblings.length){
+    const sibOv=bookings.filter(o=>o.id!==editingBookingId&&siblings.includes(o.property)&&o.status!=='Cancelled'&&bookingsOverlap(cand,o));
+    if(sibOv.length){
+      const sn=propName(sibOv[0].property);
+      alertEl.classList.add('show','danger');
+      document.getElementById('overlapText').textContent=`⚠️ Linked unit conflict: ${sn} booked by ${sibOv[0].guest} (${fmtDate(sibOv[0].checkin)}–${fmtDate(sibOv[0].checkout)}) — tap to view`;
+      alertEl.style.cursor='pointer';
+      alertEl.onclick=()=>{closeDrawer();setTimeout(()=>openBookingDrawer(sibOv[0].id),180);};
+      return;
+    }
+  }
+  alertEl.classList.remove('show');alertEl.onclick=null;alertEl.style.cursor='';
 }
 
 function _buildBookingFromForm(existing){
