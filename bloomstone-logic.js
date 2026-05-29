@@ -1309,15 +1309,12 @@ function renderToday(){
       const days=Math.round((new Date(toDate+'T12:00:00')-new Date(fromDate+'T12:00:00'))/86400000);
       if(days<=0)return'';
       const tight=days<5;
-      const bg=tight?'#fffbeb':'#f0fdf4';
-      const clr=tight?'#b45309':'#16a34a';
-      const dot=tight?'#f59e0b':'#16a34a';
-      const tip=tight?`<span style="font-size:10px;color:${clr};font-weight:700;white-space:nowrap;flex-shrink:0">💡 Offer 20% off on Airbnb</span>`:'';
-      return`<div style="background:${bg};border-radius:9px;padding:9px 12px">
-        <div style="font-size:13px;font-weight:800;color:${clr};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px">🟡 GAP · ${days} day${days!==1?'s':''}</div>
+      const tip=tight?`<span style="font-size:10px;color:#16a34a;white-space:nowrap;flex-shrink:0">· 💡 Offer 20% off on Airbnb</span>`:'';
+      return`<div style="background:#f0fdf4;border-radius:9px;padding:9px 12px">
+        <div style="font-size:13px;font-weight:800;color:#16a34a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px">GAP · ${days} day${days!==1?'s':''}</div>
         <div style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap">
-          <span style="font-size:10px;font-weight:700;color:${clr};white-space:nowrap;flex-shrink:0">${sdShort(fromDate)} → ${sdShort(toDate)}</span>
-          ${tip?`<span style="font-size:10px;color:${clr};flex-shrink:0">·</span>${tip}`:''}
+          <span style="font-size:10px;font-weight:700;color:#16a34a;white-space:nowrap;flex-shrink:0">${sdShort(fromDate)} → ${sdShort(toDate)}</span>
+          ${tip}
         </div>
       </div>`;
     };
