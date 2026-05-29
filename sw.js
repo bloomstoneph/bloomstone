@@ -1,7 +1,7 @@
 // ============================================================
 // Bloomstone PMS — Service Worker
 // ============================================================
-const CACHE_NAME = 'bloomstone-v124';
+const CACHE_NAME = 'bloomstone-v125';
 
 // Core app files — always fetched fresh from network
 const NETWORK_FIRST = [

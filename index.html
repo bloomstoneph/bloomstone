@@ -1953,9 +1953,17 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
     <div style="flex:1;display:flex;align-items:center;gap:10px;padding:13px 16px 13px 14px">
       <div class="drawer-title" id="drawerTitle">New Booking</div>
       <span id="drawerStatusBadge" style="margin-left:2px"></span>
-      <button class="btn btn-ghost btn-sm" onclick="showGuestHistory()" title="View guest booking history" style="font-size:11px;padding:3px 9px;margin-left:2px">📋 Recent Bookings</button>
+      <button class="btn btn-ghost btn-sm" onclick="showGuestHistory()" title="View guest booking history" style="font-size:11px;padding:3px 9px;margin-left:2px">📋 Booking History</button>
       <button class="btn-icon btn-sm" id="drawerCloseBtn" style="margin-left:auto;flex-shrink:0">×</button>
     </div>
+  </div>
+  <!-- Sticky context strip: always visible while scrolling -->
+  <div id="drawerContextStrip" style="display:none;flex-shrink:0;padding:8px 14px 8px 18px;background:var(--surface-2);border-bottom:1px solid var(--border);gap:0">
+    <div style="display:flex;align-items:center;gap:6px;min-width:0">
+      <span id="dcsGuest" style="font-size:13px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0"></span>
+      <span id="dcsProperty" style="font-size:11px;font-weight:600;color:var(--text-2);white-space:nowrap;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;max-width:140px"></span>
+    </div>
+    <div id="dcsDates" style="font-size:11px;color:var(--text-3);font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
   </div>
   <div class="drawer-body" id="drawerBody">
 
@@ -2270,7 +2278,7 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 
     <!-- ── RECENT BOOKINGS ───────────────────────────────────── -->
     <div class="drawer-card">
-      <div class="drawer-card-hdr">🕐 Recent Bookings</div>
+      <div class="drawer-card-hdr">🕐 Booking History</div>
       <div id="drawerHistory" style="font-size:12px;color:var(--text-3);line-height:2"></div>
     </div>
 

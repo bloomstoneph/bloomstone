@@ -536,6 +536,22 @@ function fmtDateRange(ci,co){
   }
   return{range,nightsText};
 }
+function updateContextStrip(){
+  const strip=document.getElementById('drawerContextStrip');if(!strip)return;
+  const guest=(document.getElementById('f-guest')?.value||'').trim();
+  const propId=document.getElementById('f-property')?.value||'';
+  const ci=document.getElementById('f-checkin')?.value||'';
+  const co=document.getElementById('f-checkout')?.value||'';
+  if(!guest&&!propId&&!ci){strip.style.display='none';return;}
+  const guestEl=document.getElementById('dcsGuest');
+  const propEl=document.getElementById('dcsProperty');
+  const datesEl=document.getElementById('dcsDates');
+  if(guestEl)guestEl.textContent=guest||'—';
+  if(propEl)propEl.textContent=propId?propName(propId):'';
+  if(datesEl&&ci&&co){const{range,nightsText}=fmtDateRange(ci,co);datesEl.textContent=`📅 ${range} · ${nightsText}`;}
+  else if(datesEl)datesEl.textContent=ci?`📅 Check-in: ${fmtDate(ci)}`:'';
+  strip.style.display='block';
+}
 function updateDateRangeDisplay(){
   const ci=document.getElementById('f-checkin')?.value||'';
   const co=document.getElementById('f-checkout')?.value||'';
@@ -553,6 +569,7 @@ function updateDateRangeDisplay(){
   if(rangeEl)rangeEl.textContent=range;
   if(nightsEl)nightsEl.textContent=nightsText;
   el.style.display='flex';el.style.alignItems='baseline';el.style.justifyContent='space-between';el.style.gap='8px';
+  updateContextStrip();
 }
 function updateDrawerProfile(){
   const el=document.getElementById('drawerGuestProfile');if(!el)return;
@@ -580,6 +597,7 @@ function updateDrawerProfile(){
   }
   if(html){el.innerHTML=html;el.style.display='block';}
   else{el.style.display='none';}
+  updateContextStrip();
 }
 function todayISO(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function dateToISO(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -2144,6 +2162,7 @@ function onPropertyChange(){
   }
   calcFinancials();
   updateDrawerSummary();
+  updateContextStrip();
 }
 
 function updatePostCheckoutFields(){
