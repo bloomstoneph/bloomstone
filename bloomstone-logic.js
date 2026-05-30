@@ -1171,12 +1171,21 @@ function selectPlatform(name){
       label.style.color='var(--text-3)';
     }
   }
-  // Full platform color fill with white text
+  // Full platform color fill — remove input-req (has !important bg) when selected
   if(btn){
-    btn.style.background=pc?pc:'';
-    btn.style.borderColor=pc?pc:'';
-    btn.style.boxShadow=pc?`0 0 0 3px ${pc}40`:'';
-    btn.style.color=pc?'#fff':'';
+    if(pc){
+      btn.classList.remove('input-req');
+      btn.style.background=pc;
+      btn.style.borderColor=pc;
+      btn.style.boxShadow=`0 0 0 3px ${pc}40`;
+      btn.style.color='#fff';
+    } else {
+      btn.classList.add('input-req');
+      btn.style.background='';
+      btn.style.borderColor='';
+      btn.style.boxShadow='';
+      btn.style.color='';
+    }
     const chev=btn.querySelector('.plat-picker-chevron');
     if(chev)chev.style.color=pc?'rgba(255,255,255,.7)':'';
   }
@@ -1237,10 +1246,19 @@ function setPlatPickerValue(name){
   }
   const _btn=document.getElementById('platPickerBtn');
   if(_btn){
-    _btn.style.background=_pc?_pc:'';
-    _btn.style.borderColor=_pc?_pc:'';
-    _btn.style.boxShadow=_pc?`0 0 0 3px ${_pc}40`:'';
-    _btn.style.color=_pc?'#fff':'';
+    if(_pc){
+      _btn.classList.remove('input-req');
+      _btn.style.background=_pc;
+      _btn.style.borderColor=_pc;
+      _btn.style.boxShadow=`0 0 0 3px ${_pc}40`;
+      _btn.style.color='#fff';
+    } else {
+      _btn.classList.add('input-req');
+      _btn.style.background='';
+      _btn.style.borderColor='';
+      _btn.style.boxShadow='';
+      _btn.style.color='';
+    }
     const _chev=_btn.querySelector('.plat-picker-chevron');
     if(_chev)_chev.style.color=_pc?'rgba(255,255,255,.7)':'';
   }
