@@ -1172,6 +1172,12 @@ function selectPlatform(name){
   const list=document.getElementById('platPickerList');
   if(btn)btn.classList.remove('open');
   if(list)list.classList.remove('open');
+  // Color the picker border with platform color
+  if(btn){
+    const pc=name?platformColor(name):'';
+    btn.style.borderColor=pc?pc+'99':'';
+    btn.style.boxShadow=pc?`0 0 0 2px ${pc}22`:'';
+  }
   buildPlatPickerOptions();
   updatePromoSpecialOfferState();
   calcFinancials();
@@ -1219,6 +1225,8 @@ function setPlatPickerValue(name){
     if(norm){label.innerHTML=platformPillHtml(norm);label.style.color='';}
     else{label.textContent='Select\u2026';label.style.color='var(--text-3)';}
   }
+  const _btn=document.getElementById('platPickerBtn');
+  if(_btn){const pc=norm?platformColor(norm):'';_btn.style.borderColor=pc?pc+'99':'';_btn.style.boxShadow=pc?`0 0 0 2px ${pc}22`:'';};
   buildPlatPickerOptions();
   updatePromoSpecialOfferState();
 }
@@ -2157,6 +2165,8 @@ function onPropertyChange(){
   const cityText=document.getElementById('f-prop-city-text');
   if(prop){
     if(hint)hint.textContent=`Base ${prop.baseGuests} guests · max ${prop.maxGuests} · ${C()}${prop.extraGuestFee}/extra/night`;
+    const maxHint=document.getElementById('f-guestcount-max');
+    if(maxHint)maxHint.textContent=`Max ${prop.maxGuests}`;
     if(badge&&cityText){
       if(cityIcon)cityIcon.innerHTML=propIconHtml(prop,16);
       cityText.textContent=prop.city||'';
