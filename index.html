@@ -411,7 +411,7 @@ a{color:inherit;text-decoration:none}
 /* Drawer section cards */
 .drawer-card{
   border:1px solid var(--border);border-radius:var(--radius-lg);
-  padding:14px 16px 10px;margin-bottom:14px;background:var(--surface);
+  padding:14px 16px 10px;margin-bottom:14px;background:var(--surface-2);
 }
 .drawer-card-hdr{
   font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
@@ -435,7 +435,7 @@ a{color:inherit;text-decoration:none}
 .btn-amber{background:var(--amber);color:#fff;border:none}
 .btn-amber:hover{background:var(--amber-hover);opacity:1}
 /* Drawer section card headers — amber left accent */
-.drawer-card-hdr{border-left:3px solid var(--amber);padding-left:11px!important;color:var(--text)!important}
+.drawer-card-hdr{color:var(--text)!important}
 /* Drawer accent bar uses property color (set via JS) */
 /* FAB button — amber */
 .fab{background:var(--amber)!important;color:#fff!important}
@@ -2048,7 +2048,7 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
           </div>
         </div>
         <div class="field">
-          <label class="label">Special Offer <span style="color:var(--orange);font-size:10px;font-weight:700">Platform discount</span> <span style="font-size:10px;color:var(--text-3);cursor:help" title="Platform deducts this from your remittance. The guest pays less but the platform bears the cost.">(?)</span></label>
+          <label class="label">Special Offer <span style="color:var(--orange);font-size:10px;font-weight:700">Platform deducts</span> <span style="font-size:10px;color:var(--text-3);cursor:help" title="Platform absorbs this — reduces your payout, not your pocket.">(?)</span></label>
           <input class="input" id="f-specialoffer" type="number" placeholder="0" oninput="calcFinancialsLazy()"/>
         </div>
       </div>
@@ -2068,12 +2068,12 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 
       <div class="field-row" style="margin-top:12px;margin-bottom:0">
         <div class="field" style="margin-bottom:0">
-          <label class="label">Promo / Discount <span class="req">*</span> <span style="color:var(--green);font-size:10px;font-weight:700">Direct Booking only</span> <span style="font-size:10px;color:var(--text-3);cursor:help" title="You absorb this discount. Applied per night on direct bookings only — not available for platform bookings.">(?)</span></label>
+          <label class="label">Promo / Discount <span class="req">*</span> <span style="color:var(--green);font-size:10px;font-weight:700">Direct only</span> <span style="font-size:10px;color:var(--text-3);cursor:help" title="You cover this cost · per night · direct bookings only.">(?)</span></label>
           <input class="input input-req" id="f-promo" type="number" placeholder="0"
                  oninput="this.classList.remove('error');calcFinancialsLazy()"/>
         </div>
         <div class="field" style="margin-bottom:0">
-          <label class="label">Host Service Fee <span style="color:var(--orange);font-size:10px;font-weight:700">Platform fee · auto</span>
+          <label class="label">Host Service Fee <span style="color:var(--orange);font-size:10px;font-weight:700">Auto · platform</span>
             <button type="button" id="f-servicefee-reset" onclick="resetServiceFee()" style="display:none;background:none;border:none;cursor:pointer;color:var(--accent);font-size:10px;padding:0 4px" title="Reset to computed">↺</button>
           </label>
           <input class="input" id="f-servicefee" type="number" placeholder="0"
@@ -2245,13 +2245,13 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--orange);padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid rgba(196,124,10,.2);display:flex;align-items:center;gap:6px">📤 Check-Out</div>
       <div class="field-row" style="margin-bottom:10px">
         <div class="field" style="margin-bottom:0">
-          <label class="label" id="f-cleaning-label">Cleaning Fee (₱) <span style="color:var(--text-3);font-size:10px;font-weight:600">Owner cost · not billed to guest</span></label>
+          <label class="label" id="f-cleaning-label">Cleaning Fee (₱) <span style="color:var(--text-3);font-size:10px;font-weight:600">Not billed to guest</span></label>
           <input class="input" id="f-cleaning" type="number" min="0" step="1" value="0"
                  oninput="this.value=this.value.replace(/[^0-9.]/g,'');calcFinancialsLazy();" placeholder="0"/>
           <div id="f-cleaning-hint" style="font-size:10px;color:var(--text-3);margin-top:4px;display:none">🔒 Unlocks after checkout</div>
         </div>
         <div class="field" style="margin-bottom:0">
-          <label class="label" id="f-store-label">Store / Add-ons (₱) <span style="color:var(--green);font-size:10px;font-weight:600">100% owner revenue</span></label>
+          <label class="label" id="f-store-label">Store / Add-ons (₱) <span style="color:var(--green);font-size:10px;font-weight:600">Yours 100%</span></label>
           <input class="input" id="f-store" type="number" min="0" step="1" value="0"
                  oninput="this.value=this.value.replace(/[^0-9.]/g,'');calcFinancialsLazy();" placeholder="0"/>
           <div id="f-store-hint" style="font-size:10px;color:var(--text-3);margin-top:4px;display:none">🔒 Unlocks after checkout</div>

@@ -1164,19 +1164,30 @@ function selectPlatform(name){
   const inp=document.getElementById('f-platform');
   if(inp)inp.value=name;
   const label=document.getElementById('platPickerLabel');
-  if(label){
-    if(name){label.innerHTML=platformPillHtml(name);label.style.color='';}
-    else{label.textContent='Select\u2026';label.style.color='var(--text-3)';}
-  }
   const btn=document.getElementById('platPickerBtn');
   const list=document.getElementById('platPickerList');
   if(btn)btn.classList.remove('open');
   if(list)list.classList.remove('open');
-  // Color the picker border with platform color
+  const pc=name?platformColor(name):'';
+  if(label){
+    if(name){
+      label.innerHTML=pc
+        ?`<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.55);flex-shrink:0"></span>${esc(name)}</span>`
+        :platformPillHtml(name);
+      label.style.color=pc?'#fff':'';
+    } else {
+      label.textContent='Select\u2026';
+      label.style.color='var(--text-3)';
+    }
+  }
+  // Full platform color fill with white text
   if(btn){
-    const pc=name?platformColor(name):'';
-    btn.style.borderColor=pc?pc+'99':'';
-    btn.style.boxShadow=pc?`0 0 0 2px ${pc}22`:'';
+    btn.style.background=pc?pc:'';
+    btn.style.borderColor=pc?pc:'';
+    btn.style.boxShadow=pc?`0 0 0 3px ${pc}40`:'';
+    btn.style.color=pc?'#fff':'';
+    const chev=btn.querySelector('.plat-picker-chevron');
+    if(chev)chev.style.color=pc?'rgba(255,255,255,.7)':'';
   }
   buildPlatPickerOptions();
   updatePromoSpecialOfferState();
@@ -1221,12 +1232,27 @@ function setPlatPickerValue(name){
   const inp=document.getElementById('f-platform');
   if(inp)inp.value=norm;
   const label=document.getElementById('platPickerLabel');
+  const _pc=norm?platformColor(norm):'';
   if(label){
-    if(norm){label.innerHTML=platformPillHtml(norm);label.style.color='';}
-    else{label.textContent='Select\u2026';label.style.color='var(--text-3)';}
+    if(norm){
+      label.innerHTML=_pc
+        ?`<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.55);flex-shrink:0"></span>${esc(norm)}</span>`
+        :platformPillHtml(norm);
+      label.style.color=_pc?'#fff':'';
+    } else {
+      label.textContent='Select\u2026';
+      label.style.color='var(--text-3)';
+    }
   }
   const _btn=document.getElementById('platPickerBtn');
-  if(_btn){const pc=norm?platformColor(norm):'';_btn.style.borderColor=pc?pc+'99':'';_btn.style.boxShadow=pc?`0 0 0 2px ${pc}22`:'';};
+  if(_btn){
+    _btn.style.background=_pc?_pc:'';
+    _btn.style.borderColor=_pc?_pc:'';
+    _btn.style.boxShadow=_pc?`0 0 0 3px ${_pc}40`:'';
+    _btn.style.color=_pc?'#fff':'';
+    const _chev=_btn.querySelector('.plat-picker-chevron');
+    if(_chev)_chev.style.color=_pc?'rgba(255,255,255,.7)':'';
+  }
   buildPlatPickerOptions();
   updatePromoSpecialOfferState();
 }
