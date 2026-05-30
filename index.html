@@ -414,8 +414,8 @@ a{color:inherit;text-decoration:none}
   padding:14px 16px 10px;margin-bottom:14px;background:var(--surface);
 }
 .drawer-card-hdr{
-  font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
-  color:var(--text-2);display:flex;align-items:center;gap:6px;
+  font-size:13px;font-weight:800;letter-spacing:-.01em;
+  color:var(--text);display:flex;align-items:center;gap:6px;
   padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid var(--border);
 }
 /* form-sec kept for any remaining uses outside drawer */
@@ -1981,7 +1981,7 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 
     <!-- ── PROPERTY + RATE ───────────────────────────────────── -->
     <div class="drawer-card">
-      <div class="drawer-card-hdr">🏠 Property & Rate</div>
+      <div class="drawer-card-hdr">Property & Rate</div>
       <div class="field-row" style="margin-bottom:0">
         <div class="field" style="flex:2;margin-bottom:0">
           <label class="label">Property <span class="req">*</span></label>
@@ -2000,7 +2000,7 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 
     <!-- ── BOOKING DETAILS CARD ─────────────────────────────── -->
     <div class="drawer-card">
-      <div class="drawer-card-hdr">📅 Booking Details</div>
+      <div class="drawer-card-hdr">Booking Details</div>
       <div class="alert-bar" id="overlapAlert">⚠ <span id="overlapText"></span></div>
 
       <div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:12px">
@@ -2086,7 +2086,7 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 
     <!-- ── MID-STAY ADJUSTMENTS ──────────────────────────────── -->
     <div class="drawer-card">
-      <div class="drawer-card-hdr">➕ Mid-Stay Adjustments</div>
+      <div class="drawer-card-hdr">Mid-Stay Adjustments</div>
       <div id="adjList" style="margin-bottom:8px"></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">
         <button class="btn btn-ghost btn-sm" onclick="addAdjustment('Early check-in fee')">＋ Early Check-in</button>
@@ -2255,7 +2255,7 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
 
     <!-- ── NOTES ─────────────────────────────────────────────── -->
     <div class="drawer-card">
-      <div class="drawer-card-hdr">📝 Notes</div>
+      <div class="drawer-card-hdr">Notes</div>
       <div class="field" style="margin-bottom:10px">
         <label class="label">Guest Preferences <span style="color:var(--text-3);font-size:10px">(dietary, room setup, special requests)</span></label>
         <textarea class="input" id="f-guestprefs" rows="2" placeholder="e.g. vegetarian, extra pillows, early check-in…" style="resize:vertical;min-height:60px"></textarea>
