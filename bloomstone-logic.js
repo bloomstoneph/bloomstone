@@ -544,12 +544,23 @@ function updateContextStrip(){
   const propId=document.getElementById('f-property')?.value||'';
   const ci=document.getElementById('f-checkin')?.value||'';
   const co=document.getElementById('f-checkout')?.value||'';
+  const platName=(document.getElementById('f-platform')?.value||'').trim();
   if(!guest&&!propId&&!ci){strip.style.display='none';return;}
   const guestEl=document.getElementById('dcsGuest');
   const propEl=document.getElementById('dcsProperty');
   const datesEl=document.getElementById('dcsDates');
+  const platEl=document.getElementById('dcsPlatform');
   if(guestEl)guestEl.textContent=guest||'—';
   if(propEl)propEl.textContent=propId?propName(propId):'';
+  if(platEl){
+    if(platName){
+      const pc=platformColor(platName);
+      platEl.innerHTML=`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:${pc};white-space:nowrap"><span style="width:6px;height:6px;border-radius:50%;background:${pc};flex-shrink:0"></span>${esc(platName)}</span>`;
+      platEl.style.display='inline';
+    } else {
+      platEl.style.display='none';
+    }
+  }
   if(datesEl&&ci&&co){const{range,nightsText}=fmtDateRange(ci,co);datesEl.textContent=`📅 ${range} · ${nightsText}`;}
   else if(datesEl)datesEl.textContent=ci?`📅 Check-in: ${fmtDate(ci)}`:'';
   strip.style.display='block';
@@ -1191,6 +1202,7 @@ function selectPlatform(name){
   }
   buildPlatPickerOptions();
   updatePromoSpecialOfferState();
+  updateContextStrip();
   calcFinancials();
   updateDrawerSummary();
 }
