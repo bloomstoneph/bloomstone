@@ -2451,7 +2451,6 @@ function saveBooking(){
     {id:'f-checkout',   label:'Check-out Date'},
     {id:'f-platform',   label:'Platform'},
     {id:'f-property',   label:'Property'},
-    {id:'f-rate',       label:'Nightly Rate'},
     {id:'f-status',     label:'Status'},
     {id:'f-payment',    label:'Payment'},
   ];
