@@ -2216,15 +2216,10 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
       </div>
     </div>
 
-    <!-- ── BOOKING STATUS ────────────────────────────────────── -->
-    <div class="drawer-card">
-      <div class="drawer-card-hdr">🔖 Booking Status</div>
-      <div class="field" style="margin-bottom:0">
-        <select class="input input-req" id="f-status" style="font-weight:700;transition:background .15s,color .15s">
-          <option>Confirmed</option><option>Pending</option><option>Checked-In</option><option>Checked-Out</option><option>Cancelled</option>
-        </select>
-      </div>
-    </div>
+    <!-- f-status hidden — status changed via context strip / quick actions only -->
+    <select id="f-status" style="display:none">
+      <option>Confirmed</option><option>Pending</option><option>Checked-In</option><option>Checked-Out</option><option>Cancelled</option>
+    </select>
 
     <!-- ── CHECK-IN ───────────────────────────────────────────── -->
     <div style="background:var(--green-bg,rgba(16,185,129,.07));border:1.5px solid var(--green,#10b981);border-radius:var(--radius-lg);padding:12px 14px 10px;margin-bottom:14px">
