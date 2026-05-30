@@ -575,9 +575,18 @@ function updateDateRangeDisplay(){
   el.style.display='flex';el.style.flexDirection='column';el.style.alignItems='center';
   updateContextStrip();
 }
+function updateGuestAvatar(){
+  const guest=(document.getElementById('f-guest')?.value||'').trim();
+  const av=document.getElementById('guestAvatar');if(!av)return;
+  if(!guest){av.textContent='?';return;}
+  const parts=guest.split(/\s+/);
+  const initials=parts.length>=2?parts[0][0]+parts[parts.length-1][0]:parts[0][0];
+  av.textContent=initials.toUpperCase();
+}
 function updateDrawerProfile(){
   const el=document.getElementById('drawerGuestProfile');if(!el)return;
   const guest=(document.getElementById('f-guest')?.value||'').trim();
+  updateGuestAvatar();
   if(!guest){el.style.display='none';return;}
   const gBks=bookings.filter(b=>(b.guest||'').toLowerCase().trim()===guest.toLowerCase().trim());
   // B6: Show guest prefs from most recent booking for this guest
@@ -586,17 +595,12 @@ function updateDrawerProfile(){
   let html='';
   if(gBks.length>1){
     const lifetime=gBks.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
-    const firstStay=fmtDate(gBks.map(b=>b.checkin).filter(Boolean).sort()[0]);
-    html+=`<div style="background:var(--purple-bg);border-radius:var(--radius);padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:${prefs?'6px':'0'}">
-      <span style="background:var(--purple);color:#fff;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:800;white-space:nowrap">↩ REPEAT GUEST</span>
-      <span style="color:var(--purple);font-weight:700;font-size:12px">${gBks.length} stays</span>
-      <span style="color:var(--text-3);font-size:12px">·  ${fmtMoney(lifetime)} lifetime  ·  since ${firstStay}</span>
-    </div>`;
+    html+=`<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:var(--purple);background:var(--purple-bg);border-radius:20px;padding:2px 9px;white-space:nowrap">↩ Repeat Guest · ${gBks.length} stays · ${fmtMoney(lifetime)} lifetime</span>`;
   }
   if(prefs){
-    html+=`<div style="background:var(--blue-bg);border-radius:var(--radius);padding:7px 12px;font-size:12px;color:var(--blue);display:flex;align-items:flex-start;gap:8px">
-      <span style="font-size:14px;flex-shrink:0">📋</span>
-      <span><strong>Guest Prefs:</strong> ${esc(prefs)}</span>
+    html+=`<div style="margin-top:5px;background:var(--blue-bg);border-radius:var(--radius);padding:6px 10px;font-size:11px;color:var(--blue);display:flex;align-items:flex-start;gap:6px">
+      <span style="flex-shrink:0">📋</span>
+      <span><strong>Prefs:</strong> ${esc(prefs)}</span>
     </div>`;
   }
   if(html){el.innerHTML=html;el.style.display='block';}
