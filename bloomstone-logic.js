@@ -559,10 +559,9 @@ function updateDateRangeDisplay(){
   const co=document.getElementById('f-checkout')?.value||'';
   const el=document.getElementById('dateRangeDisplay');if(!el)return;
   if(!ci||!co){el.style.display='none';return;}
-  const{nightsText}=fmtDateRange(ci,co);
   const nightsEl=document.getElementById('dateNightsText');
-  if(nightsEl)nightsEl.textContent=nightsText;
-  el.style.display='block';
+  if(nightsEl)nightsEl.textContent=nightsBetween(ci,co);
+  el.style.display='flex';el.style.flexDirection='column';el.style.alignItems='center';
   updateContextStrip();
 }
 function updateDrawerProfile(){
