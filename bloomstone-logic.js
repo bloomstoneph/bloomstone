@@ -575,13 +575,78 @@ function updateDateRangeDisplay(){
   el.style.display='flex';el.style.flexDirection='column';el.style.alignItems='center';
   updateContextStrip();
 }
+// ── Guest photo storage ───────────────────────────────────────────────────
+let _guestPhotos=JSON.parse(localStorage.getItem('_guestPhotos')||'{}');
+function _saveGuestPhotos(){localStorage.setItem('_guestPhotos',JSON.stringify(_guestPhotos));}
+function _guestPhotoKey(name){return(name||'').toLowerCase().trim();}
+function getGuestPhoto(name){return _guestPhotos[_guestPhotoKey(name)]||null;}
+function setGuestPhoto(name,dataUrl){
+  if(!name)return;
+  _guestPhotos[_guestPhotoKey(name)]=dataUrl;
+  _saveGuestPhotos();
+  updateGuestAvatar();
+}
+function removeGuestPhotoForCurrent(){
+  const guest=(document.getElementById('f-guest')?.value||'').trim();
+  if(!guest)return;
+  delete _guestPhotos[_guestPhotoKey(guest)];
+  _saveGuestPhotos();
+  updateGuestAvatar();
+}
+function handleAvatarFile(file){
+  if(!file||!file.type.startsWith('image/'))return;
+  const guest=(document.getElementById('f-guest')?.value||'').trim();
+  if(!guest){showToast('Enter guest name first','warning');return;}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    // Resize to max 200px to keep storage small
+    const img=new Image();
+    img.onload=()=>{
+      const size=200;
+      const canvas=document.createElement('canvas');
+      const scale=Math.min(size/img.width,size/img.height,1);
+      canvas.width=Math.round(img.width*scale);
+      canvas.height=Math.round(img.height*scale);
+      canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+      setGuestPhoto(guest,canvas.toDataURL('image/jpeg',.85));
+      showToast('Guest photo saved','success');
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function handleAvatarDrop(e){
+  e.preventDefault();
+  const file=[...(e.dataTransfer.files||[])].find(f=>f.type.startsWith('image/'));
+  if(file)handleAvatarFile(file);
+}
+// Paste image anywhere while drawer is open
+document.addEventListener('paste',function(e){
+  const drawer=document.getElementById('bookingDrawer');
+  if(!drawer||!drawer.classList.contains('open'))return;
+  const item=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/'));
+  if(!item)return;
+  e.preventDefault();
+  handleAvatarFile(item.getAsFile());
+});
+
 function updateGuestAvatar(){
   const guest=(document.getElementById('f-guest')?.value||'').trim();
   const av=document.getElementById('guestAvatar');if(!av)return;
-  if(!guest){av.textContent='?';return;}
+  const removeBtn=document.getElementById('guestPhotoRemove');
+  const photo=getGuestPhoto(guest);
+  if(photo){
+    av.style.background='none';
+    av.innerHTML=`<img src="${photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/><div class="avatar-cam-overlay">📷</div>`;
+    if(removeBtn)removeBtn.classList.add('visible');
+    return;
+  }
+  if(removeBtn)removeBtn.classList.remove('visible');
+  av.style.background='linear-gradient(135deg,#7c3aed,#a855f7)';
+  if(!guest){av.innerHTML='?<div class="avatar-cam-overlay">📷</div>';return;}
   const parts=guest.split(/\s+/);
   const initials=parts.length>=2?parts[0][0]+parts[parts.length-1][0]:parts[0][0];
-  av.textContent=initials.toUpperCase();
+  av.innerHTML=initials.toUpperCase()+'<div class="avatar-cam-overlay">📷</div>';
 }
 function updateDrawerProfile(){
   const el=document.getElementById('drawerGuestProfile');if(!el)return;
