@@ -2356,22 +2356,6 @@ function calcFinancials(){
   _set('s-cleaning',t.cleaningFee?`−${fmtMoney(t.cleaningFee)}`:'—','var(--text-2)');
   _set('s-store-display',t.storeSales?`+${fmtMoney(t.storeSales)}`:'—','var(--green)');
   _set('s-net',fmtMoney(actualNet),actualNet>=0?'var(--green)':'var(--red)');
-  // ── Revenue Split row (only shown when property has a split configured) ──
-  const actualOwnerPct=t.ownerPct??100;
-  const splitEl=document.getElementById('s-split-row');
-  if(splitEl){
-    if(actualOwnerPct<100&&actualNet){
-      const actualSplitBase=t.guestTotal-actualSvcFee-t.cleaningFee;
-      const ownerAmt=actualSplitBase*(actualOwnerPct/100)+t.storeSales;
-      const bloomsAmt=actualSplitBase*((100-actualOwnerPct)/100);
-      splitEl.innerHTML=`<div style="margin-top:8px;padding:8px 10px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--border);font-size:12px">
-        <div style="font-weight:700;color:var(--text-3);font-size:10px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Revenue Split (${actualOwnerPct}% / ${100-actualOwnerPct}%)</div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-2)">Owner Share (${actualOwnerPct}%)</span><span style="font-weight:700;color:var(--blue)">${fmtMoney(ownerAmt)}</span></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:var(--text-2)">Bloomstone (${100-actualOwnerPct}%)</span><span style="font-weight:700;color:var(--green)">${fmtMoney(bloomsAmt)}</span></div>
-      </div>`;
-      splitEl.style.display='';
-    }else{splitEl.style.display='none';}
-  }
   checkOverlap();
 }
 
