@@ -565,12 +565,10 @@ function updateDateRangeDisplay(){
   const accentColor=propId?propertyColor(propId):(platName?platformColor(platName):'#64748B');
   if(bar)bar.style.background=accentColor;
   if(!ci||!co){el.style.display='none';return;}
-  const{range,nightsText}=fmtDateRange(ci,co);
-  const rangeEl=document.getElementById('dateRangeText');
+  const{nightsText}=fmtDateRange(ci,co);
   const nightsEl=document.getElementById('dateNightsText');
-  if(rangeEl)rangeEl.textContent=range;
   if(nightsEl)nightsEl.textContent=nightsText;
-  el.style.display='flex';el.style.alignItems='baseline';el.style.justifyContent='space-between';el.style.gap='8px';
+  el.style.display='block';
   updateContextStrip();
 }
 function updateDrawerProfile(){
