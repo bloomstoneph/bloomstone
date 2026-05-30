@@ -558,12 +558,6 @@ function updateDateRangeDisplay(){
   const ci=document.getElementById('f-checkin')?.value||'';
   const co=document.getElementById('f-checkout')?.value||'';
   const el=document.getElementById('dateRangeDisplay');if(!el)return;
-  const bar=document.getElementById('drawerAccentBar');
-  const propId=document.getElementById('f-property')?.value||'';
-  const platName=document.getElementById('f-platform')?.value||'';
-  // Option B: accent bar uses property color (identity), falls back to platform
-  const accentColor=propId?propertyColor(propId):(platName?platformColor(platName):'#64748B');
-  if(bar)bar.style.background=accentColor;
   if(!ci||!co){el.style.display='none';return;}
   const{nightsText}=fmtDateRange(ci,co);
   const nightsEl=document.getElementById('dateNightsText');
@@ -1850,9 +1844,6 @@ function updateDrawerSummary(){
   // Option B: Accent bar uses property color (identity)
   const propId=document.getElementById('f-property')?.value||'';
   const platName=document.getElementById('f-platform')?.value||'';
-  const bar=document.getElementById('drawerAccentBar');
-  const accentColor=propId?propertyColor(propId):(platName?platformColor(platName):'#64748B');
-  if(bar)bar.style.background=accentColor;
   // Status badge in header
   const badgeEl=document.getElementById('drawerStatusBadge');
   if(badgeEl){
