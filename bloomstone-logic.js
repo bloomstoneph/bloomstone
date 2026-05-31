@@ -647,20 +647,35 @@ document.addEventListener('paste',function(e){
 function updateGuestAvatar(){
   const guest=(document.getElementById('f-guest')?.value||'').trim();
   const av=document.getElementById('guestAvatar');if(!av)return;
+  const textEl=document.getElementById('guestAvatarText');
   const removeBtn=document.getElementById('guestPhotoRemove');
   const photo=getGuestPhoto(guest);
+  // Remove stale photo img if guest changed
+  const existingImg=av.querySelector('img');
   if(photo){
+    if(!existingImg){
+      // Add photo img once — don't rewrite innerHTML
+      const img=document.createElement('img');
+      img.src=photo;img.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%';
+      av.insertBefore(img,av.firstChild);
+    } else if(existingImg.src!==photo){
+      existingImg.src=photo;
+    }
     av.style.background='none';
-    av.innerHTML=`<img src="${photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/><div class="avatar-cam-overlay">📷</div>`;
+    if(textEl)textEl.style.display='none';
     if(removeBtn)removeBtn.classList.add('visible');
     return;
   }
+  // No photo — show initials
+  if(existingImg)existingImg.remove();
+  if(textEl)textEl.style.display='';
   if(removeBtn)removeBtn.classList.remove('visible');
   av.style.background='linear-gradient(135deg,#7c3aed,#a855f7)';
-  if(!guest){av.innerHTML='?<div class="avatar-cam-overlay">📷</div>';return;}
+  if(!textEl)return;
+  if(!guest){textEl.textContent='?';return;}
   const parts=guest.split(/\s+/);
   const initials=parts.length>=2?parts[0][0]+parts[parts.length-1][0]:parts[0][0];
-  av.innerHTML=initials.toUpperCase()+'<div class="avatar-cam-overlay">📷</div>';
+  textEl.textContent=initials.toUpperCase();
 }
 function updateDrawerProfile(){
   const el=document.getElementById('drawerGuestProfile');if(!el)return;
@@ -4346,10 +4361,7 @@ function renderProperties(){
       <div class="pcard-body">
         <div class="pcard-top">
           <div class="pcard-title-wrap">
-            <div style="display:flex;align-items:center;gap:8px">
-              <div class="pcard-name" style="flex:1;min-width:0;margin-bottom:0">${esc(p.name)}${p.beds?`<span class="pcard-beds">${p.beds}BR</span>`:''}</div>
-              <div style="flex-shrink:0">${statusPill}</div>
-            </div>
+            <div class="pcard-name" style="margin-bottom:4px">${esc(p.name)}${p.beds?`<span class="pcard-beds">${p.beds}BR</span>`:''}<span style="margin-left:auto;flex-shrink:0">${statusPill}</span></div>
             <div class="pcard-location">📍 ${esc(p.city)}${p.address?` · ${esc(p.address)}`:''}</div>
           </div>
           <div class="pcard-actions" onclick="event.stopPropagation()">
