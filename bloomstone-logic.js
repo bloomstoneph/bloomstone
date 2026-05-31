@@ -4341,8 +4341,8 @@ function renderProperties(){
 
     // ── Status pill ──
     const statusPill=currentGuest
-      ? `<div class="pcard-status occupied"><span class="pcard-status-dot"></span>Occupied · ${esc(currentGuest.guest)}</div>`
-      : `<div class="pcard-status available"><span class="pcard-status-dot"></span>Available</div>`;
+      ? `<span class="pcard-status occupied" style="margin-left:auto;flex-shrink:0"><span class="pcard-status-dot"></span>Occupied · ${esc(currentGuest.guest)}</span>`
+      : `<span class="pcard-status available" style="margin-left:auto;flex-shrink:0"><span class="pcard-status-dot"></span>Available</span>`;
 
     // ── Occupancy bar color ──
     const occColor=occ>=70?'var(--green)':occ>=40?'var(--orange)':'var(--red)';
@@ -4361,7 +4361,7 @@ function renderProperties(){
       <div class="pcard-body">
         <div class="pcard-top">
           <div class="pcard-title-wrap">
-            <div class="pcard-name" style="margin-bottom:4px">${esc(p.name)}${p.beds?`<span class="pcard-beds">${p.beds}BR</span>`:''}<span style="margin-left:auto;flex-shrink:0">${statusPill}</span></div>
+            <div class="pcard-name" style="margin-bottom:4px">${esc(p.name)}${p.beds?`<span class="pcard-beds">${p.beds}BR</span>`:''} ${statusPill}</div>
             <div class="pcard-location">📍 ${esc(p.city)}${p.address?` · ${esc(p.address)}`:''}</div>
           </div>
           <div class="pcard-actions" onclick="event.stopPropagation()">
