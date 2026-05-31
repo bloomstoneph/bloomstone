@@ -1649,8 +1649,8 @@ function renderToday(){
         <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;cursor:pointer" onclick="navigateTo('properties')">
           <div class="tpc-icon">${propIconHtml(p,15)}</div>
           <div style="font-size:18px;font-weight:800;color:var(--text);line-height:1.25;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(p.name)}</div>
+          ${statusPill}
         </div>
-        <div>${statusPill}</div>
       </div>
       <div style="height:1px;background:rgba(0,0,0,.07);margin:0 0 9px"></div>
       <div style="display:flex;flex-direction:column;gap:6px">${pillsHtml}</div>
