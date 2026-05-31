@@ -1644,23 +1644,23 @@ function renderToday(){
       <span style="font-size:9px;font-weight:700;color:var(--text-3);letter-spacing:.6px;text-transform:uppercase;white-space:nowrap">${lbl}</span>
       <div style="flex:1;height:1px;background:rgba(0,0,0,.07)"></div>
     </div>`;
-    const kpiRow=`<div style="margin-top:auto;padding-top:10px;display:flex;flex-direction:column;gap:10px">
-      <div>
-        ${divider(mnthLabel+' only')}
-        <div style="display:flex;gap:6px">
-          ${kpiBox(mnthCount,'Bookings')}
-          ${kpiBox(mnthNights,'Nights')}
-          ${kpiBox(mnthGross?fmtMoney(mnthGross):'—','Gross Rev')}
-        </div>
+    const nxtLine=`<div style="margin-top:8px;display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--surface-2);border-radius:8px;opacity:.75">
+      <span style="font-size:10px;font-weight:700;color:var(--text-3);white-space:nowrap">${nxtLabel}</span>
+      <span style="font-size:10px;color:var(--text-3)">·</span>
+      <span style="font-size:10px;font-weight:600;color:var(--text-2)">${nxtCount} bkg${nxtCount!==1?'s':''}</span>
+      <span style="font-size:10px;color:var(--text-3)">·</span>
+      <span style="font-size:10px;font-weight:600;color:var(--text-2)">${nxtNights}N</span>
+      <span style="font-size:10px;color:var(--text-3)">·</span>
+      <span style="font-size:10px;font-weight:600;color:var(--text-2)">${nxtGross?fmtMoney(nxtGross):'—'}</span>
+    </div>`;
+    const kpiRow=`<div style="margin-top:auto;padding-top:10px">
+      ${divider(mnthLabel+' only')}
+      <div style="display:flex;gap:6px">
+        ${kpiBox(mnthCount,'Bookings')}
+        ${kpiBox(mnthNights,'Nights')}
+        ${kpiBox(mnthGross?fmtMoney(mnthGross):'—','Gross Rev')}
       </div>
-      <div>
-        ${divider(nxtLabel+' — next')}
-        <div style="display:flex;gap:6px">
-          ${kpiBox(nxtCount||'—','Bookings')}
-          ${kpiBox(nxtNights||'—','Nights')}
-          ${kpiBox(nxtGross?fmtMoney(nxtGross):'—','Gross Rev')}
-        </div>
-      </div>
+      ${nxtLine}
     </div>`;
     return`<div class="today-prop-card" style="display:flex;flex-direction:column">
       <div style="margin-bottom:9px">
@@ -4326,6 +4326,60 @@ function contractStatusBadge(p){
   if(daysLeft<=90)return`<span class="badge badge-orange" style="opacity:.7" title="Contract ends ${fmtDate(end)}">~${Math.ceil(daysLeft/30)}mo left</span>`;
   return`<span class="badge badge-green" title="Contract ends ${fmtDate(end)}">Active</span>`;
 }
+function openPropBookingsPanel(propId){
+  const p=properties.find(x=>x.id===propId);if(!p)return;
+  const now=new Date();
+  let viewYear=now.getFullYear(),viewMonth=now.getMonth();
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;display:flex;align-items:flex-end;justify-content:center';
+  const panel=document.createElement('div');
+  panel.style.cssText='background:var(--surface);border-radius:18px 18px 0 0;width:100%;max-width:560px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -4px 32px rgba(0,0,0,.18)';
+  const render=()=>{
+    const mn=`${viewYear}-${String(viewMonth+1).padStart(2,'0')}`;
+    const label=new Date(viewYear,viewMonth,2).toLocaleString('en-US',{month:'long',year:'numeric'});
+    const bks=bookings.filter(b=>b.property===propId&&b.status!=='Cancelled'&&(b.checkin||'').startsWith(mn)).sort((a,b)=>a.checkin.localeCompare(b.checkin));
+    const totNights=bks.reduce((s,b)=>s+(calcTotals(b).nights||0),0);
+    const totRev=bks.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
+    panel.innerHTML=`
+      <div style="display:flex;align-items:center;gap:10px;padding:16px 18px 12px;border-bottom:1px solid var(--border)">
+        <button onclick="this.closest('[data-panel]').dispatchEvent(new Event('prev'))" style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">‹</button>
+        <div style="flex:1;text-align:center">
+          <div style="font-size:15px;font-weight:800;color:var(--text)">${esc(p.name)}</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text-3)">${label}</div>
+        </div>
+        <button onclick="this.closest('[data-panel]').dispatchEvent(new Event('next'))" style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">›</button>
+        <button onclick="this.closest('[data-panel]').parentElement.remove()" style="background:none;border:none;font-size:22px;color:var(--text-3);cursor:pointer;margin-left:4px;line-height:1">×</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:12px 18px 20px">
+        ${bks.length?bks.map(b=>{
+          const t=calcTotals(b);const pc=platformColor(b.platform||'');
+          return`<div onclick="overlay.remove();setTimeout(()=>openBookingDrawer('${b.id}'),80)" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
+            <span style="width:8px;height:8px;border-radius:50%;background:${pc||'var(--text-3)'};flex-shrink:0"></span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.guest)}</div>
+              <div style="font-size:11px;color:var(--text-3);font-weight:500">${fmtDate(b.checkin)} – ${fmtDate(b.checkout)} · ${t.nights}N</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-size:13px;font-weight:800;color:var(--green)">${fmtMoney(t.netRevenue)}</div>
+              <div style="font-size:10px;color:var(--text-3)">${esc(b.platform||'—')}</div>
+            </div>
+          </div>`;
+        }).join(''):`<div style="text-align:center;padding:32px 0;color:var(--text-3);font-size:13px">No bookings for ${label}</div>`}
+        ${bks.length?`<div style="display:flex;justify-content:space-between;padding:10px 0 0;font-size:12px;font-weight:700;color:var(--text-2)">
+          <span>${bks.length} booking${bks.length!==1?'s':''} · ${totNights} nights</span>
+          <span style="color:var(--green)">${fmtMoney(totRev)} net</span>
+        </div>`:''}
+      </div>`;
+    panel.setAttribute('data-panel','1');
+    panel.addEventListener('prev',()=>{viewMonth--;if(viewMonth<0){viewMonth=11;viewYear--;}render();},{once:true});
+    panel.addEventListener('next',()=>{viewMonth++;if(viewMonth>11){viewMonth=0;viewYear++;}render();},{once:true});
+  };
+  overlay.appendChild(panel);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+  render();
+}
+
 function renderProperties(){
   const grid=document.getElementById('propGrid');
   if(!properties.length){
@@ -4416,6 +4470,13 @@ function renderProperties(){
           ${p.airbnbUrl?`<a href="${esc(p.airbnbUrl)}" target="_blank" class="pcard-link-btn" onclick="event.stopPropagation()">🏡 Listing</a>`:''}
           <button class="pcard-link-btn" onclick="openBlockDatesModal('${p.id}')">🔴 Block Dates${(p.blockedDates||[]).length?` (${p.blockedDates.length})`:''}</button>
         </div>
+
+        <button onclick="event.stopPropagation();openPropBookingsPanel('${p.id}')"
+          style="display:flex;align-items:center;justify-content:space-between;width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:12px;font-weight:700;color:var(--text-2);margin-top:6px;transition:background .12s"
+          onmouseenter="this.style.background='var(--surface-3)'" onmouseleave="this.style.background='var(--surface-2)'">
+          <span>📅 ${new Date().toLocaleString('en-US',{month:'long'})} · ${(()=>{const now=new Date();const cm=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;return bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled'&&(b.checkin||'').startsWith(cm)).length;})() } bookings</span>
+          <span style="color:var(--text-3);font-size:11px">View →</span>
+        </button>
       </div>
     </div>`;
   }).join('');
