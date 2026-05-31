@@ -1622,26 +1622,44 @@ function renderToday(){
 
     const pillsHtml=timelinePills.join('');
 
-    // Monthly KPI stats for this property
+    // Monthly KPI stats — current + next month
+    const nextDate=new Date(now.getFullYear(),now.getMonth()+1,1);
+    const nxtMnth=`${nextDate.getFullYear()}-${String(nextDate.getMonth()+1).padStart(2,'0')}`;
     const mnthBks=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled'&&(b.checkin||'').startsWith(mnth));
+    const nxtBks=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled'&&(b.checkin||'').startsWith(nxtMnth));
     const mnthCount=mnthBks.length;
     const mnthNights=mnthBks.reduce((s,b)=>s+(calcTotals(b).nights||0),0);
     const mnthGross=mnthBks.reduce((s,b)=>s+calcTotals(b).guestTotal,0);
+    const nxtCount=nxtBks.length;
+    const nxtNights=nxtBks.reduce((s,b)=>s+(calcTotals(b).nights||0),0);
+    const nxtGross=nxtBks.reduce((s,b)=>s+calcTotals(b).guestTotal,0);
     const mnthLabel=new Date(mnth+'-02').toLocaleString('en-US',{month:'long',year:'numeric'});
+    const nxtLabel=new Date(nxtMnth+'-02').toLocaleString('en-US',{month:'long',year:'numeric'});
     const kpiBox=(val,lbl)=>`<div style="flex:1;text-align:center;padding:7px 4px;background:var(--surface-2);border-radius:8px;min-width:0">
       <div style="font-size:15px;font-weight:800;color:var(--text);line-height:1.1">${val}</div>
       <div style="font-size:9px;font-weight:700;color:var(--text-3);letter-spacing:.5px;margin-top:2px;text-transform:uppercase">${lbl}</div>
     </div>`;
-    const kpiRow=`<div style="margin-top:auto;padding-top:10px">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-        <div style="flex:1;height:1px;background:rgba(0,0,0,.07)"></div>
-        <span style="font-size:9px;font-weight:700;color:var(--text-3);letter-spacing:.6px;text-transform:uppercase;white-space:nowrap">${mnthLabel} only</span>
-        <div style="flex:1;height:1px;background:rgba(0,0,0,.07)"></div>
+    const divider=(lbl)=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+      <div style="flex:1;height:1px;background:rgba(0,0,0,.07)"></div>
+      <span style="font-size:9px;font-weight:700;color:var(--text-3);letter-spacing:.6px;text-transform:uppercase;white-space:nowrap">${lbl}</span>
+      <div style="flex:1;height:1px;background:rgba(0,0,0,.07)"></div>
+    </div>`;
+    const kpiRow=`<div style="margin-top:auto;padding-top:10px;display:flex;flex-direction:column;gap:10px">
+      <div>
+        ${divider(mnthLabel+' only')}
+        <div style="display:flex;gap:6px">
+          ${kpiBox(mnthCount,'Bookings')}
+          ${kpiBox(mnthNights,'Nights')}
+          ${kpiBox(mnthGross?fmtMoney(mnthGross):'—','Gross Rev')}
+        </div>
       </div>
-      <div style="display:flex;gap:6px">
-        ${kpiBox(mnthCount,'Bookings')}
-        ${kpiBox(mnthNights,'Nights')}
-        ${kpiBox(mnthGross?fmtMoney(mnthGross):'—','Gross Rev')}
+      <div>
+        ${divider(nxtLabel+' — next')}
+        <div style="display:flex;gap:6px">
+          ${kpiBox(nxtCount||'—','Bookings')}
+          ${kpiBox(nxtNights||'—','Nights')}
+          ${kpiBox(nxtGross?fmtMoney(nxtGross):'—','Gross Rev')}
+        </div>
       </div>
     </div>`;
     return`<div class="today-prop-card" style="display:flex;flex-direction:column">
