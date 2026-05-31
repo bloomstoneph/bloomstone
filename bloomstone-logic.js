@@ -573,8 +573,10 @@ function _setupAvatarObserver(){
   if(!target||!root||!strip)return;
   _avatarObserver=new IntersectionObserver(entries=>{
     const visible=entries[0].isIntersecting;
-    strip.style.display=(strip._hasData&&!visible)?'block':'none';
-  },{root,threshold:0});
+    requestAnimationFrame(()=>{
+      strip.style.display=(strip._hasData&&!visible)?'block':'none';
+    });
+  },{root,threshold:0.1});
   _avatarObserver.observe(target);
 }
 function updateDateRangeDisplay(){
@@ -4344,9 +4346,9 @@ function renderProperties(){
       <div class="pcard-body">
         <div class="pcard-top">
           <div class="pcard-title-wrap">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-              <div class="pcard-name">${esc(p.name)}${p.beds?`<span class="pcard-beds">${p.beds}BR</span>`:''}</div>
-              ${statusPill}
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="pcard-name" style="flex:1;min-width:0;margin-bottom:0">${esc(p.name)}${p.beds?`<span class="pcard-beds">${p.beds}BR</span>`:''}</div>
+              <div style="flex-shrink:0">${statusPill}</div>
             </div>
             <div class="pcard-location">📍 ${esc(p.city)}${p.address?` · ${esc(p.address)}`:''}</div>
           </div>
