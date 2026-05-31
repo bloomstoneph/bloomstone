@@ -4387,99 +4387,65 @@ function renderProperties(){
     return;
   }
   const today=todayISO();
-  grid.innerHTML=properties.map((p,idx)=>{
+  const now=new Date();
+  const cm=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const curMonthLabel=now.toLocaleString('en-US',{month:'long'});
+  const yearStart=new Date(now.getFullYear(),0,1);
+  const daysElapsed=Math.ceil((now-yearStart)/86400000)+1;
+
+  // Group by city
+  const cityMap={};
+  properties.forEach((p,idx)=>{
+    const city=(p.city||'Other').trim();
+    if(!cityMap[city])cityMap[city]=[];
+    cityMap[city].push({p,idx});
+  });
+
+  const cardHtml=({p,idx})=>{
     const pc=_PROP_PALETTE[idx%_PROP_PALETTE.length];
     const bks=bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled');
-    const rev=bks.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
-    const now=new Date();
-    const yearStart=new Date(now.getFullYear(),0,1);
-    const daysElapsed=Math.ceil((now-yearStart)/86400000)+1;
-    const thisYearNights=bks.filter(b=>b.checkin&&b.checkin.startsWith(String(now.getFullYear()))).reduce((s,b)=>s+nightsBetween(b.checkin,b.checkout),0);
-    const occ=Math.min(100,Math.round(thisYearNights/Math.max(1,daysElapsed)*100));
-    const upcoming=bks.filter(b=>b.checkin>today).length;
-    const currentGuest=bks.find(b=>b.checkin<=today&&b.checkout>today&&b.status!=='Cancelled');
-    const photos=p.photos||[];
-
-    // ── Cover: photo or gradient ──
-    const cover=photos.length
-      ? `<div class="pcard-cover" onclick="viewPropPhotos('${p.id}')" style="cursor:pointer">
-           <img src="${photos[0]}" class="pcard-cover-img" alt=""/>
-           <div class="pcard-cover-grad"></div>
-           ${photos.length>1?`<div class="pcard-photo-count">📷 ${photos.length}</div>`:''}
-         </div>`
-      : `<div class="pcard-cover pcard-cover-gradient" style="background:linear-gradient(135deg,${pc}22 0%,${pc}44 100%)" onclick="openPropertyModal('${p.id}')">
-           <div class="pcard-cover-icon" style="color:${pc}">${propIconHtml(p,52)}</div>
-         </div>`;
-
-    // ── Status pill ──
-    const statusPill=currentGuest
-      ? `<span class="pcard-status occupied" style="margin-left:auto;flex-shrink:0"><span class="pcard-status-dot"></span>Occupied · ${esc(currentGuest.guest)}</span>`
-      : `<span class="pcard-status available" style="margin-left:auto;flex-shrink:0"><span class="pcard-status-dot"></span>Available</span>`;
-
-    // ── Occupancy bar color ──
+    const totalRev=bks.reduce((s,b)=>s+calcTotals(b).netRevenue,0);
+    const totalNights=bks.reduce((s,b)=>s+(calcTotals(b).nights||0),0);
+    const ytdNights=bks.filter(b=>b.checkin&&b.checkin.startsWith(String(now.getFullYear()))).reduce((s,b)=>s+nightsBetween(b.checkin,b.checkout),0);
+    const occ=Math.min(100,Math.round(ytdNights/Math.max(1,daysElapsed)*100));
     const occColor=occ>=70?'var(--green)':occ>=40?'var(--orange)':'var(--red)';
+    const cmCount=bks.filter(b=>(b.checkin||'').startsWith(cm)).length;
+    const photos=p.photos||[];
+    const thumb=photos.length
+      ?`<img src="${photos[0]}" style="width:100%;height:100%;object-fit:cover" onclick="event.stopPropagation();viewPropPhotos('${p.id}')" />`
+      :`<div style="width:100%;height:100%;background:linear-gradient(135deg,${pc}30,${pc}60);display:flex;align-items:center;justify-content:center;font-size:28px;color:${pc}">${propIconHtml(p,28)}</div>`;
 
-    // ── Owner / contract strip ──
-    const hasSplit=(p.ownerPct??100)<100;
-    const ownerStrip=hasSplit?`
-      <div class="pcard-owner-strip">
-        <span class="pcard-owner-name">👤 ${esc(p.ownerName||'Owner')}</span>
-        <span class="pcard-split-badge" style="background:${pc}18;color:${pc};border-color:${pc}44">${p.ownerPct}% · ${100-p.ownerPct}% BLS</span>
-        ${contractStatusBadge(p)}
-      </div>`:'';
-
-    return`<div class="pcard" onclick="openPropertyModal('${p.id}')">
-      ${cover}
-      <div class="pcard-body">
-        <div class="pcard-top">
-          <div class="pcard-title-wrap">
-            <div class="pcard-name" style="margin-bottom:4px">${esc(p.name)}${p.beds?`<span class="pcard-beds">${p.beds}BR</span>`:''} ${statusPill}</div>
-            <div class="pcard-location">📍 ${esc(p.city)}${p.address?` · ${esc(p.address)}`:''}</div>
-          </div>
-          <div class="pcard-actions" onclick="event.stopPropagation()">
-            <button class="pcard-action-btn" onclick="openPropertyModal('${p.id}')" title="Edit">✏️</button>
-            <button class="pcard-action-btn" onclick="openBlockDatesModal('${p.id}')" title="Block dates">🔴</button>
-            <button class="pcard-action-btn danger" onclick="deleteProperty('${p.id}')" title="Delete">🗑</button>
+    return`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;display:flex;align-items:stretch;overflow:hidden;cursor:pointer;transition:box-shadow .18s" onclick="openPropertyModal('${p.id}')" onmouseenter="this.style.boxShadow='0 4px 16px rgba(0,0,0,.09)'" onmouseleave="this.style.boxShadow=''">
+      <div style="width:80px;flex-shrink:0;overflow:hidden">${thumb}</div>
+      <div style="flex:1;padding:12px 14px;display:flex;flex-direction:column;gap:5px;min-width:0">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="font-size:14px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(p.name)}</div>
+          <div style="display:flex;gap:4px;flex-shrink:0" onclick="event.stopPropagation()">
+            <button onclick="openPropertyModal('${p.id}')" title="Edit" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;color:var(--text-3)">✏️</button>
+            <button onclick="deleteProperty('${p.id}')" title="Delete" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;color:var(--text-3)">🗑</button>
           </div>
         </div>
-
-        <div class="pcard-kpis">
-          <div class="pcard-kpi">
-            <div class="pcard-kpi-val" style="color:var(--green)">${fmtMoney(rev)}</div>
-            <div class="pcard-kpi-lbl">Net Revenue</div>
-          </div>
-          <div class="pcard-kpi">
-            <div class="pcard-kpi-val" style="color:${occColor}">${occ}%</div>
-            <div class="pcard-kpi-lbl">Occupancy YTD</div>
-            <div class="pcard-occ-bar"><div class="pcard-occ-fill" style="width:${occ}%;background:${occColor}"></div></div>
-          </div>
-          <div class="pcard-kpi">
-            <div class="pcard-kpi-val">${p.baseRate?fmtMoney(p.baseRate):'—'}</div>
-            <div class="pcard-kpi-lbl">Base Rate/Night</div>
-          </div>
-          <div class="pcard-kpi">
-            <div class="pcard-kpi-val" style="color:var(--blue)">${upcoming}</div>
-            <div class="pcard-kpi-lbl">Upcoming</div>
-          </div>
+        <div style="font-size:12px;color:var(--text-3);font-weight:600;display:flex;gap:12px;flex-wrap:wrap">
+          <span style="color:var(--green);font-weight:800">${fmtMoney(totalRev)}</span>
+          <span>${totalNights} nights</span>
+          <span style="color:${occColor};font-weight:700">${occ}% occ</span>
         </div>
-
-        ${ownerStrip}
-
-        <div class="pcard-footer" onclick="event.stopPropagation()">
-          ${p.map?`<a href="${esc(p.map)}" target="_blank" class="pcard-link-btn" onclick="event.stopPropagation()">📍 Map</a>`:''}
-          ${p.airbnbUrl?`<a href="${esc(p.airbnbUrl)}" target="_blank" class="pcard-link-btn" onclick="event.stopPropagation()">🏡 Listing</a>`:''}
-          <button class="pcard-link-btn" onclick="openBlockDatesModal('${p.id}')">🔴 Block Dates${(p.blockedDates||[]).length?` (${p.blockedDates.length})`:''}</button>
-        </div>
-
         <button onclick="event.stopPropagation();openPropBookingsPanel('${p.id}')"
-          style="display:flex;align-items:center;justify-content:space-between;width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:12px;font-weight:700;color:var(--text-2);margin-top:6px;transition:background .12s"
+          style="display:flex;align-items:center;justify-content:space-between;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:11px;font-weight:700;color:var(--text-2);margin-top:2px;transition:background .12s;width:100%"
           onmouseenter="this.style.background='var(--surface-3)'" onmouseleave="this.style.background='var(--surface-2)'">
-          <span>📅 ${new Date().toLocaleString('en-US',{month:'long'})} · ${(()=>{const now=new Date();const cm=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;return bookings.filter(b=>b.property===p.id&&b.status!=='Cancelled'&&(b.checkin||'').startsWith(cm)).length;})() } bookings</span>
-          <span style="color:var(--text-3);font-size:11px">View →</span>
+          <span>📅 ${curMonthLabel} · ${cmCount} booking${cmCount!==1?'s':''}</span>
+          <span style="color:var(--text-3)">View →</span>
         </button>
       </div>
     </div>`;
-  }).join('');
+  };
+
+  grid.innerHTML=Object.entries(cityMap).map(([city,items])=>`
+    <div style="margin-bottom:24px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3);margin-bottom:10px;padding-left:2px">${esc(city)}</div>
+      <div style="display:flex;flex-direction:column;gap:10px">${items.map(cardHtml).join('')}</div>
+    </div>
+  `).join('');
 }
 
 // ============================================================
