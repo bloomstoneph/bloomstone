@@ -4344,7 +4344,10 @@ function renderProperties(){
       <div class="pcard-body">
         <div class="pcard-top">
           <div class="pcard-title-wrap">
-            <div class="pcard-name">${esc(p.name)}${p.beds?`<span class="pcard-beds">${p.beds}BR</span>`:''}</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+              <div class="pcard-name">${esc(p.name)}${p.beds?`<span class="pcard-beds">${p.beds}BR</span>`:''}</div>
+              ${statusPill}
+            </div>
             <div class="pcard-location">📍 ${esc(p.city)}${p.address?` · ${esc(p.address)}`:''}</div>
           </div>
           <div class="pcard-actions" onclick="event.stopPropagation()">
@@ -4353,8 +4356,6 @@ function renderProperties(){
             <button class="pcard-action-btn danger" onclick="deleteProperty('${p.id}')" title="Delete">🗑</button>
           </div>
         </div>
-
-        ${statusPill}
 
         <div class="pcard-kpis">
           <div class="pcard-kpi">
