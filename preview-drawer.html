@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#e5e7eb;display:flex;justify-content:center;align-items:flex-start;gap:32px;padding:32px;min-height:100vh}
+
+  /* ── DRAWER SHELL ── */
+  .drawer{width:390px;background:#f2f1ed;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.18);display:flex;flex-direction:column;max-height:860px}
+
+  /* ── HEADER ── */
+  .dh{background:#fff;border-bottom:1px solid #e8e6e1;padding:13px 16px;display:flex;align-items:center;gap:10px}
+  .dh-title{font-size:15px;font-weight:700;color:#111;flex:1}
+  .badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap}
+  .badge-neutral{background:#f1f1ee;color:#666}
+  .badge-green{background:#dcfce7;color:#16a34a}
+  .badge-orange{background:#fff7ed;color:#c2650a}
+  .badge-blue{background:#dbeafe;color:#1d4ed8}
+  .badge-red{background:#fee2e2;color:#dc2626}
+  .bh-btn{font-size:11px;font-weight:600;color:#666;background:#f5f5f2;border:1px solid #ddd;border-radius:8px;padding:4px 10px;cursor:pointer;display:flex;align-items:center;gap:5px}
+  .close-btn{width:28px;height:28px;border-radius:8px;border:1px solid #ddd;background:#f5f5f2;display:flex;align-items:center;justify-content:center;font-size:14px;color:#555;cursor:pointer;margin-left:auto}
+
+  /* ── CONTEXT STRIP ── */
+  .ctx{background:#f2f1ed;border-bottom:1px solid #e8e6e1;padding:8px 16px}
+  .ctx-row1{display:flex;align-items:center;gap:6px}
+  .ctx-guest{font-size:13px;font-weight:800;color:#111;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ctx-plat{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;white-space:nowrap}
+  .ctx-dot{width:6px;height:6px;border-radius:50%}
+  .ctx-prop{font-size:11px;font-weight:600;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+  .ctx-dates{font-size:11px;color:#888;font-weight:600;margin-top:2px}
+
+  /* ── BODY ── */
+  .dbody{flex:1;overflow-y:auto;padding:14px}
+
+  /* ── GUEST HERO ── */
+  .guest-hero{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding:12px 14px;background:#fff;border-radius:12px;border:1px solid #e8e6e1}
+  .guest-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a855f7);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#fff;flex-shrink:0}
+  .guest-name-input{font-size:20px;font-weight:800;border:none;outline:none;background:transparent;color:#111;width:100%;letter-spacing:-.3px}
+  .repeat-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#7c3aed;background:#f3f0ff;border-radius:20px;padding:2px 8px;white-space:nowrap}
+
+  /* ── CARD ── */
+  .card{background:#fff;border-radius:12px;border:1px solid #e8e6e1;margin-bottom:10px;overflow:hidden}
+  .card-hdr{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#888;padding:10px 14px 8px;border-bottom:1px solid #f0eee9;display:flex;align-items:center;gap:6px}
+  .card-body{padding:12px 14px}
+
+  /* ── FIELDS ── */
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+  .field-row.triple{grid-template-columns:1fr 1fr 1fr}
+  .field{margin-bottom:0}
+  .label{font-size:11px;font-weight:600;color:#666;margin-bottom:4px;display:flex;align-items:center;gap:5px}
+  .req{color:#e74c3c}
+  .hint{font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px}
+  .hint-orange{color:#c2650a;background:#fff7ed}
+  .hint-green{color:#16a34a;background:#f0fdf4}
+  .hint-gray{color:#888}
+  .input{background:#f7f7f5;border:1px solid #e5e3de;border-radius:8px;padding:8px 10px;font-size:13px;font-weight:600;color:#111;width:100%}
+  .input.req-empty{background:#fffbeb;border-color:rgba(180,140,0,.25)}
+  .input.bold{font-size:15px;font-weight:800}
+
+  /* ── DATE PICKERS ── */
+  .date-wrap{display:flex;align-items:flex-end;gap:8px;margin-bottom:10px}
+  .dp{flex:1;background:#fffbeb;border:1px solid rgba(180,140,0,.25);border-radius:8px;padding:8px 10px;min-height:52px;display:flex;flex-direction:column;gap:2px;position:relative}
+  .dp-icon{font-size:12px}
+  .dp-date{font-size:14px;font-weight:700;color:#111}
+  .dp-clear{position:absolute;top:6px;right:6px;font-size:10px;color:#aaa;cursor:pointer}
+  .nights-box{flex-shrink:0;text-align:center;padding-bottom:6px;min-width:48px}
+  .nights-num{font-size:24px;font-weight:900;line-height:1;color:#c2650a}
+  .nights-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#aaa;margin-top:2px}
+
+  /* ── PLATFORM PICKER (filled) ── */
+  .plat-airbnb{background:#FF5A5F;border:1px solid #FF5A5F;border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:7px;color:#fff;font-size:13px;font-weight:700;box-shadow:0 0 0 3px rgba(255,90,95,.25)}
+  .plat-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.5);flex-shrink:0}
+  .plat-chev{margin-left:auto;font-size:10px;color:rgba(255,255,255,.7)}
+
+  /* ── FINANCIAL SUMMARY CHIPS ── */
+  .fin-chips{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0}
+  .chip{border-radius:10px;padding:10px 12px;text-align:center}
+  .chip-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+  .chip-val{font-size:16px;font-weight:900;line-height:1}
+  .chip-blue{background:#dbeafe;color:#1d4ed8}
+  .chip-orange{background:#fff7ed;color:#c2650a}
+  .chip-gray{background:#f1f5f9;color:#475569}
+  .chip-green{background:#dcfce7;color:#16a34a}
+
+  /* ── NET REVENUE ── */
+  .net-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-top:2px solid #111;margin-top:0}
+  .net-label{font-size:13px;font-weight:800}
+  .net-val{font-size:24px;font-weight:900;color:#16a34a}
+
+  /* ── STATUS SELECT ── */
+  .status-confirmed{background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;color:#16a34a;width:100%}
+
+  /* ── FOOTER ACTIONS ── */
+  .dfooter{background:#fff;border-top:1px solid #e8e6e1;padding:12px 14px;display:flex;align-items:center;gap:8px}
+  .btn{border-radius:10px;padding:10px 16px;font-size:13px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .btn-del{background:#dc2626;color:#fff;padding:10px 14px}
+  .btn-cancel{background:#f5f5f2;color:#555;border:1px solid #ddd;flex:1;justify-content:center}
+  .btn-save{background:#f59e0b;color:#fff;flex:2;justify-content:center;font-size:14px}
+
+  .label-row{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-bottom:4px}
+  .sep{color:#ccc;font-size:10px}
+</style>
+</head>
+<body>
+
+<div class="drawer">
+  <!-- HEADER -->
+  <div class="dh">
+    <div class="dh-title">Edit Booking</div>
+    <span class="badge badge-neutral">✓ Checked Out</span>
+    <button class="bh-btn">📋 <span id="hc" style="background:#7c3aed;color:#fff;font-size:9px;font-weight:800;padding:1px 6px;border-radius:20px">3</span> History</button>
+    <button class="close-btn">×</button>
+  </div>
+
+  <!-- CONTEXT STRIP -->
+  <div class="ctx">
+    <div class="ctx-row1">
+      <span class="ctx-guest">Samantha</span>
+      <span class="ctx-plat"><span class="ctx-dot" style="background:#FF5A5F"></span><span style="color:#FF5A5F">Airbnb</span></span>
+      <span class="ctx-prop">4BR TWIN Town Houses</span>
+    </div>
+    <div class="ctx-dates">📅 May 28–29, 2026 · 1 night</div>
+  </div>
+
+  <!-- BODY -->
+  <div class="dbody">
+
+    <!-- GUEST HERO -->
+    <div class="guest-hero">
+      <div class="guest-avatar">S</div>
+      <div style="flex:1;min-width:0">
+        <input class="guest-name-input" value="Samantha" placeholder="Guest Name"/>
+        <div style="margin-top:4px"><span class="repeat-badge">↩ Repeat Guest · 3 stays · ₱28,450 lifetime</span></div>
+      </div>
+    </div>
+
+    <!-- PROPERTY & RATE -->
+    <div class="card">
+      <div class="card-hdr">🏠 Property & Rate</div>
+      <div class="card-body">
+        <div class="field-row">
+          <div class="field">
+            <div class="label">Property <span class="req">*</span></div>
+            <div class="input" style="font-weight:700;font-size:13px">4BR TWIN Town Houses ▾</div>
+          </div>
+          <div class="field">
+            <div class="label">Nightly Rate (₱)</div>
+            <div class="input bold">4,999</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#888">
+          <span style="background:#eff6ff;color:#3b82f6;border:1px solid #bfdbfe;border-radius:20px;padding:2px 9px;font-weight:700;font-size:10px">🏠 Dumaguete</span>
+          Base 8 guests · max 12 · ₱300/extra/night
+        </div>
+      </div>
+    </div>
+
+    <!-- BOOKING DETAILS -->
+    <div class="card">
+      <div class="card-hdr">📅 Booking Details</div>
+      <div class="card-body">
+        <!-- DATES ROW -->
+        <div class="date-wrap">
+          <div class="field" style="flex:1">
+            <div class="label">Check-in <span class="req">*</span></div>
+            <div class="dp">
+              <span class="dp-icon">📅</span>
+              <span class="dp-date">May 28, 2026</span>
+              <span class="dp-clear">✕</span>
+            </div>
+          </div>
+          <div class="field" style="flex:1">
+            <div class="label">Check-out <span class="req">*</span></div>
+            <div class="dp">
+              <span class="dp-icon">🏁</span>
+              <span class="dp-date">May 29, 2026</span>
+              <span class="dp-clear">✕</span>
+            </div>
+          </div>
+          <div class="nights-box">
+            <div class="nights-num">1</div>
+            <div class="nights-lbl">night</div>
+          </div>
+        </div>
+
+        <!-- PLATFORM -->
+        <div class="field-row" style="margin-bottom:10px">
+          <div class="field">
+            <div class="label">Platform <span class="req">*</span></div>
+            <div class="plat-airbnb">
+              <span class="plat-dot"></span> Airbnb
+              <span class="plat-chev">▾</span>
+            </div>
+          </div>
+          <div class="field">
+            <div class="label-row">
+              <span class="label" style="margin-bottom:0">Special Offer</span>
+              <span class="hint hint-orange">Platform deducts</span>
+              <span style="font-size:10px;color:#aaa;cursor:help">(?)</span>
+            </div>
+            <div class="input">1,000</div>
+          </div>
+        </div>
+
+        <div class="field-row" style="margin-bottom:10px">
+          <div class="field">
+            <div class="label">Payment <span class="req">*</span></div>
+            <div class="input">Platform (Auto) ▾</div>
+          </div>
+          <div class="field">
+            <div class="label">Guest Count <span style="font-size:10px;color:#aaa">Max 12</span></div>
+            <div class="input">1</div>
+          </div>
+        </div>
+
+        <div class="field-row" style="margin-bottom:10px">
+          <div class="field">
+            <div class="label-row">
+              <span class="label" style="margin-bottom:0">Promo <span class="req">*</span></span>
+              <span class="hint hint-green">Direct only</span>
+              <span style="font-size:10px;color:#aaa;cursor:help">(?)</span>
+            </div>
+            <div class="input req-empty" style="color:#aaa">0</div>
+          </div>
+          <div class="field">
+            <div class="label-row">
+              <span class="label" style="margin-bottom:0">Host Service Fee</span>
+              <span class="hint hint-orange">Auto · platform</span>
+            </div>
+            <div class="input">167.97</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="label">Extra Guests <span class="hint-gray" style="font-size:10px">above base, fee per night</span></div>
+          <div class="input">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FINANCIAL BREAKDOWN -->
+    <div class="card">
+      <div class="card-hdr">💰 Financial Breakdown</div>
+      <div class="card-body" style="padding-bottom:0">
+        <div class="fin-chips">
+          <div class="chip chip-blue">
+            <div class="chip-label">Guest Paid</div>
+            <div class="chip-val">₱3,999</div>
+          </div>
+          <div class="chip chip-orange">
+            <div class="chip-label">Platform Fee</div>
+            <div class="chip-val">−₱168</div>
+          </div>
+          <div class="chip chip-gray">
+            <div class="chip-label">Cleaning</div>
+            <div class="chip-val">−₱500</div>
+          </div>
+          <div class="chip chip-green">
+            <div class="chip-label">Net Revenue</div>
+            <div class="chip-val">₱3,331</div>
+          </div>
+        </div>
+      </div>
+      <div class="net-row">
+        <span class="net-label">Net Revenue</span>
+        <span class="net-val">₱3,331</span>
+      </div>
+    </div>
+
+    <!-- STATUS -->
+    <div class="card">
+      <div class="card-hdr">🔖 Booking Status</div>
+      <div class="card-body">
+        <select class="status-confirmed">
+          <option>Checked-Out</option>
+        </select>
+      </div>
+    </div>
+
+  </div><!-- /dbody -->
+
+  <!-- FOOTER -->
+  <div class="dfooter">
+    <button class="btn btn-del">🗑 Delete</button>
+    <button class="btn btn-cancel">Cancel</button>
+    <button class="btn btn-save">✦ Update Booking</button>
+  </div>
+</div>
+
+</body>
+</html>

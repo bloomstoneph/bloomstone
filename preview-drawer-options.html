@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#d1d5db;padding:28px;display:flex;gap:24px;align-items:flex-start;min-height:100vh}
+  .col{display:flex;flex-direction:column;gap:10px;align-items:center}
+  .opt-label{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#555;background:#fff;border-radius:20px;padding:4px 14px}
+
+  /* ── SHARED DRAWER SHELL ── */
+  .drawer{width:340px;background:#f2f1ed;border-radius:16px;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,.18);display:flex;flex-direction:column}
+  .dh{background:#fff;border-bottom:1px solid #e8e6e1;padding:12px 14px;display:flex;align-items:center;gap:8px}
+  .dh-title{font-size:14px;font-weight:700;color:#111;flex:1}
+  .badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
+  .badge-neutral{background:#f1f1ee;color:#777}
+  .bh-btn{font-size:11px;font-weight:600;color:#666;background:#f5f5f2;border:1px solid #ddd;border-radius:8px;padding:3px 9px;cursor:pointer}
+  .close-btn{width:26px;height:26px;border-radius:7px;border:1px solid #ddd;background:#f5f5f2;display:flex;align-items:center;justify-content:center;font-size:13px;color:#555;margin-left:auto}
+  .ctx{border-bottom:1px solid #e8e6e1;padding:7px 14px}
+  .ctx-r1{display:flex;align-items:center;gap:5px}
+  .ctx-guest{font-size:12px;font-weight:800;color:#111;flex:1}
+  .ctx-plat{font-size:10px;font-weight:700;color:#FF5A5F;display:flex;align-items:center;gap:3px;white-space:nowrap}
+  .cdot{width:5px;height:5px;border-radius:50%}
+  .ctx-prop{font-size:10px;font-weight:600;color:#666;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis}
+  .ctx-dates{font-size:10px;color:#999;font-weight:600;margin-top:1px}
+  .dbody{padding:12px}
+  .card{background:#fff;border-radius:11px;border:1px solid #e8e6e1;margin-bottom:9px;overflow:hidden}
+  .card-hdr{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#999;padding:8px 12px 6px;border-bottom:1px solid #f0eee9;display:flex;align-items:center;gap:5px}
+  .card-body{padding:10px 12px}
+  .fr{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+  .lbl{font-size:10px;font-weight:600;color:#777;margin-bottom:3px;display:flex;align-items:center;gap:4px}
+  .req{color:#e74c3c}
+  .inp{background:#f7f7f5;border:1px solid #e5e3de;border-radius:7px;padding:7px 9px;font-size:12px;font-weight:600;color:#111}
+  .inp.yel{background:#fffbeb;border-color:rgba(180,140,0,.25)}
+  .inp.bold{font-size:14px;font-weight:800}
+  .hint-o{font-size:9px;font-weight:700;color:#c2650a;background:#fff7ed;padding:1px 4px;border-radius:4px}
+  .hint-g{font-size:9px;font-weight:700;color:#16a34a;background:#f0fdf4;padding:1px 4px;border-radius:4px}
+  .hint-gr{font-size:9px;font-weight:600;color:#aaa}
+  .dates-wrap{display:flex;align-items:flex-end;gap:7px;margin-bottom:8px}
+  .dp{flex:1;background:#fffbeb;border:1px solid rgba(180,140,0,.25);border-radius:8px;padding:7px 9px;min-height:46px;display:flex;flex-direction:column;gap:1px;position:relative}
+  .dp-ico{font-size:11px}
+  .dp-d{font-size:12px;font-weight:700;color:#111}
+  .dp-x{position:absolute;top:5px;right:6px;font-size:9px;color:#bbb}
+  .nbox{flex-shrink:0;text-align:center;padding-bottom:4px;min-width:40px}
+  .dfooter{background:#fff;border-top:1px solid #e8e6e1;padding:10px 12px;display:flex;gap:7px}
+  .btn{border-radius:9px;padding:9px 12px;font-size:12px;font-weight:700;border:none;cursor:pointer;white-space:nowrap}
+  .btn-del{background:#dc2626;color:#fff}
+  .btn-can{background:#f5f5f2;color:#555;border:1px solid #ddd;flex:1;text-align:center}
+  .btn-save{background:#f59e0b;color:#fff;flex:2;text-align:center;font-size:13px}
+
+  /* OPTION A — Avatar + chips */
+  .avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a855f7);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;flex-shrink:0}
+  .rep-badge{font-size:9px;font-weight:700;color:#7c3aed;background:#f3f0ff;border-radius:20px;padding:1px 7px;display:inline-block;margin-top:3px}
+  .chips{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .chip{border-radius:9px;padding:8px 10px;text-align:center}
+  .chip-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+  .chip-val{font-size:14px;font-weight:900;line-height:1}
+  .chip-b{background:#dbeafe;color:#1d4ed8}
+  .chip-o{background:#fff7ed;color:#c2650a}
+  .chip-gr2{background:#f1f5f9;color:#475569}
+  .chip-gn{background:#dcfce7;color:#16a34a}
+  .net-row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-top:2px solid #111}
+  .plat-filled{background:#FF5A5F;border:1px solid #FF5A5F;border-radius:7px;padding:8px 10px;display:flex;align-items:center;gap:6px;color:#fff;font-size:12px;font-weight:700;box-shadow:0 0 0 3px rgba(255,90,95,.2)}
+  .pdot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.5)}
+  .pchev{margin-left:auto;font-size:9px;color:rgba(255,255,255,.7)}
+
+  /* OPTION B — Minimal, no avatar, platform banner */
+  .plat-banner{background:#FF5A5F;padding:10px 12px;display:flex;align-items:center;gap:8px;margin-bottom:9px;border-radius:11px}
+  .plat-banner-name{font-size:14px;font-weight:800;color:#fff;flex:1}
+  .plat-banner-nights{font-size:22px;font-weight:900;color:rgba(255,255,255,.9);line-height:1}
+  .plat-banner-nlbl{font-size:9px;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.06em}
+  .guest-b{font-size:20px;font-weight:800;color:#111;margin-bottom:3px;border:none;background:transparent;width:100%;outline:none}
+  .guest-b-sub{font-size:10px;color:#aaa;font-weight:500}
+  .net-bar{background:linear-gradient(135deg,#16a34a,#22c55e);border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+  .net-bar-lbl{font-size:10px;font-weight:700;color:rgba(255,255,255,.8);text-transform:uppercase;letter-spacing:.05em}
+  .net-bar-val{font-size:20px;font-weight:900;color:#fff}
+
+  /* OPTION C — Property color accent, split layout */
+  .prop-accent{background:linear-gradient(135deg,#3b82f6,#6366f1);padding:12px 14px;margin-bottom:9px;border-radius:11px;position:relative;overflow:hidden}
+  .prop-accent-prop{font-size:11px;font-weight:700;color:rgba(255,255,255,.75);margin-bottom:1px}
+  .prop-accent-name{font-size:18px;font-weight:800;color:#fff;letter-spacing:-.3px}
+  .prop-accent-rate{position:absolute;right:14px;top:50%;transform:translateY(-50%);text-align:right}
+  .prop-accent-rate-val{font-size:22px;font-weight:900;color:#fff}
+  .prop-accent-rate-lbl{font-size:9px;color:rgba(255,255,255,.6);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .date-cards{display:grid;grid-template-columns:1fr 1fr 44px;gap:6px;margin-bottom:8px;align-items:end}
+  .date-card{background:#fffbeb;border:1px solid rgba(180,140,0,.25);border-radius:8px;padding:7px 9px}
+  .date-card-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#aaa;margin-bottom:2px}
+  .date-card-val{font-size:12px;font-weight:700;color:#111}
+  .nights-c{text-align:center}
+  .nights-c-n{font-size:22px;font-weight:900;color:#c2650a;line-height:1}
+  .nights-c-l{font-size:8px;font-weight:700;text-transform:uppercase;color:#aaa;letter-spacing:.06em}
+  .fin-row{display:flex;gap:6px;margin-bottom:9px}
+  .fin-item{flex:1;background:#fff;border:1px solid #e8e6e1;border-radius:9px;padding:8px;text-align:center}
+  .fin-item-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#aaa;margin-bottom:2px}
+  .fin-item-val{font-size:13px;font-weight:800}
+  .fi-b{color:#2563eb}
+  .fi-r{color:#dc2626}
+  .fi-g{color:#16a34a}
+</style>
+</head>
+<body>
+
+<!-- ═══ OPTION A ═══ -->
+<div class="col">
+  <div class="opt-label">Option A — Avatar + Chips</div>
+  <div class="drawer">
+    <div class="dh">
+      <div class="dh-title">Edit Booking</div>
+      <span class="badge badge-neutral">✓ Checked Out</span>
+      <button class="bh-btn">📋 <span style="background:#7c3aed;color:#fff;font-size:9px;font-weight:800;padding:0 5px;border-radius:20px">3</span></button>
+      <button class="close-btn">×</button>
+    </div>
+    <div class="ctx" style="background:#f2f1ed">
+      <div class="ctx-r1">
+        <span class="ctx-guest">Samantha</span>
+        <span class="ctx-plat"><span class="cdot" style="background:#FF5A5F"></span>Airbnb</span>
+        <span class="ctx-prop">4BR TWIN Town Houses</span>
+      </div>
+      <div class="ctx-dates">📅 May 28–29, 2026 · 1 night</div>
+    </div>
+    <div class="dbody">
+      <!-- Guest hero with avatar -->
+      <div class="card" style="margin-bottom:9px">
+        <div class="card-body" style="display:flex;align-items:center;gap:10px">
+          <div class="avatar">S</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:18px;font-weight:800;color:#111">Samantha</div>
+            <span class="rep-badge">↩ Repeat · 3 stays · ₱28,450</span>
+          </div>
+        </div>
+      </div>
+      <!-- Property -->
+      <div class="card">
+        <div class="card-hdr">🏠 Property & Rate</div>
+        <div class="card-body">
+          <div class="fr">
+            <div><div class="lbl">Property <span class="req">*</span></div><div class="inp yel" style="font-weight:700;font-size:11px">4BR TWIN Town Houses ▾</div></div>
+            <div><div class="lbl">Nightly Rate (₱)</div><div class="inp bold">4,999</div></div>
+          </div>
+          <div style="font-size:10px;color:#aaa">🏠 <span style="color:#3b82f6;font-weight:700">Dumaguete</span> · Base 8 · max 12 · ₱300/extra</div>
+        </div>
+      </div>
+      <!-- Booking details -->
+      <div class="card">
+        <div class="card-hdr">📅 Booking Details</div>
+        <div class="card-body">
+          <div class="dates-wrap">
+            <div style="flex:1"><div class="lbl">Check-in <span class="req">*</span></div><div class="dp"><span class="dp-ico">📅</span><span class="dp-d">May 28, 2026</span><span class="dp-x">✕</span></div></div>
+            <div style="flex:1"><div class="lbl">Check-out <span class="req">*</span></div><div class="dp"><span class="dp-ico">🏁</span><span class="dp-d">May 29, 2026</span><span class="dp-x">✕</span></div></div>
+            <div class="nbox" style="padding-bottom:4px"><div style="font-size:22px;font-weight:900;color:#c2650a;line-height:1">1</div><div style="font-size:8px;font-weight:700;text-transform:uppercase;color:#aaa;letter-spacing:.06em;margin-top:1px">night</div></div>
+          </div>
+          <div class="fr">
+            <div><div class="lbl">Platform <span class="req">*</span></div><div class="plat-filled"><span class="pdot"></span>Airbnb<span class="pchev">▾</span></div></div>
+            <div><div class="lbl">Special Offer <span class="hint-o">Platform deducts</span></div><div class="inp">1,000</div></div>
+          </div>
+          <div class="fr">
+            <div><div class="lbl">Payment <span class="req">*</span></div><div class="inp yel">Platform (Auto) ▾</div></div>
+            <div><div class="lbl">Guest Count <span class="hint-gr">Max 12</span></div><div class="inp">1</div></div>
+          </div>
+          <div class="fr" style="margin-bottom:0">
+            <div><div class="lbl">Promo <span class="req">*</span> <span class="hint-g">Direct only</span></div><div class="inp yel" style="color:#ccc">0</div></div>
+            <div><div class="lbl">Service Fee <span class="hint-o">Auto · platform</span></div><div class="inp">167.97</div></div>
+          </div>
+        </div>
+      </div>
+      <!-- Financial chips -->
+      <div class="card">
+        <div class="card-hdr">💰 Financial Breakdown</div>
+        <div class="card-body" style="padding-bottom:0">
+          <div class="chips">
+            <div class="chip chip-b"><div class="chip-lbl">Guest Paid</div><div class="chip-val">₱3,999</div></div>
+            <div class="chip chip-o"><div class="chip-lbl">Platform Fee</div><div class="chip-val">−₱168</div></div>
+            <div class="chip chip-gr2"><div class="chip-lbl">Cleaning</div><div class="chip-val">−₱500</div></div>
+            <div class="chip chip-gn"><div class="chip-lbl">Net Revenue</div><div class="chip-val">₱3,331</div></div>
+          </div>
+        </div>
+        <div class="net-row"><span style="font-size:12px;font-weight:800">Net Revenue</span><span style="font-size:20px;font-weight:900;color:#16a34a">₱3,331</span></div>
+      </div>
+    </div>
+    <div class="dfooter"><button class="btn btn-del">🗑</button><button class="btn btn-can">Cancel</button><button class="btn btn-save">✦ Update Booking</button></div>
+  </div>
+</div>
+
+<!-- ═══ OPTION B ═══ -->
+<div class="col">
+  <div class="opt-label">Option B — Platform Banner</div>
+  <div class="drawer">
+    <div class="dh">
+      <div class="dh-title">Edit Booking</div>
+      <span class="badge badge-neutral">✓ Checked Out</span>
+      <button class="bh-btn">📋 <span style="background:#7c3aed;color:#fff;font-size:9px;font-weight:800;padding:0 5px;border-radius:20px">3</span></button>
+      <button class="close-btn">×</button>
+    </div>
+    <div class="ctx" style="background:#f2f1ed">
+      <div class="ctx-r1">
+        <span class="ctx-guest">Samantha</span>
+        <span class="ctx-plat"><span class="cdot" style="background:#FF5A5F"></span>Airbnb</span>
+        <span class="ctx-prop">4BR TWIN Town Houses</span>
+      </div>
+      <div class="ctx-dates">📅 May 28–29, 2026 · 1 night</div>
+    </div>
+    <div class="dbody">
+      <!-- Platform banner (full color) with nights + guest -->
+      <div class="plat-banner">
+        <div style="flex:1">
+          <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:1px">● Airbnb</div>
+          <div style="font-size:19px;font-weight:800;color:#fff">Samantha</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.6);margin-top:2px">↩ Repeat · 3 stays</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:28px;font-weight:900;color:#fff;line-height:1">1</div>
+          <div style="font-size:8px;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.06em">night</div>
+        </div>
+      </div>
+      <!-- Net revenue bar -->
+      <div class="net-bar">
+        <div><div class="net-bar-lbl">Net Revenue</div></div>
+        <div class="net-bar-val">₱3,331</div>
+      </div>
+      <!-- Property -->
+      <div class="card">
+        <div class="card-hdr">🏠 Property & Rate</div>
+        <div class="card-body">
+          <div class="fr">
+            <div><div class="lbl">Property <span class="req">*</span></div><div class="inp yel" style="font-size:11px;font-weight:700">4BR TWIN Town Houses ▾</div></div>
+            <div><div class="lbl">Nightly Rate (₱)</div><div class="inp bold">4,999</div></div>
+          </div>
+          <div style="font-size:10px;color:#aaa">🏠 <span style="color:#3b82f6;font-weight:700">Dumaguete</span> · Base 8 · max 12 · ₱300/extra</div>
+        </div>
+      </div>
+      <!-- Booking details -->
+      <div class="card">
+        <div class="card-hdr">📅 Booking Details</div>
+        <div class="card-body">
+          <div class="dates-wrap" style="margin-bottom:8px">
+            <div style="flex:1"><div class="lbl">Check-in <span class="req">*</span></div><div class="dp"><span class="dp-ico">📅</span><span class="dp-d">May 28, 2026</span><span class="dp-x">✕</span></div></div>
+            <div style="flex:1"><div class="lbl">Check-out <span class="req">*</span></div><div class="dp"><span class="dp-ico">🏁</span><span class="dp-d">May 29, 2026</span><span class="dp-x">✕</span></div></div>
+          </div>
+          <div class="fr">
+            <div><div class="lbl">Platform <span class="req">*</span></div><div class="plat-filled"><span class="pdot"></span>Airbnb<span class="pchev">▾</span></div></div>
+            <div><div class="lbl">Special Offer <span class="hint-o">Platform deducts</span></div><div class="inp">1,000</div></div>
+          </div>
+          <div class="fr">
+            <div><div class="lbl">Payment <span class="req">*</span></div><div class="inp yel">Platform (Auto) ▾</div></div>
+            <div><div class="lbl">Guest Count <span class="hint-gr">Max 12</span></div><div class="inp">1</div></div>
+          </div>
+          <div class="fr" style="margin-bottom:0">
+            <div><div class="lbl">Promo <span class="req">*</span> <span class="hint-g">Direct only</span></div><div class="inp yel" style="color:#ccc">0</div></div>
+            <div><div class="lbl">Service Fee <span class="hint-o">Auto · platform</span></div><div class="inp">167.97</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="dfooter"><button class="btn btn-del">🗑</button><button class="btn btn-can">Cancel</button><button class="btn btn-save">✦ Update Booking</button></div>
+  </div>
+</div>
+
+<!-- ═══ OPTION C ═══ -->
+<div class="col">
+  <div class="opt-label">Option C — Property Color Header</div>
+  <div class="drawer">
+    <div class="dh">
+      <div class="dh-title">Edit Booking</div>
+      <span class="badge badge-neutral">✓ Checked Out</span>
+      <button class="bh-btn">📋 <span style="background:#7c3aed;color:#fff;font-size:9px;font-weight:800;padding:0 5px;border-radius:20px">3</span></button>
+      <button class="close-btn">×</button>
+    </div>
+    <div class="ctx" style="background:#f2f1ed">
+      <div class="ctx-r1">
+        <span class="ctx-guest">Samantha</span>
+        <span class="ctx-plat"><span class="cdot" style="background:#FF5A5F"></span>Airbnb</span>
+        <span class="ctx-prop">4BR TWIN Town Houses</span>
+      </div>
+      <div class="ctx-dates">📅 May 28–29, 2026 · 1 night</div>
+    </div>
+    <div class="dbody">
+      <!-- Property gradient card -->
+      <div class="prop-accent" style="margin-bottom:9px">
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:2px">4BR TWIN Town Houses</div>
+        <div style="font-size:20px;font-weight:800;color:#fff;letter-spacing:-.3px">Samantha</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.6);margin-top:3px">↩ Repeat · 3 stays · ₱28,450 lifetime</div>
+        <div style="position:absolute;right:14px;top:50%;transform:translateY(-50%);text-align:right">
+          <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.05em">Nightly Rate</div>
+          <div style="font-size:22px;font-weight:900;color:#fff">₱4,999</div>
+        </div>
+      </div>
+      <!-- Financial row -->
+      <div class="fin-row">
+        <div class="fin-item"><div class="fin-item-lbl">Guest Paid</div><div class="fin-item-val fi-b">₱3,999</div></div>
+        <div class="fin-item"><div class="fin-item-lbl">Platform Fee</div><div class="fin-item-val fi-r">−₱168</div></div>
+        <div class="fin-item"><div class="fin-item-lbl">Net</div><div class="fin-item-val fi-g">₱3,331</div></div>
+      </div>
+      <!-- Booking details -->
+      <div class="card">
+        <div class="card-hdr">📅 Booking Details</div>
+        <div class="card-body">
+          <div class="date-cards" style="margin-bottom:8px">
+            <div class="date-card"><div class="date-card-lbl">Check-in</div><div class="date-card-val">📅 May 28, 2026</div></div>
+            <div class="date-card"><div class="date-card-lbl">Check-out</div><div class="date-card-val">🏁 May 29, 2026</div></div>
+            <div class="nights-c"><div class="nights-c-n">1</div><div class="nights-c-l">night</div></div>
+          </div>
+          <div class="fr">
+            <div><div class="lbl">Platform <span class="req">*</span></div><div class="plat-filled"><span class="pdot"></span>Airbnb<span class="pchev">▾</span></div></div>
+            <div><div class="lbl">Special Offer <span class="hint-o">Platform deducts</span></div><div class="inp">1,000</div></div>
+          </div>
+          <div class="fr">
+            <div><div class="lbl">Payment <span class="req">*</span></div><div class="inp yel">Platform (Auto) ▾</div></div>
+            <div><div class="lbl">Guest Count <span class="hint-gr">Max 12</span></div><div class="inp">1</div></div>
+          </div>
+          <div class="fr" style="margin-bottom:0">
+            <div><div class="lbl">Promo <span class="req">*</span> <span class="hint-g">Direct only</span></div><div class="inp yel" style="color:#ccc">0</div></div>
+            <div><div class="lbl">Service Fee <span class="hint-o">Auto · platform</span></div><div class="inp">167.97</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="dfooter"><button class="btn btn-del">🗑</button><button class="btn btn-can">Cancel</button><button class="btn btn-save">✦ Update Booking</button></div>
+  </div>
+</div>
+
+</body>
+</html>

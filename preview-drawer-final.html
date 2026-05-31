@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#d1d5db;display:flex;justify-content:center;align-items:flex-start;padding:32px;min-height:100vh}
+
+  .drawer{width:370px;background:#f2f1ed;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.2);display:flex;flex-direction:column;max-height:920px;overflow-y:auto}
+
+  /* HEADER */
+  .dh{background:#fff;border-bottom:1px solid #e8e6e1;padding:12px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .dh-title{font-size:15px;font-weight:700;color:#111;flex:1}
+  .badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
+  .badge-neutral{background:#f1f1ee;color:#777}
+  .bh-btn{font-size:11px;font-weight:600;color:#555;background:#f5f5f2;border:1px solid #ddd;border-radius:8px;padding:4px 9px;cursor:pointer;display:flex;align-items:center;gap:5px}
+  .close-btn{width:28px;height:28px;border-radius:8px;border:1px solid #ddd;background:#f5f5f2;display:flex;align-items:center;justify-content:center;font-size:14px;color:#555;margin-left:auto;cursor:pointer}
+
+  /* CONTEXT STRIP */
+  .ctx{background:#f2f1ed;border-bottom:1px solid #e8e6e1;padding:8px 16px;flex-shrink:0}
+  .ctx-r1{display:flex;align-items:center;gap:6px}
+  .ctx-guest{font-size:13px;font-weight:800;color:#111;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ctx-plat{font-size:10px;font-weight:700;display:flex;align-items:center;gap:3px;white-space:nowrap}
+  .cdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+  .ctx-prop{font-size:11px;font-weight:600;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+  .ctx-dates{font-size:11px;color:#999;font-weight:600;margin-top:2px}
+
+  /* BODY */
+  .dbody{padding:14px;overflow-y:auto}
+
+  /* GUEST HERO */
+  .guest-hero{background:#fff;border:1px solid #e8e6e1;border-radius:12px;padding:13px 14px;display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .avatar{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a855f7);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;flex-shrink:0;letter-spacing:-.5px}
+  .guest-info{flex:1;min-width:0}
+  .guest-name{font-size:20px;font-weight:800;color:#111;letter-spacing:-.4px;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rep-pill{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;color:#7c3aed;background:#f3f0ff;border-radius:20px;padding:2px 8px;margin-top:4px;white-space:nowrap}
+
+  /* CARDS */
+  .card{background:#fff;border:1px solid #e8e6e1;border-radius:12px;margin-bottom:10px;overflow:hidden}
+  .card-hdr{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#999;padding:9px 13px 7px;border-bottom:1px solid #f0eee9;display:flex;align-items:center;gap:6px}
+  .card-body{padding:12px 13px}
+
+  /* FIELDS */
+  .fr{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+  .lbl{font-size:11px;font-weight:600;color:#777;margin-bottom:4px;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+  .req{color:#e74c3c}
+  .inp{background:#f7f7f5;border:1px solid #e5e3de;border-radius:8px;padding:8px 10px;font-size:13px;font-weight:600;color:#111;width:100%}
+  .inp.yel{background:#fffbeb;border-color:rgba(180,140,0,.25)}
+  .inp.bold{font-size:15px;font-weight:800}
+  .inp.dim{color:#bbb}
+  .hint-o{font-size:9px;font-weight:700;color:#c2650a;background:#fff7ed;padding:1px 4px;border-radius:4px}
+  .hint-g{font-size:9px;font-weight:700;color:#16a34a;background:#f0fdf4;padding:1px 4px;border-radius:4px}
+  .hint-gr{font-size:9px;color:#bbb;font-weight:600}
+
+  /* DATE ROW */
+  .dates-wrap{display:flex;align-items:flex-end;gap:8px;margin-bottom:10px}
+  .dp{flex:1;background:#fffbeb;border:1px solid rgba(180,140,0,.25);border-radius:8px;padding:7px 9px;min-height:50px;display:flex;flex-direction:column;gap:2px;position:relative}
+  .dp-ico{font-size:11px}
+  .dp-date{font-size:13px;font-weight:700;color:#111}
+  .dp-x{position:absolute;top:5px;right:7px;font-size:10px;color:#ccc;cursor:pointer}
+  .nbox{flex-shrink:0;text-align:center;padding-bottom:6px;min-width:44px}
+  .n-num{font-size:24px;font-weight:900;line-height:1;color:#c2650a}
+  .n-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#aaa;margin-top:2px}
+
+  /* PLATFORM FILLED */
+  .plat-filled{border-radius:8px;padding:9px 11px;display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;cursor:pointer}
+  .pdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.5);flex-shrink:0}
+  .pchev{margin-left:auto;font-size:10px;opacity:.7}
+
+  /* FINANCIAL BREAKDOWN — same as current */
+  .fin-section-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+  .fin-row{display:flex;justify-content:space-between;align-items:flex-start;padding:4px 0;font-size:12px}
+  .fin-row-main{font-size:13px}
+  .fin-total{display:flex;justify-content:space-between;align-items:center;padding:6px 0 4px;border-top:1px solid #eee;margin-top:4px}
+  .fin-sublbl{font-size:10px;color:#aaa;margin-top:1px}
+  .fin-divider{border-top:2px dashed #eee;margin:10px 0}
+  .fin-host-bg{background:#f7f7f5;border:1px solid #eee;border-radius:8px;padding:8px 10px;margin-bottom:8px}
+  .fin-net{display:flex;justify-content:space-between;align-items:center;padding:10px 13px;border-top:2px solid #111}
+
+  /* STATUS */
+  .status-sel{width:100%;border-radius:8px;padding:8px 10px;font-size:13px;font-weight:700;border:1px solid #e5e3de;background:#f7f7f5;color:#111}
+
+  /* FOOTER */
+  .dfooter{background:#fff;border-top:1px solid #e8e6e1;padding:11px 13px;display:flex;gap:8px;flex-shrink:0}
+  .btn{border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;border:none;cursor:pointer;white-space:nowrap}
+  .btn-del{background:#dc2626;color:#fff}
+  .btn-can{background:#f5f5f2;color:#555;border:1px solid #ddd;flex:1;text-align:center}
+  .btn-save{background:#f59e0b;color:#fff;flex:2;text-align:center;font-size:14px}
+</style>
+</head>
+<body>
+<div class="drawer">
+
+  <!-- HEADER -->
+  <div class="dh">
+    <div class="dh-title">Edit Booking</div>
+    <span class="badge badge-neutral">✓ Checked Out</span>
+    <button class="bh-btn">📋 <span style="background:#7c3aed;color:#fff;font-size:9px;font-weight:800;padding:1px 6px;border-radius:20px;line-height:1.5">3</span></button>
+    <button class="close-btn">×</button>
+  </div>
+
+  <!-- CONTEXT STRIP -->
+  <div class="ctx">
+    <div class="ctx-r1">
+      <span class="ctx-guest">Samantha</span>
+      <span class="ctx-plat"><span class="cdot" style="background:#FF5A5F"></span><span style="color:#FF5A5F">Airbnb</span></span>
+      <span class="ctx-prop">4BR TWIN Town Houses</span>
+    </div>
+    <div class="ctx-dates">📅 May 28–29, 2026 · 1 night</div>
+  </div>
+
+  <!-- BODY -->
+  <div class="dbody">
+
+    <!-- GUEST HERO — NEW -->
+    <div class="guest-hero">
+      <div class="avatar">S</div>
+      <div class="guest-info">
+        <div class="guest-name">Samantha</div>
+        <span class="rep-pill">↩ Repeat Guest · 3 stays · ₱28,450 lifetime</span>
+      </div>
+    </div>
+
+    <!-- PROPERTY & RATE -->
+    <div class="card">
+      <div class="card-hdr">🏠 Property & Rate</div>
+      <div class="card-body">
+        <div class="fr">
+          <div>
+            <div class="lbl">Property <span class="req">*</span></div>
+            <div class="inp yel" style="font-size:12px;font-weight:700">4BR TWIN Town Houses ▾</div>
+          </div>
+          <div>
+            <div class="lbl">Nightly Rate (₱)</div>
+            <div class="inp bold">4,999</div>
+          </div>
+        </div>
+        <div style="font-size:10px;color:#aaa;display:flex;align-items:center;gap:6px">
+          <span style="background:#eff6ff;color:#3b82f6;border:1px solid #bfdbfe;border-radius:20px;padding:2px 9px;font-weight:700;font-size:9px;white-space:nowrap">🏠 Dumaguete</span>
+          Base 8 guests · max 12 · ₱300/extra/night
+        </div>
+      </div>
+    </div>
+
+    <!-- BOOKING DETAILS -->
+    <div class="card">
+      <div class="card-hdr">📅 Booking Details</div>
+      <div class="card-body">
+        <div class="dates-wrap">
+          <div style="flex:1">
+            <div class="lbl">Check-in <span class="req">*</span></div>
+            <div class="dp"><span class="dp-ico">📅</span><span class="dp-date">May 28, 2026</span><span class="dp-x">✕</span></div>
+          </div>
+          <div style="flex:1">
+            <div class="lbl">Check-out <span class="req">*</span></div>
+            <div class="dp"><span class="dp-ico">🏁</span><span class="dp-date">May 29, 2026</span><span class="dp-x">✕</span></div>
+          </div>
+          <div class="nbox">
+            <div class="n-num">1</div>
+            <div class="n-lbl">night</div>
+          </div>
+        </div>
+        <div class="fr">
+          <div>
+            <div class="lbl">Platform <span class="req">*</span></div>
+            <div class="plat-filled" style="background:#FF5A5F;border:1px solid #FF5A5F;color:#fff;box-shadow:0 0 0 3px rgba(255,90,95,.2)">
+              <span class="pdot"></span>Airbnb<span class="pchev">▾</span>
+            </div>
+          </div>
+          <div>
+            <div class="lbl">Special Offer <span class="hint-o">Platform deducts</span> <span style="font-size:10px;color:#ccc">(?)</span></div>
+            <div class="inp">1,000</div>
+          </div>
+        </div>
+        <div class="fr">
+          <div>
+            <div class="lbl">Payment <span class="req">*</span></div>
+            <div class="inp yel" style="font-size:12px">Platform (Auto) ▾</div>
+          </div>
+          <div>
+            <div class="lbl">Guest Count <span class="hint-gr">Max 12</span></div>
+            <div class="inp">1</div>
+          </div>
+        </div>
+        <div class="fr" style="margin-bottom:10px">
+          <div>
+            <div class="lbl">Promo <span class="req">*</span> <span class="hint-g">Direct only</span> <span style="font-size:10px;color:#ccc">(?)</span></div>
+            <div class="inp yel dim">0</div>
+          </div>
+          <div>
+            <div class="lbl">Service Fee <span class="hint-o">Auto · platform</span></div>
+            <div class="inp">167.97</div>
+          </div>
+        </div>
+        <div>
+          <div class="lbl">Extra Guests <span class="hint-gr">above base, fee per night</span></div>
+          <div class="inp">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FINANCIAL BREAKDOWN — unchanged from current -->
+    <div class="card">
+      <div style="background:#f7f7f5;padding:8px 13px;font-size:9px;font-weight:700;letter-spacing:.08em;color:#aaa;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #eee">
+        <span>Financial Breakdown</span>
+        <span style="font-weight:400">live · updates as you type</span>
+      </div>
+      <!-- Guest Paid section -->
+      <div style="padding:10px 13px 8px">
+        <div class="fin-section-lbl" style="color:#2563eb">Guest Paid</div>
+        <div class="fin-row fin-row-main">
+          <div><span style="font-weight:600;color:#111">Accommodation</span><div class="fin-sublbl">₱4,999 × 1 night</div></div>
+          <span style="font-weight:700;color:#111;white-space:nowrap">₱4,999</span>
+        </div>
+        <div class="fin-row" style="color:#666">
+          <span>Promo / Discount</span><span style="color:#7c3aed;font-weight:700">—</span>
+        </div>
+        <div class="fin-row" style="color:#666">
+          <span>Special Offer (Platform)</span><span style="color:#7c3aed;font-weight:700">−₱1,000</span>
+        </div>
+        <div class="fin-total">
+          <span style="font-size:12px;font-weight:700;color:#111">Total Charged to Guest</span>
+          <span style="font-size:15px;font-weight:800;color:#111;white-space:nowrap">₱3,999</span>
+        </div>
+        <div class="fin-row" style="color:#666;font-size:11px">
+          <span>+ Platform Guest Service Fee</span><span>₱200</span>
+        </div>
+        <div class="fin-row" style="color:#aaa;font-size:10px">
+          <span>= Total Guest Paid to Platform</span>
+          <span style="color:#666;font-weight:700">₱4,199</span>
+        </div>
+      </div>
+      <!-- Host Payout -->
+      <div style="padding:10px 13px 12px;border-top:2px dashed #eee;background:#f9f9f7">
+        <div class="fin-section-lbl" style="color:#16a34a">Host Payout</div>
+        <div class="fin-host-bg">
+          <div style="font-size:9px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Guest Charges Received</div>
+          <div class="fin-row" style="color:#666;font-size:12px">
+            <div><span>Accommodation</span><div class="fin-sublbl">after special offer deducted</div></div>
+            <span style="font-weight:600;color:#111">₱3,999</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0 2px;border-top:1px solid #eee;margin-top:4px">
+            <span style="font-size:12px;font-weight:700;color:#111">Subtotal</span>
+            <span style="font-size:13px;font-weight:800;color:#111">₱3,999</span>
+          </div>
+        </div>
+        <div class="fin-row" style="color:#666;font-size:12px">
+          <span>Host Service Fee</span><span style="color:#dc2626;font-weight:700">−₱168</span>
+        </div>
+        <div class="fin-row" style="color:#666;font-size:12px">
+          <span>Cleaning Fee</span><span style="color:#666">−₱500</span>
+        </div>
+        <div class="fin-row" style="color:#666;font-size:12px">
+          <span>Store / Add-on Sales</span><span style="font-weight:600">—</span>
+        </div>
+      </div>
+      <div class="fin-net">
+        <span style="font-size:14px;font-weight:800">Net Revenue</span>
+        <span style="font-size:22px;font-weight:900;color:#16a34a">₱3,331</span>
+      </div>
+    </div>
+
+    <!-- BOOKING STATUS -->
+    <div class="card">
+      <div class="card-hdr">🔖 Booking Status</div>
+      <div class="card-body">
+        <select class="status-sel"><option>Checked-Out</option><option>Confirmed</option><option>Checked-In</option><option>Cancelled</option></select>
+      </div>
+    </div>
+
+    <!-- NOTES -->
+    <div class="card">
+      <div class="card-hdr">📝 Notes</div>
+      <div class="card-body">
+        <div class="inp" style="color:#aaa;font-size:12px;min-height:48px">Add a note…</div>
+      </div>
+    </div>
+
+  </div><!-- /dbody -->
+
+  <!-- FOOTER -->
+  <div class="dfooter">
+    <button class="btn btn-del">🗑 Delete</button>
+    <button class="btn btn-can">Cancel</button>
+    <button class="btn btn-save">✦ Update Booking</button>
+  </div>
+
+</div>
+</body>
+</html>
