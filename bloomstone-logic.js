@@ -1504,6 +1504,7 @@ function renderToday(){
     // 4BR: blocked sub-periods → linked pill; free sub-periods → gap pill
     // Aurora/Bliss: blocked sub-periods → nothing; free sub-periods → gap pill
     const isCombinedUnit=p.name.toLowerCase().includes('twin town');
+    const hideGaps=p.name.toLowerCase().includes('4br');
     const gapPillSib=(fromDate,toDate)=>{
       if(!sibBookings.length) return gapPill(fromDate,toDate);
       const overlapping=sibBookings
@@ -1531,6 +1532,7 @@ function renderToday(){
 
     // ── Gap Days pill ─────────────────────────────────────────
     const gapPill=(fromDate,toDate)=>{
+      if(hideGaps)return'';
       const days=Math.round((new Date(toDate+'T12:00:00')-new Date(fromDate+'T12:00:00'))/86400000);
       if(days<=0)return'';
       const tight=days<5;
