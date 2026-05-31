@@ -1957,14 +1957,15 @@ canvas.chart{width:100%!important;height:220px!important;display:block}
       <button class="btn-icon btn-sm" id="drawerCloseBtn" style="margin-left:auto;flex-shrink:0">×</button>
     </div>
   </div>
-  <!-- Sticky context strip: always visible while scrolling -->
-  <div id="drawerContextStrip" style="display:none;flex-shrink:0;padding:8px 14px 8px 18px;background:var(--surface-3);border-bottom:1px solid var(--border);gap:0">
-    <div style="display:flex;align-items:center;gap:6px;min-width:0">
-      <span id="dcsGuest" style="font-size:13px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0"></span>
-      <span id="dcsPlatform" style="display:none;flex-shrink:0"></span>
-      <span id="dcsProperty" style="font-size:11px;font-weight:600;color:var(--text-2);white-space:nowrap;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;max-width:130px"></span>
+  <!-- Sticky context strip: appears only when guest name scrolls out of view -->
+  <div id="drawerContextStrip" style="display:none;flex-shrink:0;padding:10px 16px;transition:background .25s">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0">
+      <div style="flex:1;min-width:0">
+        <div id="dcsGuest" style="font-size:15px;font-weight:800;color:#fff;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+        <div id="dcsSub" style="font-size:11px;font-weight:600;color:rgba(255,255,255,.78);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      </div>
+      <div id="dcsPlatform" style="display:none;background:rgba(255,255,255,.22);border:1.5px solid rgba(255,255,255,.3);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;flex-shrink:0"></div>
     </div>
-    <div id="dcsDates" style="font-size:11px;color:var(--text-3);font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
   </div>
   <div class="drawer-body" id="drawerBody">
 

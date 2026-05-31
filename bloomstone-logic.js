@@ -545,25 +545,37 @@ function updateContextStrip(){
   const ci=document.getElementById('f-checkin')?.value||'';
   const co=document.getElementById('f-checkout')?.value||'';
   const platName=(document.getElementById('f-platform')?.value||'').trim();
-  if(!guest&&!propId&&!ci){strip.style.display='none';return;}
+  strip._hasData=!!(guest||propId||ci);
   const guestEl=document.getElementById('dcsGuest');
-  const propEl=document.getElementById('dcsProperty');
-  const datesEl=document.getElementById('dcsDates');
+  const subEl=document.getElementById('dcsSub');
   const platEl=document.getElementById('dcsPlatform');
   if(guestEl)guestEl.textContent=guest||'—';
-  if(propEl)propEl.textContent=propId?propName(propId):'';
+  // Sub line: property · date range · nights
+  let sub=propId?propName(propId):'';
+  if(ci&&co){const{range,nightsText}=fmtDateRange(ci,co);sub+=(sub?' · ':'')+range+' · '+nightsText;}
+  else if(ci){sub+=(sub?' · ':'')+'Check-in: '+fmtDate(ci);}
+  if(subEl)subEl.textContent=sub;
+  const pc=platName?platformColor(platName):'';
+  strip.style.background=pc||'var(--accent)';
   if(platEl){
-    if(platName){
-      const pc=platformColor(platName);
-      platEl.innerHTML=`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:${pc};white-space:nowrap"><span style="width:6px;height:6px;border-radius:50%;background:${pc};flex-shrink:0"></span>${esc(platName)}</span>`;
-      platEl.style.display='inline';
-    } else {
-      platEl.style.display='none';
-    }
+    if(platName){platEl.textContent=platName;platEl.style.display='block';}
+    else platEl.style.display='none';
   }
-  if(datesEl&&ci&&co){const{range,nightsText}=fmtDateRange(ci,co);datesEl.textContent=`📅 ${range} · ${nightsText}`;}
-  else if(datesEl)datesEl.textContent=ci?`📅 Check-in: ${fmtDate(ci)}`:'';
-  strip.style.display='block';
+  // Visibility is controlled by _avatarObserver — don't force display here
+}
+
+let _avatarObserver=null;
+function _setupAvatarObserver(){
+  if(_avatarObserver){_avatarObserver.disconnect();_avatarObserver=null;}
+  const target=document.getElementById('guestAvatar');
+  const root=document.getElementById('drawerBody');
+  const strip=document.getElementById('drawerContextStrip');
+  if(!target||!root||!strip)return;
+  _avatarObserver=new IntersectionObserver(entries=>{
+    const visible=entries[0].isIntersecting;
+    strip.style.display=(strip._hasData&&!visible)?'block':'none';
+  },{root,threshold:0});
+  _avatarObserver.observe(target);
 }
 function updateDateRangeDisplay(){
   const ci=document.getElementById('f-checkin')?.value||'';
@@ -2096,9 +2108,14 @@ function openBookingDrawer(id=null){
   document.getElementById('bookingDrawer').classList.add('open');
   document.getElementById('drawerOverlay').classList.add('open');
   document.body.style.overflow='hidden';
+  // Setup scroll-aware context strip (shows only when guest name is out of view)
+  setTimeout(_setupAvatarObserver,120);
 }
 
 function closeDrawer(){
+  if(_avatarObserver){_avatarObserver.disconnect();_avatarObserver=null;}
+  const strip=document.getElementById('drawerContextStrip');
+  if(strip)strip.style.display='none';
   document.getElementById('bookingDrawer').classList.remove('open');
   document.getElementById('drawerOverlay').classList.remove('open');
   document.body.style.overflow='';
