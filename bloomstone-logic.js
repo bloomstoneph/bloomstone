@@ -1400,9 +1400,24 @@ function populateSelects(){
     el.innerHTML='<option value="all">All Platforms</option>'+platforms.map(p=>`<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
     if(c)el.value=c;
   });
-  const dates=bookings.map(b=>b.checkin).concat(expenses.map(e=>e.month||'')).filter(Boolean);
+  const dates=bookings.map(b=>b.checkin).concat(bookings.map(b=>b.checkout||'')).concat(expenses.map(e=>e.month||'')).filter(Boolean);
   const curMonth=todayISO().slice(0,7);
-  const months=[...new Set([curMonth,...dates.map(d=>d.slice(0,7))])].sort().reverse();
+  const allMonths=[curMonth,...dates.map(d=>d.slice(0,7))].filter(Boolean);
+  let minM=allMonths.reduce((a,b)=>b<a?b:a,curMonth);
+  let maxM=allMonths.reduce((a,b)=>b>a?b:a,curMonth);
+  // Always extend at least 12 months into the future from current month
+  const now=new Date();
+  const fl=new Date(now.getFullYear()+1,now.getMonth(),1);
+  const futureLimit=`${fl.getFullYear()}-${String(fl.getMonth()+1).padStart(2,'0')}`;
+  if(futureLimit>maxM)maxM=futureLimit;
+  const months=[];
+  let [y,mo]=minM.split('-').map(Number);
+  const [yEnd,moEnd]=maxM.split('-').map(Number);
+  while(y<yEnd||(y===yEnd&&mo<=moEnd)){
+    months.push(`${y}-${String(mo).padStart(2,'0')}`);
+    mo++;if(mo>12){mo=1;y++;}
+  }
+  months.reverse();
   ['bk-month','exp-month','dep-month'].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
     const c=el.value;
