@@ -1509,15 +1509,13 @@ function renderToday(){
     const statusBadge=isNow?`<span style="font-size:9px;font-weight:800;padding:2px 6px;border-radius:8px;background:${todayLabelBg};color:#fff;white-space:nowrap;flex-shrink:0">${todayLabel}</span>`:'';
     const daysLeftTag=isNow?`<span style="font-size:9px;font-weight:700;color:${subClr};white-space:nowrap;flex-shrink:0">${nightsLeft}d left</span>`:'';
     return`<div style="background:${bg};border-radius:9px;padding:9px 12px;cursor:pointer;transition:filter .12s" onclick="event.stopPropagation();openBookingDrawer('${b.id}')">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
         <span style="font-size:13px;font-weight:800;color:${guestClr};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0">${esc(b.guest)}</span>
-        ${statusBadge}
+        ${daysLeftTag}${statusBadge}
       </div>
-      <div style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap">
-        <span style="font-size:10px;font-weight:700;color:${subClr};white-space:nowrap;flex-shrink:0">${esc(b.platform)}</span>
-        <span style="font-size:10px;color:${subClr};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0">· ${shortRange}</span>
+      <div style="display:flex;align-items:center;gap:5px;min-width:0">
+        <span style="font-size:10px;font-weight:700;color:${subClr};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">${esc(b.platform)} · ${shortRange}</span>
         <span style="font-size:12px;font-weight:800;color:${amtClr};white-space:nowrap;flex-shrink:0">${fmtMoney(t.guestTotal)}</span>
-        ${daysLeftTag}
       </div>
     </div>`;
   };
