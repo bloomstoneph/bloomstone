@@ -1648,9 +1648,9 @@ function renderToday(){
     const nxtGross=nxtBks.reduce((s,b)=>s+calcTotals(b).guestTotal,0);
     const mnthLabel=new Date(mnth+'-02').toLocaleString('en-US',{month:'long',year:'numeric'});
     const nxtLabel=new Date(nxtMnth+'-02').toLocaleString('en-US',{month:'long',year:'numeric'});
-    const kpiBox=(val,lbl)=>`<div style="flex:1;text-align:center;padding:7px 4px;background:var(--surface-2);border-radius:8px;min-width:0">
-      <div style="font-size:15px;font-weight:800;color:var(--text);line-height:1.1">${val}</div>
-      <div style="font-size:9px;font-weight:700;color:var(--text-3);letter-spacing:.5px;margin-top:2px;text-transform:uppercase">${lbl}</div>
+    const kpiBox=(val,lbl)=>`<div style="flex:1;text-align:center;padding:7px 4px;background:var(--surface-2);border-radius:8px;min-width:0;overflow:hidden">
+      <div style="font-size:15px;font-weight:800;color:var(--text);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${val}</div>
+      <div style="font-size:9px;font-weight:700;color:var(--text-3);letter-spacing:.5px;margin-top:2px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${lbl}</div>
     </div>`;
     const divider=(lbl)=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
       <div style="flex:1;height:1px;background:rgba(0,0,0,.07)"></div>
